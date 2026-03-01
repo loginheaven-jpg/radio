@@ -83,15 +83,11 @@ export default {
         const key = decodeURIComponent(path.slice('/api/stream/'.length));
         const rangeHeader = request.headers.get('Range');
 
-        let r2Options = {};
-        if (rangeHeader) {
-          const parsed = parseRange(rangeHeader);
-          if (parsed) r2Options.range = parsed;
-        }
+        // First get object head to know total size
+        const headObj = await env.RADIO_BUCKET.head(key);
+        if (!headObj) return new Response('Not Found', { status: 404, headers: cors });
 
-        const object = await env.RADIO_BUCKET.get(key, r2Options);
-        if (!object) return new Response('Not Found', { status: 404, headers: cors });
-
+        const totalSize = headObj.size;
         const ext = key.split('.').pop().toLowerCase();
         const contentTypeMap = {
           mp3: 'audio/mpeg', m4a: 'audio/mp4', ogg: 'audio/ogg',
@@ -100,19 +96,26 @@ export default {
 
         const headers = {
           ...cors,
-          'Content-Type': contentTypeMap[ext] || object.httpMetadata?.contentType || 'audio/mpeg',
+          'Content-Type': contentTypeMap[ext] || headObj.httpMetadata?.contentType || 'audio/mpeg',
           'Accept-Ranges': 'bytes',
           'Cache-Control': 'public, max-age=86400',
         };
 
-        if (rangeHeader && object.range) {
-          const { offset, end } = object.range;
-          headers['Content-Range'] = `bytes ${offset}-${end}/${object.size}`;
-          headers['Content-Length'] = String(end - offset + 1);
-          return new Response(object.body, { status: 206, headers });
+        if (rangeHeader) {
+          const parsed = parseRange(rangeHeader, totalSize);
+          if (parsed) {
+            const { offset, length, end } = parsed;
+            const r2Range = length !== undefined ? { offset, length } : { offset };
+            const object = await env.RADIO_BUCKET.get(key, { range: r2Range });
+            const actualEnd = end !== undefined ? end : (totalSize - 1);
+            headers['Content-Range'] = `bytes ${offset}-${actualEnd}/${totalSize}`;
+            headers['Content-Length'] = String(actualEnd - offset + 1);
+            return new Response(object.body, { status: 206, headers });
+          }
         }
 
-        headers['Content-Length'] = String(object.size);
+        const object = await env.RADIO_BUCKET.get(key);
+        headers['Content-Length'] = String(totalSize);
         return new Response(object.body, { status: 200, headers });
       }
 
@@ -325,12 +328,13 @@ function isAdmin(request, env) {
   return auth === `Bearer ${env.ADMIN_KEY}`;
 }
 
-function parseRange(header) {
+function parseRange(header, totalSize) {
   const m = header.match(/bytes=(\d*)-(\d*)/);
   if (!m) return null;
   const offset = m[1] ? parseInt(m[1]) : 0;
-  const end    = m[2] ? parseInt(m[2]) : undefined;
-  return { offset, end };
+  const end    = m[2] ? parseInt(m[2]) : (totalSize ? totalSize - 1 : undefined);
+  const length = end !== undefined ? (end - offset + 1) : undefined;
+  return { offset, length, end };
 }
 
 function decodeFileName(filename) {
