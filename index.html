@@ -1291,7 +1291,7 @@ function stopHls() {
 
 // ── R2 Track Playback (Howler) ──────────────────────────────
 function streamUrl(key) {
-  return WORKER_URL + '/api/stream/' + encodeURIComponent(key);
+  return WORKER_URL + '/api/stream/' + key.split('/').map(encodeURIComponent).join('/');
 }
 
 function playTrack(channel, trackIndex, startPosition = 0) {
