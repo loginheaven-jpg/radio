@@ -1,7 +1,9 @@
 # 예봄라디오 2.0 — 아키텍처 문서
 
-> **버전**: 2026-02-28 v2.0 디자인 업그레이드
+> **버전**: 2026-03-01 v2.0
 > **프로젝트 경로**: `c:\dev\yebomradio`
+> **GitHub**: https://github.com/loginheaven-jpg/radio
+> **Pages URL**: https://radio-axi.pages.dev
 
 ---
 
@@ -194,15 +196,17 @@ coachdb-files/
 ## 10. 배포
 
 ```bash
-# Workers 배포
+# Workers API 배포 (수동)
 wrangler deploy
 
 # Admin Key 설정 (최초 1회)
 wrangler secret put ADMIN_KEY
 
-# 프론트엔드 배포 (Pages)
-cp index.html sw.js public/
-npx wrangler pages deploy public --project-name yebom-radio --branch main
+# 프론트엔드 배포 (GitHub 자동)
+# git push → Cloudflare Pages 자동 빌드/배포
+# 프로젝트: radio (radio-axi.pages.dev)
+# GitHub: loginheaven-jpg/radio (main 브랜치)
+git add . && git commit -m "설명" && git push
 ```
 
 ---
