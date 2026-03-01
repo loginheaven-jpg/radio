@@ -1,0 +1,2695 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1A1035">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>예봄라디오</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;700&family=Space+Grotesk:wght@400;500;700&family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+<style>
+/* ── CSS Variables ───────────────────────────────────────── */
+:root {
+  --bg-deep: #0D0B1A;
+  --bg-mid: #1A1035;
+  --bg-surface: rgba(255,255,255,0.06);
+  --border-glass: rgba(255,255,255,0.10);
+  --amber: #F59E0B;
+  --amber-warm: #FBBF24;
+  --amber-glow: rgba(245,158,11,0.25);
+  --ch1-color: #C4B5FD;
+  --ch2-color: #FBBF9A;
+  --ch3-color: #86EFAC;
+  --ch4-color: #FCD34D;
+  --ch5-color: #F59E0B;
+  --current-ch-color: var(--ch1-color);
+  --current-ch-color-dim: rgba(196,181,253,0.15);
+  --current-ch-glow: rgba(196,181,253,0.3);
+  --text: #E8E4F0;
+  --text-dim: #7C7A99;
+  --text-mute: #3D3B55;
+  --red: #EF4444;
+  --green: #22C55E;
+  --orb1: rgba(196,181,253,0.18);
+  --orb2: rgba(251,191,154,0.12);
+  --orb3: rgba(134,239,172,0.10);
+}
+
+/* ── Reset & Base ────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: linear-gradient(135deg, #0F0E1A, #1A1035, #0D1B2A);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── App Container ───────────────────────────────────────── */
+#app {
+  width: 100%; max-width: 480px;
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  padding: 0 16px;
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* ── Background Layer ────────────────────────────────────── */
+.bg-layer {
+  position: fixed; inset: 0; z-index: -1;
+  background: linear-gradient(135deg, #0F0E1A, #1A1035, #0D1B2A);
+  transition: background 2s ease;
+}
+.bg-orb {
+  position: fixed; border-radius: 50%; pointer-events: none;
+  filter: blur(70px); z-index: -1;
+}
+.bg-orb-1 { width: 260px; height: 260px; top: -60px; left: -40px; background: var(--orb1); animation: float 18s ease-in-out infinite; }
+.bg-orb-2 { width: 200px; height: 200px; bottom: 20%; right: -30px; background: var(--orb2); animation: float2 22s ease-in-out infinite; }
+.bg-orb-3 { width: 180px; height: 180px; top: 40%; left: 30%; background: var(--orb3); animation: float 15s ease-in-out infinite 3s; }
+@keyframes float {
+  0%, 100% { transform: translateY(0px) translateX(0px); }
+  25% { transform: translateY(-20px) translateX(10px); }
+  50% { transform: translateY(-10px) translateX(-10px); }
+  75% { transform: translateY(-25px) translateX(5px); }
+}
+@keyframes float2 {
+  0%, 100% { transform: translateY(0px) translateX(0px); }
+  33% { transform: translateY(15px) translateX(-15px); }
+  66% { transform: translateY(-15px) translateX(10px); }
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+.header {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 20px 0 8px;
+  text-align: center;
+}
+.header-clock {
+  font-family: 'Space Grotesk', monospace;
+  font-weight: 500;
+  letter-spacing: 2px;
+  color: var(--current-ch-color);
+  transition: color 0.5s;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.clock-hm { font-size: 3.5rem; }
+.clock-ss { font-size: 1.5rem; opacity: 0.6; margin-left: 2px; }
+.header-title {
+  font-family: 'Black Han Sans', sans-serif;
+  font-size: 1.5rem; font-weight: 400;
+  cursor: pointer; user-select: none;
+  letter-spacing: 2px;
+}
+.header-subtitle {
+  font-size: 0.85rem; color: var(--text-dim);
+  margin-top: 2px;
+  min-height: 1.3em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 90vw;
+}
+
+/* ── Carousel ────────────────────────────────────────────── */
+.carousel-wrap {
+  position: relative;
+  margin: 12px -16px 0;
+}
+.carousel-edge-l, .carousel-edge-r {
+  position: absolute; top: 0; bottom: 0; width: 32px; z-index: 2; pointer-events: none;
+}
+.carousel-edge-l { left: 0; background: linear-gradient(to right, var(--bg-deep), transparent); }
+.carousel-edge-r { right: 0; background: linear-gradient(to left, var(--bg-deep), transparent); }
+.carousel {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 16px 0;
+  gap: 0;
+}
+.carousel::-webkit-scrollbar { display: none; }
+
+/* ── Channel Card ────────────────────────────────────────── */
+.channel-card {
+  scroll-snap-align: center;
+  flex-shrink: 0;
+  width: 75vw; max-width: 320px;
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  position: relative;
+  overflow: hidden;
+  padding: 24px 20px 18px;
+  transition: transform 0.35s ease, opacity 0.35s ease, border-color 0.3s, box-shadow 0.3s;
+  transform: scale(0.88);
+  opacity: 0.45;
+}
+.channel-card:first-child { margin-left: calc((100vw - 75vw) / 2); }
+.channel-card:last-child  { margin-right: calc((100vw - 75vw) / 2); }
+.channel-card.active { transform: scale(1.0); opacity: 1.0; }
+.channel-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--card-ch-color, var(--ch1-color));
+  box-shadow: 0 0 20px var(--card-ch-color, var(--ch1-color));
+  opacity: 0; transition: opacity 0.3s;
+}
+.channel-card.active::before { opacity: 1; }
+.channel-card.playing {
+  border-color: rgba(255,255,255,0.18);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 40px var(--card-ch-glow, var(--current-ch-color-dim));
+}
+
+/* Ripple rings (playing state) */
+.ripple-container {
+  position: absolute; inset: 0;
+  pointer-events: none; overflow: hidden;
+  border-radius: 20px;
+}
+.ripple-ring {
+  position: absolute; top: 50%; left: 50%;
+  width: 60px; height: 60px;
+  margin: -30px 0 0 -30px;
+  border-radius: 50%;
+  border: 1px solid var(--card-ch-color, var(--ch1-color));
+  opacity: 0;
+}
+.channel-card.playing .ripple-ring:nth-child(1) { animation: ripple 2s ease-out infinite; }
+.channel-card.playing .ripple-ring:nth-child(2) { animation: ripple 2s ease-out infinite 0.5s; }
+@keyframes ripple {
+  0% { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+.card-logo {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+.card-freq {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.75rem; color: var(--text-dim);
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.card-name {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 1.1rem; font-weight: 700;
+  margin-bottom: 4px;
+}
+.card-now-playing {
+  font-size: 0.82rem; color: var(--text-dim);
+  min-height: 1.3em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-bottom: 12px;
+}
+
+/* Spectrum bars in card */
+.card-spectrum {
+  display: flex; align-items: flex-end; justify-content: center;
+  gap: 3px; height: 28px;
+  margin-bottom: 8px;
+}
+.spectrum-bar {
+  width: 3px;
+  background: var(--card-ch-color, var(--ch1-color));
+  border-radius: 2px;
+  height: 20%;
+  opacity: 0.3;
+}
+.channel-card.playing .spectrum-bar { opacity: 0.8; }
+@keyframes spectrum-bar {
+  0%, 100% { height: 20%; }
+  50% { height: 80%; }
+}
+.channel-card.playing .spectrum-bar:nth-child(1)  { animation: spectrum-bar 0.80s ease-in-out infinite 0.00s; }
+.channel-card.playing .spectrum-bar:nth-child(2)  { animation: spectrum-bar 0.60s ease-in-out infinite 0.10s; }
+.channel-card.playing .spectrum-bar:nth-child(3)  { animation: spectrum-bar 1.00s ease-in-out infinite 0.20s; }
+.channel-card.playing .spectrum-bar:nth-child(4)  { animation: spectrum-bar 0.70s ease-in-out infinite 0.15s; }
+.channel-card.playing .spectrum-bar:nth-child(5)  { animation: spectrum-bar 0.90s ease-in-out infinite 0.05s; }
+.channel-card.playing .spectrum-bar:nth-child(6)  { animation: spectrum-bar 0.65s ease-in-out infinite 0.25s; }
+.channel-card.playing .spectrum-bar:nth-child(7)  { animation: spectrum-bar 0.85s ease-in-out infinite 0.10s; }
+.channel-card.playing .spectrum-bar:nth-child(8)  { animation: spectrum-bar 0.75s ease-in-out infinite 0.30s; }
+.channel-card.playing .spectrum-bar:nth-child(9)  { animation: spectrum-bar 0.90s ease-in-out infinite 0.35s; }
+.channel-card.playing .spectrum-bar:nth-child(10) { animation: spectrum-bar 0.70s ease-in-out infinite 0.20s; }
+
+.card-play-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px;
+  border-radius: 50%; border: none;
+  background: var(--card-ch-color, var(--ch1-color));
+  color: var(--bg-deep);
+  font-size: 1.6rem;
+  cursor: pointer;
+  margin: 0 auto;
+  transition: transform 0.15s, opacity 0.2s;
+}
+.card-play-btn:active { transform: scale(0.92); }
+
+/* Dot indicators */
+.dot-indicators {
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px;
+  padding: 8px 0 4px;
+}
+.dot {
+  width: 6px; height: 6px;
+  border-radius: 3px;
+  background: var(--text-mute);
+  transition: all 0.35s ease;
+}
+.dot.active {
+  width: 20px;
+  background: var(--current-ch-color);
+}
+
+/* ── Badges ──────────────────────────────────────────────── */
+.live-badge {
+  display: inline-block;
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.65rem; letter-spacing: 1px; font-weight: 700;
+  background: var(--red);
+  color: #fff;
+  padding: 2px 8px; border-radius: 4px;
+  margin-right: 6px;
+  animation: livePulse 2s ease-in-out infinite;
+}
+@keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+.on-air-badge {
+  display: inline-block;
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.65rem; letter-spacing: 1px; font-weight: 700;
+  background: var(--green);
+  color: #fff;
+  padding: 2px 8px; border-radius: 4px;
+  margin-right: 6px;
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+/* ── Podcast Controls ───────────────────────────────────── */
+.podcast-controls {
+  display: none;
+  padding: 0 4px 8px;
+}
+.podcast-controls.visible { display: block; }
+.seek-wrap { margin-bottom: 8px; }
+.seek-bar {
+  width: 100%; height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  cursor: pointer; position: relative;
+  overflow: hidden;
+}
+.seek-fill {
+  height: 100%; width: 0%;
+  background: var(--current-ch-color);
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+.seek-times {
+  display: flex; justify-content: space-between;
+  font-size: 0.72rem; color: var(--text-dim);
+  margin-top: 4px;
+  font-family: 'Space Grotesk', monospace;
+  letter-spacing: 0.5px;
+}
+.podcast-btns {
+  display: flex; align-items: center; justify-content: center;
+  gap: 16px; margin-bottom: 8px;
+}
+.podcast-btn {
+  background: none; border: none; color: var(--text);
+  font-size: 1.3rem; cursor: pointer;
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s, transform 0.1s;
+}
+.podcast-btn:active { transform: scale(0.92); }
+.podcast-btn:hover { background: rgba(255,255,255,0.08); }
+.speed-wrap { display: none; margin-top: 8px; }
+.speed-wrap.visible { display: flex; gap: 6px; justify-content: center; }
+.speed-btn {
+  padding: 4px 10px; border-radius: 12px;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-surface);
+  color: var(--text-dim);
+  font-size: 0.75rem; cursor: pointer;
+  font-family: 'Space Grotesk', monospace;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+}
+.speed-btn.active {
+  background: var(--current-ch-color);
+  color: var(--bg-deep);
+  border-color: transparent;
+}
+
+/* ── Glass Control Panel ────────────────────────────────── */
+.glass-panel {
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.glass-panel-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.glass-panel-row + .glass-panel-row { margin-top: 12px; }
+.glass-panel-label {
+  font-size: 0.82rem; color: var(--text-dim);
+  white-space: nowrap; min-width: 40px;
+}
+.volume-slider {
+  flex: 1; height: 4px;
+  -webkit-appearance: none; appearance: none;
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px; outline: none;
+}
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--current-ch-color);
+  cursor: pointer;
+}
+.volume-slider::-moz-range-thumb {
+  width: 14px; height: 14px;
+  border: none; border-radius: 50%;
+  background: var(--current-ch-color);
+  cursor: pointer;
+}
+.sleep-inline-btns {
+  display: flex; gap: 6px; flex-wrap: wrap; flex: 1;
+}
+.sleep-inline-btn {
+  padding: 5px 12px; border-radius: 10px;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-surface);
+  color: var(--text-dim);
+  font-size: 0.75rem; cursor: pointer;
+  transition: all 0.2s;
+}
+.sleep-inline-btn:hover { background: rgba(255,255,255,0.1); }
+.sleep-inline-btn.active {
+  background: var(--amber); color: var(--bg-deep); border-color: transparent;
+}
+.sleep-remaining-inline {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.85rem; color: var(--amber);
+  min-width: 50px; text-align: center;
+  display: none;
+}
+.sleep-remaining-inline.visible { display: block; }
+.sleep-cancel-inline {
+  display: none; padding: 4px 10px; border-radius: 8px;
+  border: 1px solid var(--red); background: transparent;
+  color: var(--red); font-size: 0.72rem; cursor: pointer;
+}
+.sleep-cancel-inline.visible { display: block; }
+
+/* ── Extra Buttons Row ───────────────────────────────────── */
+.extra-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; margin-bottom: 12px; flex-wrap: wrap;
+}
+.extra-btn {
+  padding: 6px 12px; border-radius: 14px;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-surface);
+  color: var(--text-dim);
+  font-size: 0.78rem; cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.extra-btn:hover { background: rgba(255,255,255,0.1); }
+.extra-btn.active {
+  background: var(--current-ch-color);
+  color: var(--bg-deep);
+  border-color: transparent;
+}
+.extra-btn.recording {
+  background: var(--red);
+  color: #fff;
+  border-color: transparent;
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+.record-dir-row {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 0 4px;
+}
+.record-dir-path {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+  cursor: pointer;
+}
+.record-dir-path:hover { opacity: 1; text-decoration: underline; }
+
+/* ── PWA Install ────────────────────────────────────────── */
+.pwa-install-btn {
+  display: none;
+  width: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--current-ch-color);
+  background: transparent;
+  color: var(--current-ch-color);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 12px;
+  text-align: center;
+}
+.pwa-install-btn:hover { background: rgba(255,255,255,0.06); }
+
+/* ── iOS Guide Modal ────────────────────────────────────── */
+.ios-guide-modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 650;
+  align-items: center; justify-content: center;
+}
+.ios-guide-modal.open { display: flex; }
+.ios-guide-box {
+  background: var(--bg-mid);
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  padding: 24px;
+  width: 300px;
+  text-align: center;
+}
+.ios-guide-box h3 {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 1rem; margin-bottom: 12px;
+}
+.ios-guide-box p {
+  font-size: 0.85rem; color: var(--text-dim);
+  line-height: 1.6; margin-bottom: 8px;
+}
+.ios-guide-close {
+  margin-top: 12px; padding: 8px 20px;
+  border-radius: 10px; border: none;
+  background: var(--current-ch-color); color: var(--bg-deep);
+  font-size: 0.85rem; cursor: pointer;
+}
+
+/* ── Footer ─────────────────────────────────────────────── */
+.footer {
+  text-align: center;
+  padding: 12px 0 20px;
+  font-size: 0.72rem;
+  color: var(--text-mute);
+}
+
+/* ── Track List Panel ────────────────────────────────────── */
+.track-panel {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  max-height: 70vh;
+  background: rgba(13,11,26,0.97);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-glass);
+  border-radius: 20px 20px 0 0;
+  padding: 16px;
+  z-index: 300;
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  overflow-y: auto;
+  max-width: 480px; margin: 0 auto;
+}
+.track-panel.open { transform: translateY(0); }
+.track-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.track-panel-header h3 {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 1rem;
+}
+.track-panel-close {
+  background: none; border: none; color: var(--text-dim);
+  font-size: 1.3rem; cursor: pointer;
+}
+.track-list { list-style: none; }
+.track-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.track-item:hover { background: rgba(255,255,255,0.05); }
+.track-item.active {
+  background: rgba(255,255,255,0.08);
+  color: var(--current-ch-color);
+}
+.track-item-name {
+  flex: 1;
+  font-size: 0.85rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.track-item-dur {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 0.8rem; color: var(--text-dim);
+  margin-left: 12px;
+}
+
+/* ── Admin Panel ─────────────────────────────────────────── */
+.admin-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(13,11,26,0.98);
+  z-index: 500;
+  overflow-y: auto;
+  padding: 16px;
+}
+.admin-overlay.open { display: block; }
+.admin-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.admin-header h2 {
+  font-family: 'Space Grotesk', monospace;
+  font-size: 1.5rem; letter-spacing: 2px;
+}
+.admin-close {
+  background: none; border: none; color: var(--text-dim);
+  font-size: 1.5rem; cursor: pointer;
+}
+.admin-tabs {
+  display: flex; gap: 6px; margin-bottom: 16px;
+}
+.admin-tab {
+  padding: 8px 14px; border-radius: 14px;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-surface);
+  color: var(--text-dim); font-size: 0.82rem;
+  cursor: pointer; transition: all 0.2s;
+}
+.admin-tab.active {
+  background: var(--amber); color: var(--bg-deep);
+  border-color: transparent;
+}
+
+/* Admin dropzone */
+.dropzone {
+  border: 2px dashed var(--border-glass);
+  border-radius: 16px;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  margin-bottom: 16px;
+}
+.dropzone.dragover {
+  border-color: var(--amber);
+  background: rgba(245,158,11,0.05);
+}
+.dropzone-formats {
+  font-size: 0.72rem; color: var(--text-mute);
+  margin-top: 8px;
+}
+
+/* Upload queue */
+.upload-queue { margin-bottom: 16px; }
+.upload-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px; margin-bottom: 6px;
+  background: var(--bg-surface);
+  border-radius: 10px;
+}
+.upload-item input {
+  flex: 1; padding: 6px 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  color: var(--text); font-size: 0.82rem;
+  outline: none;
+}
+.upload-item input:focus { border-color: var(--amber); }
+.upload-remove {
+  background: none; border: none;
+  color: var(--text-dim); font-size: 1rem;
+  cursor: pointer;
+}
+.upload-progress {
+  height: 3px; background: rgba(255,255,255,0.1);
+  border-radius: 2px; overflow: hidden; margin-top: 4px;
+}
+.upload-progress-fill {
+  height: 100%; background: var(--amber);
+  width: 0%; transition: width 0.3s;
+}
+.upload-all-btn {
+  width: 100%; padding: 10px;
+  border-radius: 12px; border: none;
+  background: var(--amber); color: var(--bg-deep);
+  font-size: 0.9rem; font-weight: 500;
+  cursor: pointer; transition: opacity 0.2s;
+}
+.upload-all-btn:hover { opacity: 0.85; }
+.upload-all-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Admin track list */
+.admin-section-title {
+  font-size: 0.85rem; color: var(--text-dim);
+  margin: 16px 0 8px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.admin-track-list { list-style: none; }
+.admin-track-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 8px;
+  background: var(--bg-surface);
+  border-radius: 10px;
+  margin-bottom: 4px;
+  cursor: grab;
+}
+.admin-track-item:active { cursor: grabbing; }
+.admin-drag-handle {
+  color: var(--text-mute); font-size: 1rem;
+  cursor: grab;
+}
+.admin-track-name {
+  flex: 1; font-size: 0.85rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.admin-delete-btn {
+  background: none; border: none;
+  color: var(--text-mute); font-size: 1rem;
+  cursor: pointer; transition: color 0.2s;
+}
+.admin-delete-btn:hover { color: var(--red); }
+.admin-onair-btn {
+  background: none; border: none;
+  color: var(--green); font-size: 0.78rem;
+  cursor: pointer; padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--green);
+  transition: all 0.2s;
+}
+.admin-onair-btn:hover { background: var(--green); color: var(--bg-deep); }
+.save-order-btn {
+  margin-top: 8px; width: 100%; padding: 8px;
+  border-radius: 10px; border: 1px solid var(--amber);
+  background: transparent; color: var(--amber);
+  font-size: 0.82rem; cursor: pointer;
+  transition: all 0.2s;
+}
+.save-order-btn:hover { background: var(--amber); color: var(--bg-deep); }
+
+/* Admin ch5 live panel */
+.admin-live-panel {
+  background: var(--bg-surface);
+  border-radius: 16px;
+  padding: 16px; margin-bottom: 16px;
+  border: 1px solid var(--border-glass);
+}
+.admin-live-status {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px;
+}
+.admin-live-controls {
+  display: flex; gap: 8px;
+}
+.admin-live-btn {
+  padding: 8px 16px; border-radius: 10px;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-surface);
+  color: var(--text); font-size: 0.82rem;
+  cursor: pointer; transition: all 0.2s;
+}
+.admin-live-btn:hover { background: rgba(255,255,255,0.1); }
+.admin-live-btn.stop { border-color: var(--red); color: var(--red); }
+.admin-live-btn.stop:hover { background: var(--red); color: #fff; }
+
+/* ── Auth Modal ──────────────────────────────────────────── */
+.auth-modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 600;
+  align-items: center; justify-content: center;
+}
+.auth-modal.open { display: flex; }
+.auth-box {
+  background: var(--bg-mid);
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  padding: 24px;
+  width: 300px;
+}
+.auth-box h3 {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 1rem; margin-bottom: 12px;
+}
+.auth-box input {
+  width: 100%; padding: 10px 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  color: var(--text); font-size: 0.9rem;
+  outline: none; margin-bottom: 12px;
+}
+.auth-box input:focus { border-color: var(--amber); }
+.auth-box button {
+  width: 100%; padding: 10px;
+  border-radius: 10px; border: none;
+  background: var(--amber); color: var(--bg-deep);
+  font-size: 0.9rem; cursor: pointer;
+}
+
+/* ── Toast ────────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 80px;
+  left: 50%; transform: translateX(-50%);
+  background: rgba(26,16,53,0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-glass);
+  color: var(--text);
+  padding: 10px 20px; border-radius: 12px;
+  font-size: 0.82rem;
+  opacity: 0;
+  pointer-events: none; z-index: 700;
+  max-width: 360px; text-align: center;
+}
+.toast.show { opacity: 1; animation: fadeInUp 0.3s ease; }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── Worker URL Setup ────────────────────────────────────── */
+.setup-modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 800;
+  align-items: center; justify-content: center;
+}
+.setup-modal.open { display: flex; }
+
+/* ── Overlay dim when panels are open ────────────────────── */
+.backdrop {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 150;
+}
+.backdrop.open { display: block; }
+</style>
+</head>
+<body>
+<!-- Background Layer -->
+<div class="bg-layer" id="bgLayer"></div>
+<div class="bg-orb bg-orb-1" id="orb1"></div>
+<div class="bg-orb bg-orb-2" id="orb2"></div>
+<div class="bg-orb bg-orb-3" id="orb3"></div>
+
+<div id="app">
+
+  <!-- Header: Clock + Title + Subtitle -->
+  <div class="header">
+    <div class="header-clock" id="clock">
+      <span class="clock-hm" id="clockHM">00:00</span><span class="clock-ss" id="clockSS">00</span>
+    </div>
+    <div class="header-title" id="headerTitle">예봄라디오</div>
+    <div class="header-subtitle" id="headerSubtitle"></div>
+  </div>
+
+  <!-- Carousel -->
+  <div class="carousel-wrap">
+    <div class="carousel-edge-l"></div>
+    <div class="carousel-edge-r"></div>
+    <div class="carousel" id="carousel"></div>
+  </div>
+  <div class="dot-indicators" id="dotIndicators"></div>
+
+  <!-- Podcast Controls (for ch3,4,5) -->
+  <div class="podcast-controls" id="podcastControls">
+    <div class="seek-wrap">
+      <div class="seek-bar" id="seekBar">
+        <div class="seek-fill" id="seekFill"></div>
+      </div>
+      <div class="seek-times">
+        <span id="timePos">0:00</span>
+        <span id="timeDur">0:00</span>
+      </div>
+    </div>
+    <div class="podcast-btns">
+      <button class="podcast-btn" id="btnPrev" title="이전">⏮</button>
+      <button class="podcast-btn" id="btnShuffle" style="display:none">🔀</button>
+      <button class="podcast-btn" id="btnRepeat" style="display:none">🔁</button>
+      <button class="podcast-btn" id="btnNext" title="다음">⏭</button>
+    </div>
+    <div class="speed-wrap" id="speedWrap">
+      <button class="speed-btn" data-speed="0.75">0.75×</button>
+      <button class="speed-btn active" data-speed="1">1×</button>
+      <button class="speed-btn" data-speed="1.25">1.25×</button>
+      <button class="speed-btn" data-speed="1.5">1.5×</button>
+    </div>
+  </div>
+
+  <!-- Extra Buttons -->
+  <div class="extra-row" id="extraRow">
+    <button class="extra-btn" id="btnRecord" style="display:none">🎙 녹음</button>
+    <button class="extra-btn" id="btnRecordDir" style="display:none">📁</button>
+    <button class="extra-btn" id="btnTrackList" style="display:none">📋 목록</button>
+  </div>
+  <div class="record-dir-row" id="recordDirRow">
+    <span class="record-dir-path" id="recordDirPath" title="클릭하여 저장 경로 변경"></span>
+  </div>
+
+  <!-- Glass Control Panel -->
+  <div class="glass-panel">
+    <div class="glass-panel-row">
+      <span class="glass-panel-label" id="volIcon">🔉</span>
+      <input type="range" class="volume-slider" id="volSlider"
+             min="0" max="1" step="0.01" value="0.8">
+    </div>
+    <div class="glass-panel-row">
+      <span class="glass-panel-label">💤</span>
+      <div class="sleep-inline-btns" id="sleepBtns">
+        <button class="sleep-inline-btn" data-sec="600">10분</button>
+        <button class="sleep-inline-btn" data-sec="1800">30분</button>
+        <button class="sleep-inline-btn" data-sec="3600">1시간</button>
+        <button class="sleep-inline-btn" data-sec="7200">2시간</button>
+      </div>
+      <span class="sleep-remaining-inline" id="sleepRemaining"></span>
+      <button class="sleep-cancel-inline" id="sleepCancel">취소</button>
+    </div>
+  </div>
+
+  <!-- PWA Install -->
+  <button class="pwa-install-btn" id="pwaInstallBtn">📲 홈 화면에 추가</button>
+
+  <!-- Footer -->
+  <div class="footer">예봄교회 · Dawn Radio 2.0</div>
+
+</div>
+
+<!-- Backdrop -->
+<div class="backdrop" id="backdrop"></div>
+
+<!-- Track List Panel -->
+<div class="track-panel" id="trackPanel">
+  <div class="track-panel-header">
+    <h3 id="trackPanelTitle">재생 목록</h3>
+    <button class="track-panel-close" id="trackPanelClose">✕</button>
+  </div>
+  <ul class="track-list" id="trackList"></ul>
+</div>
+
+<!-- Admin Overlay -->
+<div class="admin-overlay" id="adminOverlay">
+  <div class="admin-header">
+    <h2>ADMIN</h2>
+    <button class="admin-close" id="adminClose">✕</button>
+  </div>
+  <div class="admin-tabs" id="adminTabs">
+    <div class="admin-tab active" data-ach="list1">말씀전당</div>
+    <div class="admin-tab" data-ach="list2">찬양의 숲</div>
+    <div class="admin-tab" data-ach="stream">예봄소리</div>
+  </div>
+
+  <!-- Dropzone -->
+  <div class="dropzone" id="dropzone">
+    ♫ 파일을 드래그하거나 클릭하여 선택
+    <div class="dropzone-formats">MP3 M4A OGG WAV FLAC AAC</div>
+  </div>
+  <input type="file" id="fileInput" multiple accept=".mp3,.m4a,.ogg,.wav,.flac,.aac" style="display:none">
+
+  <!-- Upload Queue -->
+  <div class="upload-queue" id="uploadQueue"></div>
+  <button class="upload-all-btn" id="uploadAllBtn" style="display:none">모두 업로드</button>
+
+  <!-- Ch5 Live Panel (only for stream tab) -->
+  <div class="admin-live-panel" id="adminLivePanel" style="display:none">
+    <div class="admin-live-status" id="adminLiveStatus">
+      방송 대기 중
+    </div>
+    <div class="admin-live-controls" id="adminLiveControls" style="display:none">
+      <button class="admin-live-btn" id="adminPauseBtn">⏸ 일시정지</button>
+      <button class="admin-live-btn stop" id="adminStopBtn">⏹ 종료</button>
+    </div>
+  </div>
+
+  <!-- Admin Track List -->
+  <div class="admin-section-title">
+    <span>등록된 목록</span>
+    <button class="extra-btn" id="adminRefresh" style="font-size:0.75rem">새로고침</button>
+  </div>
+  <ul class="admin-track-list" id="adminTrackList"></ul>
+  <button class="save-order-btn" id="saveOrderBtn">순서 저장</button>
+</div>
+
+<!-- Auth Modal -->
+<div class="auth-modal" id="authModal">
+  <div class="auth-box">
+    <h3>Admin Key 입력</h3>
+    <input type="password" id="authInput" placeholder="Admin Key">
+    <button id="authSubmit">확인</button>
+  </div>
+</div>
+
+<!-- Setup Modal -->
+<div class="setup-modal" id="setupModal">
+  <div class="auth-box">
+    <h3>Workers URL 설정</h3>
+    <input type="url" id="setupInput" placeholder="https://radio-worker.xxx.workers.dev">
+    <button id="setupSubmit">저장</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- iOS Guide Modal -->
+<div class="ios-guide-modal" id="iosGuideModal">
+  <div class="ios-guide-box">
+    <h3>홈 화면에 추가</h3>
+    <p>Safari 하단의 <strong>공유 버튼</strong> (⬆) 을 탭한 후<br><strong>"홈 화면에 추가"</strong>를 선택하세요.</p>
+    <button class="ios-guide-close" id="iosGuideClose">확인</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  예봄라디오 2.0 — Vanilla JS Application
+// ═══════════════════════════════════════════════════════════════
+
+// ── Global State ────────────────────────────────────────────
+const WORKER_URL = 'https://radio-worker.yebomradio.workers.dev';
+let adminKey   = localStorage.getItem('radio-admin-key') || '';
+
+let currentChannel   = 1;
+let isPlaying        = false;
+let currentHowl      = null;
+let currentHls       = null;
+let audioEl          = null; // for HLS
+let currentTrackKey  = '';
+let currentTrackName = '';
+let currentTrackIdx  = 0;
+let currentVolume    = parseFloat(localStorage.getItem('radio-volume') ?? '0.8');
+let currentSpeed     = 1;
+let shuffleOn        = false;
+let repeatOn         = false;
+let shuffleOrder     = [];
+
+let channelTracks = {};   // { 3: [...], 4: [...], 5: [...] }
+let visTimer      = null;
+let seekRaf       = null;
+
+// Sleep timer
+let sleepSecs   = 0;
+let sleepTimer  = null;
+let sleepCountdown = null;
+
+// Recording
+let recorderConnected = false;
+let isRecording = false;
+
+// Admin
+let adminChannel   = 'list1';
+let uploadQueue    = [];
+let adminTracks    = [];
+let dragSrcIdx     = null;
+let ch5AdminState  = null;
+
+// Ch5 polling
+let ch5PollTimer = null;
+
+// Carousel
+let focusedIndex = 0;
+
+// PWA
+let deferredInstallPrompt = null;
+
+// ── Channel Definitions ────────────────────────────────────
+const CHANNELS = [
+  { num: 1, name: 'KBS 클래식 FM', frequency: '93.1', freqUnit: 'MHz', logo: '🎼', color: '#C4B5FD', dim: 'rgba(196,181,253,0.15)', glow: 'rgba(196,181,253,0.3)' },
+  { num: 2, name: '극동방송',      frequency: '106.9', freqUnit: 'MHz', logo: '✝️', color: '#FBBF9A', dim: 'rgba(251,191,154,0.15)', glow: 'rgba(251,191,154,0.3)' },
+  { num: 3, name: '말씀전당',      frequency: 'CH.3', freqUnit: '', logo: '📖', color: '#86EFAC', dim: 'rgba(134,239,172,0.15)', glow: 'rgba(134,239,172,0.3)' },
+  { num: 4, name: '찬양의 숲',     frequency: 'CH.4', freqUnit: '', logo: '🎵', color: '#FCD34D', dim: 'rgba(252,211,77,0.15)', glow: 'rgba(252,211,77,0.3)' },
+  { num: 5, name: '예봄소리',      frequency: 'LIVE', freqUnit: '', logo: '📻', color: '#F59E0B', dim: 'rgba(245,158,11,0.15)', glow: 'rgba(245,158,11,0.3)' },
+];
+
+const CHANNEL_API_MAP = { 3: 'list1', 4: 'list2', 5: 'stream' };
+
+// ── DOM refs ────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const carouselEl    = $('carousel');
+const dotIndicators = $('dotIndicators');
+const podcastControls = $('podcastControls');
+const seekBar       = $('seekBar');
+const seekFill      = $('seekFill');
+const timePos       = $('timePos');
+const timeDur       = $('timeDur');
+const speedWrap     = $('speedWrap');
+const btnPrev       = $('btnPrev');
+const btnNext       = $('btnNext');
+const btnShuffle    = $('btnShuffle');
+const btnRepeat     = $('btnRepeat');
+const volSlider     = $('volSlider');
+const btnRecord     = $('btnRecord');
+const btnRecordDir  = $('btnRecordDir');
+const recordDirRow  = $('recordDirRow');
+const recordDirPath = $('recordDirPath');
+const btnTrackList  = $('btnTrackList');
+const trackPanel    = $('trackPanel');
+const trackListEl   = $('trackList');
+const backdrop      = $('backdrop');
+const toastEl       = $('toast');
+const headerSubtitle = $('headerSubtitle');
+
+// nowPlayingEl 프록시 — 기존 코드 호환성 유지
+// nowPlayingEl.textContent / .innerHTML 에 쓰면 headerSubtitle + 활성카드 모두 갱신
+const nowPlayingEl = new Proxy({}, {
+  set(_, prop, value) {
+    if (prop === 'textContent') {
+      headerSubtitle.textContent = value;
+      const card = carouselEl?.children[focusedIndex];
+      if (card) card.querySelector('.card-now-playing').textContent = value;
+    } else if (prop === 'innerHTML') {
+      headerSubtitle.innerHTML = value;
+      const card = carouselEl?.children[focusedIndex];
+      if (card) card.querySelector('.card-now-playing').innerHTML = value;
+    }
+    return true;
+  },
+  get(_, prop) {
+    if (prop === 'textContent') return headerSubtitle.textContent;
+    if (prop === 'innerHTML') return headerSubtitle.innerHTML;
+    return headerSubtitle[prop];
+  }
+});
+
+// ── Time Theme ──────────────────────────────────────────────
+const TIME_THEMES = {
+  dawn:      { hours: [4,5,6],            bg: 'linear-gradient(135deg, #0F0E1A, #1A1035, #0D1B2A)', orbs: ['rgba(196,181,253,0.18)','rgba(251,191,154,0.12)','rgba(134,239,172,0.10)'] },
+  morning:   { hours: [7,8,9,10,11],      bg: 'linear-gradient(135deg, #1A0F2E, #2D1B69, #1E3A5F)', orbs: ['rgba(147,130,220,0.18)','rgba(200,160,255,0.12)','rgba(100,180,255,0.10)'] },
+  afternoon: { hours: [12,13,14,15,16],   bg: 'linear-gradient(135deg, #0C1445, #1A2980, #1A4040)', orbs: ['rgba(38,208,206,0.15)','rgba(100,149,237,0.12)','rgba(255,223,150,0.10)'] },
+  evening:   { hours: [17,18,19,20],      bg: 'linear-gradient(135deg, #1A0A0A, #3D1A1A, #2D1B4E)', orbs: ['rgba(255,120,80,0.15)','rgba(180,80,200,0.12)','rgba(255,200,100,0.08)'] },
+  night:     { hours: [21,22,23,0,1,2,3], bg: 'linear-gradient(135deg, #050510, #0A0A1A, #0D0B1E)', orbs: ['rgba(100,80,180,0.12)','rgba(60,60,120,0.10)','rgba(80,100,200,0.08)'] },
+};
+
+function applyTimeTheme() {
+  const h = new Date().getHours();
+  const theme = Object.values(TIME_THEMES).find(t => t.hours.includes(h));
+  if (theme) {
+    $('bgLayer').style.background = theme.bg;
+    if (theme.orbs) {
+      $('orb1').style.background = theme.orbs[0];
+      $('orb2').style.background = theme.orbs[1];
+      $('orb3').style.background = theme.orbs[2];
+    }
+  }
+}
+
+// ── Clock ───────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const s = String(now.getSeconds()).padStart(2, '0');
+  $('clockHM').textContent = h + ':' + m;
+  $('clockSS').textContent = s;
+}
+
+// ── Visualizer (now handled via CSS spectrum-bar animations on cards) ──
+function startVis() {
+  const card = carouselEl?.children[focusedIndex];
+  if (card) card.classList.add('playing');
+}
+
+function stopVis() {
+  document.querySelectorAll('.channel-card').forEach(c => c.classList.remove('playing'));
+}
+
+// ── Toast ───────────────────────────────────────────────────
+let toastTimeout;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => toastEl.classList.remove('show'), 3000);
+}
+
+// ── Format Time ─────────────────────────────────────────────
+function formatTime(sec) {
+  if (!sec || isNaN(sec)) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return m + ':' + s;
+}
+
+// ── Channel Color Update ────────────────────────────────────
+function setChannelColor(ch) {
+  const def = CHANNELS.find(c => c.num === ch);
+  if (!def) return;
+  document.documentElement.style.setProperty('--current-ch-color', def.color);
+  document.documentElement.style.setProperty('--current-ch-color-dim', def.dim);
+}
+
+// ── Worker URL Setup ────────────────────────────────────────
+function ensureWorkerUrl() {
+  return new Promise(resolve => {
+    if (WORKER_URL) { resolve(); return; }
+    const modal = $('setupModal');
+    modal.classList.add('open');
+    $('setupSubmit').onclick = () => {
+      const val = $('setupInput').value.trim();
+      if (val) {
+        WORKER_URL = val.replace(/\/+$/, '');
+        localStorage.setItem('radio-worker-url', WORKER_URL);
+        modal.classList.remove('open');
+        resolve();
+      }
+    };
+  });
+}
+
+// ── Fetch Tracks ────────────────────────────────────────────
+async function fetchTracks(channel) {
+  const apiCh = CHANNEL_API_MAP[channel];
+  if (!apiCh) return [];
+  try {
+    const res = await fetch(WORKER_URL + '/api/tracks?channel=' + apiCh);
+    const data = await res.json();
+    channelTracks[channel] = data;
+    return data;
+  } catch (e) {
+    console.error('fetchTracks error:', e);
+    return [];
+  }
+}
+
+// ── HLS Playback ────────────────────────────────────────────
+async function loadHlsJs() {
+  if (window.Hls) return window.Hls;
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.4.14/dist/hls.min.js';
+    s.onload = () => resolve(window.Hls);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+function ensureAudioEl() {
+  if (!audioEl) {
+    audioEl = document.createElement('audio');
+    audioEl.crossOrigin = 'anonymous';
+    audioEl.volume = currentVolume;
+  }
+  return audioEl;
+}
+
+async function playHls(url) {
+  if (currentHls) { currentHls.destroy(); currentHls = null; }
+  if (currentHowl) { currentHowl.unload(); currentHowl = null; }
+
+  const el = ensureAudioEl();
+  el.volume = currentVolume;
+
+  const Hls = await loadHlsJs();
+  if (Hls.isSupported()) {
+    const hls = new Hls({
+      enableWorker: false,
+      lowLatencyMode: true,
+      backBufferLength: 30,
+      maxBufferLength: 30,
+      xhrSetup: xhr => { xhr.withCredentials = false; },
+    });
+    hls.loadSource(url);
+    hls.attachMedia(el);
+    await new Promise((resolve, reject) => {
+      hls.on(Hls.Events.MANIFEST_PARSED, resolve);
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        if (data.fatal) reject(new Error('HLS fatal error'));
+      });
+      setTimeout(() => reject(new Error('HLS timeout 20s')), 20000);
+    });
+    currentHls = hls;
+  } else if (el.canPlayType('application/vnd.apple.mpegurl')) {
+    el.src = url;
+    await new Promise(r => el.addEventListener('canplay', r, { once: true }));
+  } else {
+    throw new Error('HLS not supported');
+  }
+
+  try {
+    await el.play();
+    isPlaying = true;
+    updatePlayBtn(true);
+    startVis();
+  } catch (playErr) {
+    // Autoplay 정책에 의한 실패 — HLS는 이미 로드됨
+    // 사용자가 play 버튼 클릭하면 재생됨
+    console.log('Autoplay blocked, user interaction needed:', playErr.message);
+    isPlaying = false;
+    updatePlayBtn(false);
+  }
+}
+
+function stopHls() {
+  if (currentHls) { currentHls.destroy(); currentHls = null; }
+  if (audioEl) { audioEl.pause(); audioEl.src = ''; }
+  isPlaying = false;
+  updatePlayBtn(false);
+  stopVis();
+}
+
+// ── R2 Track Playback (Howler) ──────────────────────────────
+function streamUrl(key) {
+  return WORKER_URL + '/api/stream/' + encodeURIComponent(key);
+}
+
+function playTrack(channel, trackIndex, startPosition = 0) {
+  const tracks = channelTracks[channel];
+  if (!tracks || trackIndex >= tracks.length) return;
+  const track = tracks[trackIndex];
+
+  stopHls();
+  if (currentHowl) { currentHowl.unload(); currentHowl = null; }
+
+  currentTrackKey  = track.key;
+  currentTrackName = track.name;
+  currentTrackIdx  = trackIndex;
+
+  currentHowl = new Howl({
+    src: [streamUrl(track.key)],
+    html5: true,
+    volume: currentVolume,
+    rate: currentSpeed,
+    onplay: function() {
+      isPlaying = true;
+      updatePlayBtn(true);
+      startVis();
+      if (startPosition > 3) {
+        currentHowl.seek(startPosition);
+      }
+      startSeekUpdate();
+    },
+    onpause: function() {
+      isPlaying = false;
+      updatePlayBtn(false);
+      stopVis();
+      saveResume(channel);
+    },
+    onstop: function() {
+      isPlaying = false;
+      updatePlayBtn(false);
+      stopVis();
+    },
+    onend: function() {
+      isPlaying = false;
+      stopVis();
+      localStorage.removeItem('radio-ch' + channel + '-resume');
+      playNext(channel);
+    },
+    onloaderror: function(_, e) {
+      showToast('로드 오류: ' + (e || ''));
+    },
+  });
+
+  currentHowl.play();
+  nowPlayingEl.textContent = track.name;
+  updateTrackListUI();
+}
+
+function playNext(channel) {
+  const tracks = channelTracks[channel];
+  if (!tracks || tracks.length === 0) return;
+
+  if (repeatOn) {
+    playTrack(channel, currentTrackIdx, 0);
+    return;
+  }
+
+  let nextIdx;
+  if (shuffleOn) {
+    if (shuffleOrder.length === 0) {
+      shuffleOrder = makeShuffleOrder(tracks.length);
+    }
+    const curShufflePos = shuffleOrder.indexOf(currentTrackIdx);
+    const nextShufflePos = (curShufflePos + 1) % shuffleOrder.length;
+    nextIdx = shuffleOrder[nextShufflePos];
+  } else {
+    nextIdx = (currentTrackIdx + 1) % tracks.length;
+  }
+
+  playTrack(channel, nextIdx, 0);
+}
+
+function playPrev(channel) {
+  const tracks = channelTracks[channel];
+  if (!tracks || tracks.length === 0) return;
+
+  // If more than 3 seconds in, restart current track
+  if (currentHowl && currentHowl.seek() > 3) {
+    currentHowl.seek(0);
+    return;
+  }
+
+  let prevIdx;
+  if (shuffleOn) {
+    if (shuffleOrder.length === 0) {
+      shuffleOrder = makeShuffleOrder(tracks.length);
+    }
+    const curShufflePos = shuffleOrder.indexOf(currentTrackIdx);
+    const prevShufflePos = (curShufflePos - 1 + shuffleOrder.length) % shuffleOrder.length;
+    prevIdx = shuffleOrder[prevShufflePos];
+  } else {
+    prevIdx = (currentTrackIdx - 1 + tracks.length) % tracks.length;
+  }
+
+  playTrack(channel, prevIdx, 0);
+}
+
+// ── Shuffle ─────────────────────────────────────────────────
+function makeShuffleOrder(length) {
+  const arr = Array.from({ length }, (_, i) => i);
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ── Seek Bar Update ─────────────────────────────────────────
+function startSeekUpdate() {
+  cancelAnimationFrame(seekRaf);
+  function update() {
+    if (!currentHowl || !isPlaying) return;
+    const pos = currentHowl.seek() || 0;
+    const dur = currentHowl.duration() || 1;
+    const pct = (pos / dur) * 100;
+    seekFill.style.width = pct + '%';
+    timePos.textContent = formatTime(pos);
+    timeDur.textContent = formatTime(dur);
+    seekRaf = requestAnimationFrame(update);
+  }
+  update();
+}
+
+// ── Update Play Button ──────────────────────────────────────
+function updatePlayBtn(playing) {
+  // Update the active card's play button
+  const card = carouselEl?.children[focusedIndex];
+  if (card) {
+    const btn = card.querySelector('.card-play-btn');
+    if (btn) btn.textContent = playing ? '⏸' : '▶';
+    if (playing) card.classList.add('playing');
+    else card.classList.remove('playing');
+  }
+}
+
+// ── Stop All Playback ───────────────────────────────────────
+function stopPlayback() {
+  stopHls();
+  if (currentHowl) { currentHowl.unload(); currentHowl = null; }
+  isPlaying = false;
+  updatePlayBtn(false);
+  stopVis();
+  cancelAnimationFrame(seekRaf);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CAROUSEL BUILD & SCROLL
+// ══════════════════════════════════════════════════════════════
+
+function buildCarousel() {
+  carouselEl.innerHTML = '';
+  dotIndicators.innerHTML = '';
+
+  CHANNELS.forEach((ch, i) => {
+    // Card
+    const card = document.createElement('div');
+    card.className = 'channel-card' + (i === focusedIndex ? ' active' : '');
+    card.dataset.ch = ch.num;
+    card.style.setProperty('--card-ch-color', ch.color);
+    card.style.setProperty('--card-ch-glow', ch.glow);
+
+    // 10 spectrum bars
+    let spectrumHtml = '<div class="card-spectrum">';
+    for (let j = 0; j < 10; j++) spectrumHtml += '<div class="spectrum-bar"></div>';
+    spectrumHtml += '</div>';
+
+    card.innerHTML =
+      '<div class="ripple-container"><div class="ripple-ring"></div><div class="ripple-ring"></div></div>' +
+      '<div class="card-logo">' + ch.logo + '</div>' +
+      '<div class="card-freq">' + ch.frequency + (ch.freqUnit ? ' ' + ch.freqUnit : '') + '</div>' +
+      '<div class="card-name">' + ch.name + '</div>' +
+      '<div class="card-now-playing"></div>' +
+      spectrumHtml +
+      '<button class="card-play-btn">▶</button>';
+
+    carouselEl.appendChild(card);
+
+    // Dot
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === focusedIndex ? ' active' : '');
+    dotIndicators.appendChild(dot);
+  });
+
+  // Bind play buttons
+  carouselEl.querySelectorAll('.card-play-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handlePlayPause();
+    });
+  });
+
+  // Card click → scroll to it
+  Array.from(carouselEl.children).forEach((card, i) => {
+    card.addEventListener('click', () => {
+      if (i !== focusedIndex) scrollToChannel(i);
+    });
+  });
+}
+
+function initCarouselScroll() {
+  let scrollTimeout;
+  carouselEl.addEventListener('scroll', () => {
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+      const cards = Array.from(carouselEl.children);
+      const containerCenter = carouselEl.scrollLeft + carouselEl.offsetWidth / 2;
+      let closestIdx = 0;
+      let closestDist = Infinity;
+      cards.forEach((card, i) => {
+        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+        const dist = Math.abs(containerCenter - cardCenter);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestIdx = i;
+        }
+      });
+      if (closestIdx !== focusedIndex) {
+        focusedIndex = closestIdx;
+        updateAllCards();
+        updateDotIndicators();
+        enterChannel(CHANNELS[focusedIndex].num);
+      }
+    }, 150);
+  });
+}
+
+function scrollToChannel(idx) {
+  const card = carouselEl.children[idx];
+  if (!card) return;
+  const scrollLeft = card.offsetLeft - (carouselEl.offsetWidth - card.offsetWidth) / 2;
+  carouselEl.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+}
+
+function updateAllCards() {
+  Array.from(carouselEl.children).forEach((card, i) => {
+    card.classList.toggle('active', i === focusedIndex);
+    if (i !== focusedIndex) card.classList.remove('playing');
+  });
+}
+
+function updateDotIndicators() {
+  const dots = dotIndicators.children;
+  Array.from(dots).forEach((dot, i) => {
+    dot.classList.toggle('active', i === focusedIndex);
+  });
+  // Update dot color to match channel
+  const ch = CHANNELS[focusedIndex];
+  if (ch) {
+    document.documentElement.style.setProperty('--current-ch-color', ch.color);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PLAY / PAUSE HANDLER
+// ══════════════════════════════════════════════════════════════
+
+function handlePlayPause() {
+  if (currentChannel === 1 || currentChannel === 2) {
+    if (isPlaying) {
+      if (audioEl) audioEl.pause();
+      isPlaying = false;
+      updatePlayBtn(false);
+      stopVis();
+    } else {
+      if (audioEl && (audioEl.src || currentHls)) {
+        audioEl.play().then(() => {
+          isPlaying = true;
+          updatePlayBtn(true);
+          startVis();
+          refreshLiveNowPlaying();
+        }).catch(() => {});
+      } else {
+        enterChannel(currentChannel);
+      }
+    }
+  } else if (currentChannel === 3 || currentChannel === 4) {
+    if (currentHowl) {
+      if (isPlaying) currentHowl.pause();
+      else currentHowl.play();
+    } else {
+      enterChannel(currentChannel);
+    }
+  } else if (currentChannel === 5) {
+    if (currentHowl) {
+      if (isPlaying) currentHowl.pause();
+      else currentHowl.play();
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CHANNEL ENTRY / SWITCH
+// ══════════════════════════════════════════════════════════════
+
+async function enterChannel(channel) {
+  currentChannel = channel;
+  localStorage.setItem('radio-last-channel', String(channel));
+
+  // Stop any existing playback
+  stopPlayback();
+  clearInterval(ch5PollTimer);
+
+  // Update UI
+  setChannelColor(channel);
+  nowPlayingEl.textContent = '';
+
+  // Show/hide channel-specific UI
+  const isR2   = channel === 3 || channel === 4;
+  const isCh5  = channel === 5;
+  const isLive = channel === 1 || channel === 2;
+
+  podcastControls.classList.toggle('visible', isR2 || isCh5);
+  speedWrap.classList.toggle('visible', isR2 || isCh5);
+  btnTrackList.style.display = (isR2 || isCh5) ? '' : 'none';
+  btnShuffle.style.display   = isR2 ? '' : 'none';
+  btnRepeat.style.display    = isR2 ? '' : 'none';
+  btnRecord.style.display    = isLive ? '' : 'none';
+  btnRecordDir.style.display = isLive ? '' : 'none';
+  recordDirRow.style.display = (isLive && recorderConnected) ? 'flex' : 'none';
+
+  // Reset seek bar
+  seekFill.style.width = '0%';
+  timePos.textContent = '0:00';
+  timeDur.textContent = '0:00';
+
+  // Load channel content
+  if (channel === 1) {
+    await loadKbs();
+  } else if (channel === 2) {
+    await loadFebc();
+  } else if (channel === 3 || channel === 4) {
+    const tracks = await fetchTracks(channel);
+    const resume = await restoreResume(channel);
+    if (resume) {
+      const idx = tracks.findIndex(t => t.key === resume.trackKey);
+      playTrack(channel, idx >= 0 ? idx : 0, resume.position);
+      showToast('↩ ' + resume.trackName + ' — ' + formatTime(resume.position) + '부터 이어듣기');
+    } else if (tracks.length > 0) {
+      playTrack(channel, 0, 0);
+    } else {
+      nowPlayingEl.textContent = '등록된 트랙이 없습니다';
+    }
+  } else if (channel === 5) {
+    await fetchTracks(5);
+    await startCh5Polling();
+  }
+}
+
+// ── 라이브 채널 프로그램명 갱신 (수동 play 시) ──────────────
+async function refreshLiveNowPlaying() {
+  try {
+    if (currentChannel === 1) {
+      const r = await fetch(WORKER_URL + '/api/kbs');
+      const d = await r.json();
+      nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + (d.programTitle || 'KBS 클래식 FM');
+    } else if (currentChannel === 2) {
+      const r = await fetch(WORKER_URL + '/api/febc-schedule');
+      const d = await r.json();
+      nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + (d.programTitle || '극동방송');
+    }
+  } catch {}
+}
+
+// ── Channel 1: KBS Classic FM ───────────────────────────────
+let kbsRefreshTimer = null;
+
+async function loadKbs() {
+  clearInterval(kbsRefreshTimer);
+  try {
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 연결 중...';
+    const res = await fetch(WORKER_URL + '/api/kbs');
+    const { streamUrl: sUrl, programTitle } = await res.json();
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + (programTitle || 'KBS 클래식 FM');
+    await playHls(sUrl);
+
+    // Refresh program title every 60s
+    kbsRefreshTimer = setInterval(async () => {
+      if (currentChannel !== 1 || !isPlaying) return;
+      try {
+        const r = await fetch(WORKER_URL + '/api/kbs');
+        const d = await r.json();
+        if (d.programTitle) {
+          nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + d.programTitle;
+        }
+      } catch {}
+    }, 60000);
+  } catch (e) {
+    nowPlayingEl.textContent = 'KBS 연결 실패';
+    showToast('KBS 스트리밍 연결 실패');
+  }
+}
+
+// ── Channel 2: FEBC ─────────────────────────────────────────
+let febcRefreshTimer = null;
+const FEBC_URL = 'https://mlive2.febc.net/live/seoulfm/playlist.m3u8';
+
+async function loadFebc() {
+  clearInterval(febcRefreshTimer);
+  try {
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 연결 중...';
+
+    // Get program title from proxy
+    let title = '극동방송';
+    try {
+      const r = await fetch(WORKER_URL + '/api/febc-schedule');
+      const d = await r.json();
+      if (d.programTitle) title = d.programTitle;
+    } catch {}
+
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + title;
+    await playHls(FEBC_URL);
+
+    febcRefreshTimer = setInterval(async () => {
+      if (currentChannel !== 2 || !isPlaying) return;
+      try {
+        const r = await fetch(WORKER_URL + '/api/febc-schedule');
+        const d = await r.json();
+        if (d.programTitle) {
+          nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + d.programTitle;
+        }
+      } catch {}
+    }, 60000);
+  } catch (e) {
+    nowPlayingEl.textContent = '극동방송 연결 실패';
+    showToast('극동방송 스트리밍 연결 실패');
+  }
+}
+
+// ── Channel 5: Shared Streaming ─────────────────────────────
+async function startCh5Polling() {
+  clearInterval(ch5PollTimer);
+  await pollCh5State();
+  ch5PollTimer = setInterval(pollCh5State, 10000);
+}
+
+async function pollCh5State() {
+  if (currentChannel !== 5) { clearInterval(ch5PollTimer); return; }
+  try {
+    const res = await fetch(WORKER_URL + '/api/ch5/state');
+    const state = await res.json();
+
+    if (!state.trackKey) {
+      nowPlayingEl.textContent = '현재 방송이 없습니다';
+      stopPlayback();
+      return;
+    }
+
+    // Calculate current position
+    let targetTime;
+    if (state.paused) {
+      targetTime = state.currentTime || 0;
+    } else {
+      targetTime = (Date.now() - state.startEpoch) / 1000;
+    }
+
+    // If same track already playing, just sync position
+    if (currentTrackKey === state.trackKey && currentHowl) {
+      if (!state.paused && !isPlaying) {
+        currentHowl.play();
+      } else if (state.paused && isPlaying) {
+        currentHowl.pause();
+      }
+      // Sync if drift > 3 seconds
+      if (!state.paused && Math.abs(currentHowl.seek() - targetTime) > 3) {
+        currentHowl.seek(targetTime);
+      }
+      return;
+    }
+
+    // New track or first load
+    nowPlayingEl.innerHTML = '<span class="on-air-badge">ON AIR</span> ' + (state.trackName || '');
+
+    // Find track in list
+    const tracks = channelTracks[5] || [];
+    const idx = tracks.findIndex(t => t.key === state.trackKey);
+
+    if (currentHowl) { currentHowl.unload(); currentHowl = null; }
+    stopHls();
+
+    currentTrackKey = state.trackKey;
+    currentTrackName = state.trackName || '';
+    currentTrackIdx = idx >= 0 ? idx : 0;
+
+    currentHowl = new Howl({
+      src: [streamUrl(state.trackKey)],
+      html5: true,
+      volume: currentVolume,
+      onplay: function() {
+        isPlaying = true;
+        updatePlayBtn(true);
+        startVis();
+        if (targetTime > 1) currentHowl.seek(targetTime);
+        startSeekUpdate();
+      },
+      onpause: function() { isPlaying = false; updatePlayBtn(false); stopVis(); },
+      onstop: function() { isPlaying = false; updatePlayBtn(false); stopVis(); },
+      onend: function() {
+        isPlaying = false; stopVis(); updatePlayBtn(false);
+        nowPlayingEl.textContent = '방송이 종료되었습니다';
+      },
+    });
+
+    if (!state.paused) {
+      currentHowl.play();
+    }
+
+  } catch (e) {
+    console.error('ch5 poll error:', e);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RESUME / CONTINUE LISTENING (Phase 4)
+// ══════════════════════════════════════════════════════════════
+
+function saveResume(channel) {
+  if (channel < 3 || channel > 4) return;
+  if (!currentTrackKey) return;
+  const position = currentHowl ? Math.round(currentHowl.seek() * 10) / 10 : 0;
+  if (position < 3) return;
+  localStorage.setItem('radio-ch' + channel + '-resume', JSON.stringify({
+    trackKey:  currentTrackKey,
+    trackName: currentTrackName,
+    position:  position,
+    savedAt:   Date.now(),
+  }));
+}
+
+async function restoreResume(channel) {
+  const raw = localStorage.getItem('radio-ch' + channel + '-resume');
+  if (!raw) return null;
+  let resume;
+  try { resume = JSON.parse(raw); }
+  catch { localStorage.removeItem('radio-ch' + channel + '-resume'); return null; }
+
+  // 7일 초과 폐기
+  if (Date.now() - resume.savedAt > 7 * 24 * 60 * 60 * 1000) {
+    localStorage.removeItem('radio-ch' + channel + '-resume');
+    return null;
+  }
+
+  // 파일 존재 확인
+  const tracks = channelTracks[channel] || await fetchTracks(channel);
+  if (!tracks.some(t => t.key === resume.trackKey)) {
+    localStorage.removeItem('radio-ch' + channel + '-resume');
+    return null;
+  }
+
+  return resume;
+}
+
+function cleanupResumeOnDelete(deletedKey) {
+  ['radio-ch3-resume', 'radio-ch4-resume'].forEach(storageKey => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      const resume = JSON.parse(raw);
+      if (resume.trackKey === deletedKey) {
+        localStorage.removeItem(storageKey);
+      }
+    } catch {}
+  });
+}
+
+// 4중 저장 전략
+setInterval(() => {
+  if (isPlaying && (currentChannel === 3 || currentChannel === 4)) {
+    saveResume(currentChannel);
+  }
+}, 5000);
+
+window.addEventListener('beforeunload', () => saveResume(currentChannel));
+window.addEventListener('pagehide', () => saveResume(currentChannel));
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) saveResume(currentChannel);
+});
+
+// ══════════════════════════════════════════════════════════════
+//  RECORDING (Phase 5)
+// ══════════════════════════════════════════════════════════════
+
+// 즉시 1회 + 5초마다 health check
+let currentRecordDir = '';
+async function checkRecorderHealth() {
+  try {
+    const r = await fetch('http://localhost:8090/health', { signal: AbortSignal.timeout(2000) });
+    const d = await r.json();
+    recorderConnected = d.status === 'ok';
+    if (recorderConnected && d.output_dir) {
+      currentRecordDir = d.output_dir;
+      // localStorage에 저장된 경로가 있고 서버와 다르면 서버에 적용
+      const savedDir = localStorage.getItem('radio-record-dir');
+      if (savedDir && savedDir !== d.output_dir) {
+        await syncRecordDir(savedDir);
+      } else {
+        updateRecordDirUI();
+      }
+    }
+  } catch {
+    recorderConnected = false;
+  }
+  updateRecordBtn();
+}
+checkRecorderHealth(); // 페이지 로드 즉시 실행
+setInterval(checkRecorderHealth, 5000);
+
+function updateRecordDirUI() {
+  const isLive = currentChannel === 1 || currentChannel === 2;
+  recordDirRow.style.display = (isLive && recorderConnected && currentRecordDir) ? 'flex' : 'none';
+  recordDirPath.textContent = currentRecordDir || '';
+  recordDirPath.title = currentRecordDir ? '저장 경로: ' + currentRecordDir : '';
+}
+
+async function syncRecordDir(dirPath) {
+  try {
+    const r = await fetch('http://localhost:8090/config/output-dir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ output_dir: dirPath }),
+      signal: AbortSignal.timeout(3000),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      currentRecordDir = d.output_dir;
+      localStorage.setItem('radio-record-dir', d.output_dir);
+    } else {
+      // 잘못된 경로이면 localStorage 초기화
+      localStorage.removeItem('radio-record-dir');
+    }
+  } catch { /* 무시 */ }
+  updateRecordDirUI();
+}
+
+async function changeRecordDir() {
+  if (!recorderConnected) {
+    showToast('녹음서버가 연결되지 않았습니다.');
+    return;
+  }
+  const newDir = prompt('녹음 파일 저장 경로를 입력하세요:', currentRecordDir || '');
+  if (!newDir || newDir.trim() === '' || newDir.trim() === currentRecordDir) return;
+  try {
+    const r = await fetch('http://localhost:8090/config/output-dir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ output_dir: newDir.trim() }),
+      signal: AbortSignal.timeout(3000),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      currentRecordDir = d.output_dir;
+      localStorage.setItem('radio-record-dir', d.output_dir);
+      updateRecordDirUI();
+      showToast('저장 경로 변경: ' + d.output_dir);
+    } else {
+      showToast('경로 변경 실패: ' + (d.detail || '알 수 없는 오류'));
+    }
+  } catch (e) {
+    showToast('녹음서버 연결 실패: ' + e.message);
+  }
+}
+
+function updateRecordBtn() {
+  if (currentChannel !== 1 && currentChannel !== 2) return;
+  if (isRecording) {
+    btnRecord.className = 'extra-btn recording';
+    btnRecord.textContent = '⏹ 녹음 중';
+  } else {
+    btnRecord.className = 'extra-btn';
+    btnRecord.textContent = recorderConnected ? '🎙 녹음' : '🎙 녹음 (연결안됨)';
+  }
+  updateRecordDirUI();
+}
+
+async function startRecording() {
+  if (!recorderConnected) {
+    showToast('녹음서버가 연결되지 않았습니다. AudioRecorder를 실행해주세요.');
+    return;
+  }
+  const channelName = CHANNELS.find(c => c.num === currentChannel)?.name || '';
+  // nowPlayingEl에서 프로그램명 추출 (LIVE 뱃지 텍스트 제거)
+  const rawText = nowPlayingEl.textContent || '';
+  const progMatch = rawText.replace(/^LIVE\s*/, '').replace(/^ON AIR\s*/, '').trim();
+  const ts = new Date().toISOString().replace(/[-T:.Z]/g, '').slice(2, 14);
+  const filename = (channelName + (progMatch || '') + ts).replace(/[\\/:*?"<>|]/g, '');
+
+  try {
+    const res = await fetch('http://localhost:8090/record/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'system',
+        filename: filename,
+        mode: 'auto',
+        silence_threshold: 100,
+        silence_duration: 1,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+    const data = await res.json();
+    if (res.ok && data.recording) {
+      isRecording = true;
+      updateRecordBtn();
+      showToast('녹음 시작: ' + filename);
+    } else {
+      showToast('녹음 시작 실패: ' + (data.detail || '알 수 없는 오류'));
+    }
+  } catch (e) {
+    showToast('녹음서버 연결 실패: ' + e.message);
+  }
+}
+
+async function stopRecording() {
+  if (!isRecording) return;
+  try {
+    const res = await fetch('http://localhost:8090/record/stop', {
+      method: 'POST',
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await res.json();
+    isRecording = false;
+    updateRecordBtn();
+    if (res.ok && data.file) {
+      const mins = Math.floor((data.duration || 0) / 60);
+      const secs = Math.round((data.duration || 0) % 60);
+      const fname = data.file.split(/[\\/]/).pop() || data.file;
+      showToast('녹음 완료: ' + fname + ' (' + mins + '분 ' + secs + '초)');
+    }
+  } catch {
+    isRecording = false;
+    updateRecordBtn();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SLEEP TIMER (Phase 5)
+// ══════════════════════════════════════════════════════════════
+
+function setSleepTimer(seconds) {
+  clearTimeout(sleepTimer);
+  clearInterval(sleepCountdown);
+
+  if (sleepSecs === seconds) {
+    sleepSecs = 0;
+    updateSleepUI();
+    return;
+  }
+
+  sleepSecs = seconds;
+  let remaining = seconds;
+
+  sleepTimer = setTimeout(() => {
+    stopPlayback();
+    stopRecording();
+    sleepSecs = 0;
+    showToast('수면 타이머가 종료되었습니다');
+    updateSleepUI();
+    updateSleepUI();
+  }, seconds * 1000);
+
+  sleepCountdown = setInterval(() => {
+    remaining--;
+    $('sleepRemaining').textContent = formatTime(remaining);
+    if (remaining <= 0) clearInterval(sleepCountdown);
+  }, 1000);
+
+  $('sleepRemaining').textContent = formatTime(remaining);
+  updateSleepUI();
+}
+
+function updateSleepUI() {
+  document.querySelectorAll('.sleep-inline-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.sec) === sleepSecs);
+  });
+  $('sleepRemaining').classList.toggle('visible', sleepSecs > 0);
+  $('sleepCancel').classList.toggle('visible', sleepSecs > 0);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TRACK LIST UI
+// ══════════════════════════════════════════════════════════════
+
+function updateTrackListUI() {
+  const ch = currentChannel;
+  const tracks = channelTracks[ch] || [];
+  trackListEl.innerHTML = '';
+
+  tracks.forEach((t, i) => {
+    const li = document.createElement('li');
+    li.className = 'track-item' + (t.key === currentTrackKey ? ' active' : '');
+    li.innerHTML = '<span class="track-item-name">' +
+      (t.key === currentTrackKey ? '▶ ' : '') + t.name + '</span>';
+    li.addEventListener('click', () => {
+      closeTrackPanel();
+      if (ch === 5) return; // Ch5 is server-controlled
+      playTrack(ch, i, 0);
+    });
+    trackListEl.appendChild(li);
+  });
+}
+
+function openTrackPanel() {
+  updateTrackListUI();
+  trackPanel.classList.add('open');
+  backdrop.classList.add('open');
+}
+
+function closeTrackPanel() {
+  trackPanel.classList.remove('open');
+  backdrop.classList.remove('open');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ADMIN UI (Phase 6)
+// ══════════════════════════════════════════════════════════════
+
+let headerTapCount = 0;
+let headerTapTimer = null;
+
+function handleHeaderTap() {
+  headerTapCount++;
+  clearTimeout(headerTapTimer);
+  headerTapTimer = setTimeout(() => { headerTapCount = 0; }, 600);
+  if (headerTapCount >= 3) {
+    headerTapCount = 0;
+    if (adminKey) {
+      openAdmin();
+    } else {
+      $('authModal').classList.add('open');
+    }
+  }
+}
+
+function openAdmin() {
+  $('adminOverlay').classList.add('open');
+  loadAdminTracks(adminChannel);
+  if (adminChannel === 'stream') loadAdminCh5State();
+}
+
+function closeAdmin() {
+  $('adminOverlay').classList.remove('open');
+}
+
+async function loadAdminTracks(ch) {
+  adminChannel = ch;
+  document.querySelectorAll('.admin-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.ach === ch);
+  });
+
+  // Show/hide ch5 live panel
+  $('adminLivePanel').style.display = ch === 'stream' ? '' : 'none';
+  if (ch === 'stream') loadAdminCh5State();
+
+  try {
+    const res = await fetch(WORKER_URL + '/api/tracks?channel=' + ch);
+    adminTracks = await res.json();
+    renderAdminTrackList();
+  } catch (e) {
+    showToast('목록 로드 실패');
+  }
+}
+
+function renderAdminTrackList() {
+  const list = $('adminTrackList');
+  list.innerHTML = '';
+
+  adminTracks.forEach((t, i) => {
+    const li = document.createElement('li');
+    li.className = 'admin-track-item';
+    li.draggable = true;
+    li.dataset.idx = i;
+
+    let extraBtn = '';
+    if (adminChannel === 'stream') {
+      extraBtn = '<button class="admin-onair-btn" data-key="' + t.key + '" data-name="' + t.name + '">▶ ON AIR</button>';
+    }
+
+    li.innerHTML = '<span class="admin-drag-handle">≡</span>' +
+      '<span class="admin-track-name">' + t.name + '</span>' +
+      extraBtn +
+      '<button class="admin-delete-btn" data-key="' + t.key + '">🗑</button>';
+
+    // Drag events
+    li.addEventListener('dragstart', e => {
+      dragSrcIdx = i;
+      e.dataTransfer.effectAllowed = 'move';
+      li.style.opacity = '0.5';
+    });
+    li.addEventListener('dragend', () => { li.style.opacity = '1'; });
+    li.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+    li.addEventListener('drop', e => {
+      e.preventDefault();
+      if (dragSrcIdx === null || dragSrcIdx === i) return;
+      const moved = adminTracks.splice(dragSrcIdx, 1)[0];
+      adminTracks.splice(i, 0, moved);
+      adminTracks.forEach((m, idx) => m.order = idx);
+      renderAdminTrackList();
+      dragSrcIdx = null;
+    });
+
+    list.appendChild(li);
+  });
+
+  // Delete buttons
+  list.querySelectorAll('.admin-delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const key = btn.dataset.key;
+      if (!confirm('삭제하시겠습니까?\n' + key)) return;
+      try {
+        await fetch(WORKER_URL + '/api/delete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + adminKey,
+          },
+          body: JSON.stringify({ key, channel: adminChannel }),
+        });
+        cleanupResumeOnDelete(key);
+        showToast('삭제 완료');
+        loadAdminTracks(adminChannel);
+      } catch { showToast('삭제 실패'); }
+    });
+  });
+
+  // ON AIR buttons (ch5)
+  list.querySelectorAll('.admin-onair-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      goOnAir({ key: btn.dataset.key, name: btn.dataset.name });
+    });
+  });
+}
+
+// ── Admin Upload ────────────────────────────────────────────
+function handleAdminFiles(fileList) {
+  Array.from(fileList)
+    .filter(f => /\.(mp3|m4a|ogg|wav|flac|aac)$/i.test(f.name))
+    .forEach(file => {
+      const defaultName = file.name.replace(/\.[^/.]+$/, '');
+      uploadQueue.push({ file, name: defaultName });
+    });
+  renderUploadQueue();
+}
+
+function renderUploadQueue() {
+  const container = $('uploadQueue');
+  container.innerHTML = '';
+  $('uploadAllBtn').style.display = uploadQueue.length > 0 ? '' : 'none';
+
+  uploadQueue.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'upload-item';
+    div.innerHTML = '<input type="text" value="' + item.name + '" data-idx="' + i + '">' +
+      '<button class="upload-remove" data-idx="' + i + '">✕</button>' +
+      '<div class="upload-progress"><div class="upload-progress-fill" id="prog-' + i + '"></div></div>';
+    container.appendChild(div);
+  });
+
+  // Name input change
+  container.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      uploadQueue[parseInt(e.target.dataset.idx)].name = e.target.value;
+    });
+  });
+
+  // Remove
+  container.querySelectorAll('.upload-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      uploadQueue.splice(parseInt(btn.dataset.idx), 1);
+      renderUploadQueue();
+    });
+  });
+}
+
+async function uploadAll() {
+  $('uploadAllBtn').disabled = true;
+  for (let i = 0; i < uploadQueue.length; i++) {
+    const item = uploadQueue[i];
+    const fd = new FormData();
+    fd.append('files', item.file);
+    fd.append('channel', adminChannel);
+    fd.append('name', item.name);
+
+    try {
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', WORKER_URL + '/api/upload');
+        xhr.setRequestHeader('Authorization', 'Bearer ' + adminKey);
+        xhr.upload.onprogress = e => {
+          if (e.lengthComputable) {
+            const pct = (e.loaded / e.total) * 100;
+            const fill = document.getElementById('prog-' + i);
+            if (fill) fill.style.width = pct + '%';
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error('Upload failed'));
+        };
+        xhr.onerror = () => reject(new Error('Network error'));
+        xhr.send(fd);
+      });
+    } catch (e) {
+      showToast('업로드 실패: ' + item.name);
+    }
+  }
+
+  uploadQueue = [];
+  renderUploadQueue();
+  showToast('업로드 완료');
+  loadAdminTracks(adminChannel);
+  $('uploadAllBtn').disabled = false;
+}
+
+// ── Admin Save Order ────────────────────────────────────────
+async function saveAdminOrder() {
+  try {
+    await fetch(WORKER_URL + '/api/meta', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + adminKey,
+      },
+      body: JSON.stringify({ channel: adminChannel, tracks: adminTracks }),
+    });
+    showToast('순서 저장 완료');
+  } catch { showToast('순서 저장 실패'); }
+}
+
+// ── Admin Ch5 ON AIR ────────────────────────────────────────
+async function goOnAir(track) {
+  try {
+    // Measure duration with Howler
+    const duration = await new Promise((resolve, reject) => {
+      const h = new Howl({
+        src: [streamUrl(track.key)],
+        html5: true,
+        onload: () => { resolve(h.duration()); h.unload(); },
+        onloaderror: (_, e) => reject(e),
+      });
+      setTimeout(() => reject(new Error('timeout')), 30000);
+    });
+
+    await fetch(WORKER_URL + '/api/ch5/state', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + adminKey,
+      },
+      body: JSON.stringify({
+        trackKey: track.key,
+        trackName: track.name,
+        duration: duration,
+        currentTime: 0,
+        paused: false,
+      }),
+    });
+
+    showToast('ON AIR: ' + track.name);
+    loadAdminCh5State();
+  } catch (e) {
+    showToast('ON AIR 실패');
+  }
+}
+
+async function loadAdminCh5State() {
+  try {
+    const res = await fetch(WORKER_URL + '/api/ch5/state');
+    ch5AdminState = await res.json();
+    renderAdminCh5();
+  } catch {}
+}
+
+function renderAdminCh5() {
+  const s = ch5AdminState;
+  const statusEl = $('adminLiveStatus');
+  const ctrlEl = $('adminLiveControls');
+
+  if (!s || !s.trackKey) {
+    statusEl.textContent = '방송 대기 중';
+    ctrlEl.style.display = 'none';
+    return;
+  }
+
+  const badge = s.paused ? '⏸ 일시정지' : '◉ LIVE';
+  statusEl.innerHTML = '<span class="on-air-badge">' + badge + '</span> ' + (s.trackName || '');
+  ctrlEl.style.display = 'flex';
+
+  $('adminPauseBtn').textContent = s.paused ? '▶ 재개' : '⏸ 일시정지';
+}
+
+async function toggleCh5Pause() {
+  if (!ch5AdminState) return;
+  const isPaused = ch5AdminState.paused;
+  const currentTime = isPaused ? (ch5AdminState.currentTime || 0) : 0;
+
+  await fetch(WORKER_URL + '/api/ch5/state', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + adminKey,
+    },
+    body: JSON.stringify({
+      trackKey: ch5AdminState.trackKey,
+      trackName: ch5AdminState.trackName,
+      duration: ch5AdminState.duration,
+      paused: !isPaused,
+      currentTime: currentTime,
+    }),
+  });
+
+  loadAdminCh5State();
+}
+
+async function stopCh5Broadcast() {
+  await fetch(WORKER_URL + '/api/ch5/state', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + adminKey,
+    },
+    body: JSON.stringify({
+      trackKey: null,
+      paused: true,
+      currentTime: 0,
+    }),
+  });
+
+  showToast('방송 종료');
+  loadAdminCh5State();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  EVENT LISTENERS
+// ══════════════════════════════════════════════════════════════
+
+// Prev/Next (podcast controls)
+btnPrev.addEventListener('click', () => {
+  if (currentChannel === 3 || currentChannel === 4) playPrev(currentChannel);
+});
+btnNext.addEventListener('click', () => {
+  if (currentChannel === 3 || currentChannel === 4) playNext(currentChannel);
+});
+
+// Volume
+volSlider.value = currentVolume;
+volSlider.addEventListener('input', e => {
+  const v = parseFloat(e.target.value);
+  currentVolume = v;
+  if (currentHowl) currentHowl.volume(v);
+  if (audioEl) audioEl.volume = v;
+  localStorage.setItem('radio-volume', v);
+  $('volIcon').textContent = v === 0 ? '🔇' : v < 0.5 ? '🔉' : '🔊';
+});
+
+// Seek
+seekBar.addEventListener('click', e => {
+  if (!currentHowl) return;
+  const ratio = e.offsetX / seekBar.offsetWidth;
+  currentHowl.seek(currentHowl.duration() * ratio);
+});
+
+// Speed
+speedWrap.addEventListener('click', e => {
+  const btn = e.target.closest('.speed-btn');
+  if (!btn) return;
+  currentSpeed = parseFloat(btn.dataset.speed);
+  if (currentHowl) currentHowl.rate(currentSpeed);
+  speedWrap.querySelectorAll('.speed-btn').forEach(b =>
+    b.classList.toggle('active', parseFloat(b.dataset.speed) === currentSpeed)
+  );
+});
+
+// Shuffle
+btnShuffle.addEventListener('click', () => {
+  shuffleOn = !shuffleOn;
+  btnShuffle.classList.toggle('active', shuffleOn);
+  if (shuffleOn) {
+    const tracks = channelTracks[currentChannel] || [];
+    shuffleOrder = makeShuffleOrder(tracks.length);
+    showToast('셔플 ON');
+  } else {
+    shuffleOrder = [];
+    showToast('셔플 OFF');
+  }
+});
+
+// Repeat
+btnRepeat.addEventListener('click', () => {
+  repeatOn = !repeatOn;
+  btnRepeat.classList.toggle('active', repeatOn);
+  showToast(repeatOn ? '반복 ON' : '반복 OFF');
+});
+
+// Track List
+btnTrackList.addEventListener('click', openTrackPanel);
+$('trackPanelClose').addEventListener('click', closeTrackPanel);
+
+// Backdrop
+backdrop.addEventListener('click', () => {
+  closeTrackPanel();
+});
+
+// Sleep Timer (inline buttons in glass panel)
+$('sleepBtns').addEventListener('click', e => {
+  const btn = e.target.closest('.sleep-inline-btn');
+  if (btn) setSleepTimer(parseInt(btn.dataset.sec));
+});
+$('sleepCancel').addEventListener('click', () => {
+  clearTimeout(sleepTimer);
+  clearInterval(sleepCountdown);
+  sleepSecs = 0;
+  updateSleepUI();
+  showToast('타이머 취소');
+});
+
+// Record
+btnRecord.addEventListener('click', () => {
+  if (isRecording) stopRecording();
+  else startRecording();
+});
+btnRecordDir.addEventListener('click', changeRecordDir);
+recordDirPath.addEventListener('click', changeRecordDir);
+
+// Header triple tap → Admin
+$('headerTitle').addEventListener('click', handleHeaderTap);
+
+// Auth modal
+$('authSubmit').addEventListener('click', () => {
+  const key = $('authInput').value.trim();
+  if (key) {
+    adminKey = key;
+    localStorage.setItem('radio-admin-key', key);
+    $('authModal').classList.remove('open');
+    openAdmin();
+  }
+});
+$('authInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') $('authSubmit').click();
+});
+
+// Admin close
+$('adminClose').addEventListener('click', closeAdmin);
+
+// Admin tabs
+$('adminTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.admin-tab');
+  if (!tab) return;
+  loadAdminTracks(tab.dataset.ach);
+});
+
+// Dropzone
+const dropzone = $('dropzone');
+const fileInput = $('fileInput');
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  handleAdminFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e => {
+  handleAdminFiles(e.target.files);
+  fileInput.value = '';
+});
+
+// Upload All
+$('uploadAllBtn').addEventListener('click', uploadAll);
+
+// Save Order
+$('saveOrderBtn').addEventListener('click', saveAdminOrder);
+
+// Admin Refresh
+$('adminRefresh').addEventListener('click', () => loadAdminTracks(adminChannel));
+
+// Admin Ch5 controls
+$('adminPauseBtn').addEventListener('click', toggleCh5Pause);
+$('adminStopBtn').addEventListener('click', () => {
+  if (confirm('방송을 종료하시겠습니까?')) stopCh5Broadcast();
+});
+
+// ══════════════════════════════════════════════════════════════
+//  PWA INSTALL
+// ══════════════════════════════════════════════════════════════
+
+function initPwa() {
+  // Detect standalone (already installed)
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || navigator.standalone === true;
+  if (isStandalone) return; // Already installed, hide button
+
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    $('pwaInstallBtn').style.display = 'block';
+  });
+
+  $('pwaInstallBtn').addEventListener('click', async () => {
+    if (isIos) {
+      $('iosGuideModal').classList.add('open');
+      return;
+    }
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const result = await deferredInstallPrompt.userChoice;
+      if (result.outcome === 'accepted') {
+        $('pwaInstallBtn').style.display = 'none';
+      }
+      deferredInstallPrompt = null;
+    }
+  });
+
+  $('iosGuideClose').addEventListener('click', () => {
+    $('iosGuideModal').classList.remove('open');
+  });
+
+  // On iOS, show install guide button
+  if (isIos) {
+    $('pwaInstallBtn').style.display = 'block';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  AUTO-UPDATE (Service Worker)
+// ══════════════════════════════════════════════════════════════
+
+function initAutoUpdate() {
+  if (!('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    // Check for updates every 30 minutes
+    setInterval(() => reg.update(), 30 * 60 * 1000);
+
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      if (!newWorker) return;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'activated') {
+          showToast('새 버전으로 업데이트됩니다...');
+          setTimeout(() => window.location.reload(), 1500);
+        }
+      });
+    });
+  }).catch(err => console.log('SW registration failed:', err));
+
+  // Listen for NEW_VERSION_ACTIVATED message
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'NEW_VERSION_ACTIVATED') {
+      showToast('새 버전이 설치되었습니다. 새로고침합니다...');
+      setTimeout(() => window.location.reload(), 1500);
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════
+
+async function init() {
+  applyTimeTheme();
+  setInterval(applyTimeTheme, 60000);
+  updateClock();
+  setInterval(updateClock, 1000); // 1초 간격
+
+  // Build carousel
+  const lastChannel = parseInt(localStorage.getItem('radio-last-channel') ?? '1');
+  focusedIndex = CHANNELS.findIndex(c => c.num === lastChannel);
+  if (focusedIndex < 0) focusedIndex = 0;
+
+  buildCarousel();
+  initCarouselScroll();
+
+  // Scroll to initial channel after layout
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      scrollToChannel(focusedIndex);
+    });
+  });
+
+  // PWA
+  initPwa();
+  initAutoUpdate();
+
+  await enterChannel(lastChannel);
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
