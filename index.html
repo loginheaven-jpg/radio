@@ -969,18 +969,28 @@ async function playHls(url, useProxy) {
   if (Hls.isSupported()) {
     const hlsConfig = { enableWorker:false, lowLatencyMode:true, backBufferLength:30, maxBufferLength:30 };
     if (useProxy) {
-      hlsConfig.pLoader = class {
-        constructor(config) { this.loader = new Hls.DefaultConfig.loader(config); }
+      const DefaultLoader = Hls.DefaultConfig.loader;
+      const toProxy = u => WORKER_URL + '/api/hls-proxy?url=' + encodeURIComponent(u);
+      class ProxyLoader {
+        constructor(config) { this.loader = new DefaultLoader(config); }
         destroy() { this.loader.destroy(); }
         abort() { this.loader.abort(); }
         load(ctx, config, callbacks) {
-          ctx.url = WORKER_URL + '/api/hls-proxy?url=' + encodeURIComponent(ctx.url);
+          const origUrl = ctx.url;
+          ctx.url = toProxy(origUrl);
+          const origSuccess = callbacks.onSuccess;
+          callbacks.onSuccess = (resp, stats, context, net) => {
+            // Restore original URL so hls.js resolves relative paths against the real HLS server
+            context.url = origUrl;
+            origSuccess(resp, stats, context, net);
+          };
           this.loader.load(ctx, config, callbacks);
         }
         get stats() { return this.loader.stats; }
         get context() { return this.loader.context; }
-      };
-      hlsConfig.fLoader = hlsConfig.pLoader;
+      }
+      hlsConfig.pLoader = ProxyLoader;
+      hlsConfig.fLoader = ProxyLoader;
     } else {
       hlsConfig.xhrSetup = xhr => { xhr.withCredentials = false; };
     }
