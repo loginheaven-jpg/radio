@@ -783,6 +783,7 @@ git push origin main
 | 2026-03-02 | v2.1.2 | CH3/CH4 간헐적 무음 수정 (AudioContext lazy, Howler crossOrigin 패치). |
 | 2026-03-02 | v2.2 | **라이브 방송 시스템**. Workers API 8개 엔드포인트 (청크 업로드/다운로드, 상태, 보존정책, 세션관리). 파일 ON AIR ↔ 라이브 상호잠금. AudioContext 기반 청크 플레이어 + 다시듣기. 관리자 패널 (라이브 상태/보존설정/세션삭제). 트랙 목록 지난 방송 섹션. Python 호스트 앱 (FFmpeg 믹싱 + tkinter GUI). |
 | 2026-03-03 | v2.2.1 | **호스트 앱 파일 방송 통합**. 라이브 전용 → 탭 UI(라이브+파일). api_client.py 신규 (트랙 관리/CH5 상태/업로드). 파일 선택·업로드·트랙 목록·ON AIR·일시정지·종료·순서 변경. 라이브↔파일 상호잠금(UI+409). host/ 폴더를 git 저장소 안으로 이동. |
+| 2026-03-03 | v2.2.2 | **라이브 방송 품질 대폭 개선**. Cache API로 매 청크마다 latestChunk 실시간 전파 (KV 10초→2초 지연). 클라이언트 순차 fetch로 청크 순서 보장. 버퍼 언더런 갭 제거. 투기적 +2청크 선행 fetch. 연속 에러 시 자동 연결 끊김 처리. 대형 파일 멀티파트 업로드(R2). 업로드 진행률 UI. |
 
 ---
 
@@ -791,7 +792,7 @@ git push origin main
 ### 17.1 개요
 
 봄소리 방송 관리 데스크톱 앱. **두 가지 모드**를 지원한다:
-- **라이브 방송**: 마이크 + PC 사운드를 FFmpeg로 캡처 → Opus/OGG 2초 청크 → Workers API 업로드
+- **라이브 방송**: 마이크 + PC 사운드를 FFmpeg로 캡처 → Opus/OGG 2초 청크 → Workers API 업로드 → Cache API로 실시간 latestChunk 전파 → 클라이언트 순차 fetch + AudioContext 스케줄링
 - **파일 방송**: 오디오 파일 업로드, 트랙 관리, ON AIR/일시정지/종료 (웹 관리자 패널과 동일 기능)
 
 두 모드는 **상호 배타적** — Workers API가 409 충돌 응답으로 강제하며, 호스트 앱 UI에서도 선제 차단한다.

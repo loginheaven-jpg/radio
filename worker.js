@@ -380,8 +380,15 @@ async function handleLiveChunk(request, env, cors) {
     httpMetadata: { contentType: 'audio/ogg' }
   });
 
-  // KV 갱신 (5청크마다 — 쓰기 한도 절약)
-  if (chunkIndex % 5 === 0) {
+  // Cache API에 매 청크마다 latestChunk 기록 (쓰기 제한 없음)
+  const latestCacheKey = new Request('https://cache.internal/live-latest-chunk');
+  await caches.default.put(latestCacheKey, new Response(
+    JSON.stringify({ latestChunk: chunkIndex, updatedAt: Date.now() }),
+    { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3' } }
+  ));
+
+  // KV 갱신 (10청크마다 — 쓰기 한도 절약, 영속 용도)
+  if (chunkIndex % 10 === 0) {
     state.latestChunk = chunkIndex;
     state.updatedAt = Date.now();
     await env.RADIO_KV.put('live_state', JSON.stringify(state));
@@ -409,22 +416,35 @@ async function handleGetLiveChunk(env, cors, sessionId, index) {
 }
 
 async function handleGetLiveState(request, env, cors) {
-  const cacheKey = new Request('https://cache.internal/live-state');
+  // KV에서 기본 상태 읽기 (Cache API로 1초 캐싱)
+  const kvCacheKey = new Request('https://cache.internal/live-state-kv');
   const cache = caches.default;
-  let response = await cache.match(cacheKey);
-  if (!response) {
+  let state;
+  const kvCached = await cache.match(kvCacheKey);
+  if (kvCached) {
+    state = await kvCached.json();
+  } else {
     const raw = await env.RADIO_KV.get('live_state');
-    const state = raw ? JSON.parse(raw) : { active: false };
-    response = new Response(JSON.stringify(state), {
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, max-age=1'
-      }
-    });
-    await cache.put(cacheKey, response.clone());
+    state = raw ? JSON.parse(raw) : { active: false };
+    await cache.put(kvCacheKey, new Response(JSON.stringify(state), {
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=1' }
+    }));
   }
-  return response;
+
+  // Cache API에서 더 최신 latestChunk 반영
+  if (state.active) {
+    const latestCached = await cache.match(new Request('https://cache.internal/live-latest-chunk'));
+    if (latestCached) {
+      const latest = await latestCached.json();
+      if (latest.latestChunk > (state.latestChunk || -1)) {
+        state.latestChunk = latest.latestChunk;
+      }
+    }
+  }
+
+  return new Response(JSON.stringify(state), {
+    headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' }
+  });
 }
 
 async function handlePostLiveState(request, env, cors) {

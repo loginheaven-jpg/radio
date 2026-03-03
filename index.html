@@ -1490,11 +1490,14 @@ function stopRecording() {
   stopRecordTimer(); updateRecordBtn();
 }
 
-// ── Live Chunk Player ──
+// ── Live Chunk Player (v2 — 순차 fetch + 버퍼 관리) ──
 function ensureLiveAudioCtx() {
   initAudioContext();
   if (audioCtx.state === 'suspended') audioCtx.resume();
 }
+
+let liveFetching = false; // 중복 fetch 방지 플래그
+let liveErrorCount = 0;   // 연속 에러 카운터
 
 function startLivePlayer(sessionId, chunkDuration, latestChunk) {
   stopLivePlayer();
@@ -1502,14 +1505,17 @@ function startLivePlayer(sessionId, chunkDuration, latestChunk) {
   ensureLiveAudioCtx();
   liveSessionId = sessionId;
   liveChunkDuration = chunkDuration || 2.0;
-  liveLastChunk = latestChunk > 2 ? latestChunk - 2 : -1; // start ~4s behind live edge
+  // 라이브 엣지보다 4청크(8초) 뒤에서 시작 — 버퍼 확보
+  liveLastChunk = latestChunk > 4 ? latestChunk - 4 : -1;
   liveNextTime = 0;
   liveMode = true;
+  liveFetching = false;
+  liveErrorCount = 0;
   isPlaying = true;
   updatePlayBtn(true);
   nowPlayingEl.innerHTML = '<span class="on-air-badge">LIVE</span> 라이브 방송';
   liveBarFill.style.animation = 'liveBarShimmer 3s ease-in-out infinite';
-  livePollAndPlay(); // first fetch immediately
+  livePollAndPlay();
   livePollTimer = setInterval(livePollAndPlay, 2000);
 }
 
@@ -1520,46 +1526,68 @@ function stopLivePlayer() {
   liveMode = false;
   liveLastChunk = -1;
   liveNextTime = 0;
+  liveFetching = false;
 }
 
 async function livePollAndPlay() {
   if (!liveMode || !liveSessionId) return;
+  if (liveFetching) return; // 이전 fetch 사이클이 아직 진행 중이면 스킵
+  liveFetching = true;
   try {
     const res = await fetch(WORKER_URL + '/api/live/state');
+    if (!res.ok) throw new Error('state HTTP ' + res.status);
     const state = await res.json();
     if (!state.active) {
-      // live ended
       stopLivePlayer();
       isPlaying = false; updatePlayBtn(false);
       nowPlayingEl.textContent = '라이브 방송이 종료되었습니다';
       showToast('라이브 방송 종료');
-      // restart file polling
       startCh5Polling();
       return;
     }
     if (state.message) nowPlayingEl.innerHTML = '<span class="on-air-badge">LIVE</span> ' + state.message;
-    const latest = state.latestChunk;
-    if (latest > liveLastChunk) {
-      for (let i = liveLastChunk + 1; i <= latest; i++) {
-        fetchAndScheduleChunk(liveSessionId, i, liveChunkDuration);
+    liveErrorCount = 0; // 성공하면 에러 카운터 리셋
+
+    // state가 알려준 최신 청크 + 투기적 2청크 추가 시도
+    const target = (state.latestChunk || 0) + 2;
+
+    // 순차적으로 fetch & schedule (순서 보장)
+    while (liveLastChunk < target && liveMode) {
+      const nextIdx = liveLastChunk + 1;
+      const ok = await liveScheduleOneChunk(liveSessionId, nextIdx, liveChunkDuration);
+      if (ok) {
+        liveLastChunk = nextIdx;
+      } else {
+        break; // 404 = 아직 없는 청크, 다음 폴링에서 재시도
       }
-      liveLastChunk = latest;
     }
-  } catch (e) { console.log('live poll error:', e.message); }
+  } catch (e) {
+    liveErrorCount++;
+    console.log('live poll error (' + liveErrorCount + '):', e.message);
+    if (liveErrorCount >= 15) {
+      // 30초(15×2초) 연속 실패 시 자동 종료
+      stopLivePlayer();
+      isPlaying = false; updatePlayBtn(false);
+      nowPlayingEl.textContent = '연결 끊김 — 탭하여 재시도';
+      showToast('라이브 연결 끊김');
+    }
+  } finally {
+    liveFetching = false;
+  }
 }
 
-async function fetchAndScheduleChunk(sessionId, index, chunkDuration) {
+async function liveScheduleOneChunk(sessionId, index, chunkDuration) {
   try {
     const res = await fetch(WORKER_URL + '/api/live/chunk/' + sessionId + '/' + index);
-    if (!res.ok) return;
+    if (!res.ok) return false; // 404 = 아직 없음
     const buf = await res.arrayBuffer();
     const audioBuf = await audioCtx.decodeAudioData(buf);
     const src = audioCtx.createBufferSource();
     src.buffer = audioBuf;
     src.connect(gainNode);
-    // Schedule seamlessly
     const now = audioCtx.currentTime;
-    if (liveNextTime < now + 0.05) liveNextTime = now + 0.05;
+    // 버퍼 언더런 처리: 갭 없이 즉시 재생
+    if (liveNextTime < now) liveNextTime = now;
     src.start(liveNextTime);
     liveNextTime += audioBuf.duration || chunkDuration;
     liveScheduledSources.push(src);
@@ -1567,7 +1595,11 @@ async function fetchAndScheduleChunk(sessionId, index, chunkDuration) {
       const idx = liveScheduledSources.indexOf(src);
       if (idx >= 0) liveScheduledSources.splice(idx, 1);
     };
-  } catch (e) { console.log('chunk decode error:', e.message); }
+    return true;
+  } catch (e) {
+    console.log('chunk ' + index + ' error:', e.message);
+    return false;
+  }
 }
 
 // ── Replay Player ──
