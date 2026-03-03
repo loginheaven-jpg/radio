@@ -78,6 +78,7 @@ body{
 .clock-ss{font-family:'Space Grotesk',monospace;font-size:0.9em;opacity:0.4;margin-left:2px}
 .header-right{text-align:right}
 .header-logo{font-size:16px;font-weight:800;letter-spacing:0.12em;color:var(--accent);transition:color 0.6s;cursor:pointer}
+.logo-40{font-family:'Space Grotesk',monospace;font-size:1.5em;font-weight:700;color:#f0c060;letter-spacing:-0.02em}
 .header-tagline{font-size:10px;opacity:0.3;margin-top:1px}
 
 /* Now Playing */
@@ -92,15 +93,14 @@ body{
 /* Disc Area */
 .disc-area{position:relative;z-index:2;width:100%;display:flex;flex-direction:column;align-items:center;touch-action:pan-y}
 .arrow-btn{
-  position:absolute;top:80px;
-  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);
-  border-radius:50%;width:36px;height:36px;
+  position:absolute;top:20px;bottom:20px;width:48px;
+  background:transparent;border:none;
   display:flex;align-items:center;justify-content:center;
   cursor:pointer;z-index:5;transition:background 0.2s;
 }
-.arrow-btn:hover{background:rgba(255,255,255,0.1)}
-.arrow-left{left:4px}
-.arrow-right{right:4px}
+.arrow-btn:active{background:rgba(255,255,255,0.06)}
+.arrow-left{left:0;border-radius:0 12px 12px 0}
+.arrow-right{right:0;border-radius:12px 0 0 12px}
 
 /* Vinyl Disc */
 .vinyl-disc{width:210px;height:210px;border-radius:50%;position:relative;cursor:grab;will-change:transform}
@@ -344,7 +344,7 @@ body{
       <span class="clock-hm" id="clockHM">00:00</span><span class="clock-ss" id="clockSS">00</span>
     </div>
     <div class="header-right">
-      <div class="header-logo" id="headerTitle">예봄 <span style="font-size:1.4em;font-style:italic">40</span>주년</div>
+      <div class="header-logo" id="headerTitle">예봄 <span class="logo-40">40'</span></div>
       <div class="header-tagline">Yebom Radio 2.0</div>
     </div>
   </div>
@@ -357,10 +357,10 @@ body{
   <!-- Disc Area -->
   <div class="disc-area" id="discArea">
     <button class="arrow-btn arrow-left" id="arrowPrev" aria-label="이전 채널">
-      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M9 3 L5 7 L9 11" stroke="var(--accent)" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+      <svg width="20" height="20" viewBox="0 0 14 14"><path d="M9 3 L5 7 L9 11" stroke="var(--accent)" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
     </button>
     <button class="arrow-btn arrow-right" id="arrowNext" aria-label="다음 채널">
-      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M5 3 L9 7 L5 11" stroke="var(--accent)" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+      <svg width="20" height="20" viewBox="0 0 14 14"><path d="M5 3 L9 7 L5 11" stroke="var(--accent)" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
     </button>
 
     <div class="vinyl-disc" id="vinylDisc">

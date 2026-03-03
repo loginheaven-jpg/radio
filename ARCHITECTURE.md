@@ -273,7 +273,7 @@ swipeStartX, discTranslateX
 │ ■ AMBIENT-GLOW: 디스크 뒤 280px 글로우  │  ← position:fixed
 │ ■ PARTICLES-WRAP: 채널별 플로팅 파티클   │  ← position:fixed
 ├────────────────────────────────────────┤
-│ [HH:MM SS]              [예봄 40주년]   │  ← Header (시계 좌, 로고 우)
+│ [HH:MM SS]              [예봄 40']   │  ← Header (시계 좌, 로고 우)
 │           [Yebom Radio 2.0]            │     로고 3탭 → 관리자
 ├────────────────────────────────────────┤
 │     [LIVE] 현재 방송 프로그램명         │  ← Now Playing bar
