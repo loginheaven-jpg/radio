@@ -499,6 +499,7 @@ body{
     <div class="admin-tab active" data-ach="list1">말씀의 전당</div>
     <div class="admin-tab" data-ach="list2">찬양의 숲</div>
     <div class="admin-tab" data-ach="stream">봄소리 방송</div>
+    <div class="admin-tab" data-ach="rec-settings">녹음 설정</div>
   </div>
   <div class="dropzone" id="dropzone">♫ 파일을 드래그하거나 클릭하여 선택<div class="dropzone-formats">MP3 M4A OGG WAV FLAC AAC</div></div>
   <input type="file" id="fileInput" multiple accept=".mp3,.m4a,.ogg,.wav,.flac,.aac" style="display:none">
@@ -529,6 +530,29 @@ body{
     <div id="adminSessionList" style="display:none;margin:8px 0">
       <div style="font-size:0.8rem;color:#ece4d8aa;margin-bottom:6px">지난 방송</div>
       <ul id="adminSessionListUl" style="list-style:none;padding:0;margin:0;max-height:200px;overflow-y:auto"></ul>
+    </div>
+  </div>
+  <div id="adminRecPanel" style="display:none">
+    <div style="background:var(--bg-surface);border-radius:16px;padding:16px;border:1px solid var(--border-glass)">
+      <div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:12px">녹음 자동 분할 설정</div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:0.8rem;color:var(--text-mute)">무음 감지 레벨</label>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <input type="range" id="recThresholdSlider" min="10" max="500" value="50" style="flex:1;accent-color:var(--amber)">
+          <span id="recThresholdVal" style="font-size:0.8rem;min-width:32px;text-align:right">50</span>
+        </div>
+        <div style="font-size:0.7rem;color:var(--text-mute);margin-top:2px">낮을수록 민감 (기본: 50)</div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:0.8rem;color:var(--text-mute)">무음 지속 시간 (초)</label>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <input type="range" id="recSilenceDurSlider" min="1" max="30" value="1" step="1" style="flex:1;accent-color:var(--amber)">
+          <span id="recSilenceDurVal" style="font-size:0.8rem;min-width:32px;text-align:right">1초</span>
+        </div>
+        <div style="font-size:0.7rem;color:var(--text-mute);margin-top:2px">무음이 이 시간 이상 지속되면 파일 분할 (기본: 1초)</div>
+      </div>
+      <button class="extra-btn" id="recSettingsSave" style="font-size:0.8rem">저장</button>
+      <button class="extra-btn" id="recSettingsReset" style="font-size:0.75rem;margin-left:6px;opacity:0.6">기본값</button>
     </div>
   </div>
   <div class="admin-section-title"><span>등록된 목록</span><button class="extra-btn" id="adminRefresh" style="font-size:0.75rem">새로고침</button></div>
@@ -565,6 +589,7 @@ let shuffleOrder = [];
 
 let channelTracks = {};
 let seekRaf = null;
+let trackRefreshTimer = null;
 
 let sleepSecs = 0;
 let sleepTimer = null;
@@ -577,8 +602,9 @@ let mediaRecorder = null, recordedChunks = [], recSegmentNum = 0;
 let recStartTime = 0, recTimerInterval = null;
 let recFormat = localStorage.getItem('radio-rec-format') || 'webm';
 let recSilenceStart = 0, recSilenceTimer = null;
-const REC_SILENCE_THRESHOLD = 50 / 32767;
-const REC_SILENCE_DURATION = 1000;
+let recSilenceThresholdRaw = parseInt(localStorage.getItem('radio-rec-threshold')) || 50;
+let REC_SILENCE_THRESHOLD = recSilenceThresholdRaw / 32767;
+let REC_SILENCE_DURATION = parseInt(localStorage.getItem('radio-rec-silence-dur')) || 1000;
 let hlsSourceNode = null, howlSourceNode = null;
 
 // Admin
@@ -1188,6 +1214,7 @@ async function enterChannel(channel) {
   localStorage.setItem('radio-last-channel', String(channel));
   stopPlayback();
   clearInterval(ch5PollTimer);
+  clearInterval(trackRefreshTimer); trackRefreshTimer = null;
   nowPlayingEl.textContent = '';
 
   const isR2 = channel === 3 || channel === 4;
@@ -1236,10 +1263,31 @@ async function enterChannel(channel) {
       const liveState = await liveRes.json();
       if (liveState.active && liveState.sessionId) {
         startLivePlayer(liveState.sessionId, liveState.chunkDuration, liveState.latestChunk);
+        // 라이브 중에도 트랙 목록 자동 갱신
+        trackRefreshTimer = setInterval(async () => {
+          if (currentChannel !== 5) return;
+          const oldLen = (channelTracks[5] || []).length;
+          await fetchTracks(5);
+          if ((channelTracks[5] || []).length !== oldLen) updateTrackCounter();
+        }, 5 * 60 * 1000);
         return;
       }
     } catch {}
     await startCh5Polling();
+  }
+
+  // 채널 3,4,5: 5분마다 재생목록 자동 갱신
+  if (channel >= 3 && channel <= 5) {
+    trackRefreshTimer = setInterval(async () => {
+      if (currentChannel !== channel) return;
+      const oldLen = (channelTracks[channel] || []).length;
+      await fetchTracks(channel);
+      const newLen = (channelTracks[channel] || []).length;
+      if (newLen !== oldLen) {
+        updateTrackCounter();
+        showToast('재생목록 업데이트됨');
+      }
+    }, 5 * 60 * 1000);
   }
 }
 
@@ -1768,7 +1816,22 @@ function closeAdmin() { $('adminOverlay').classList.remove('open'); }
 async function loadAdminTracks(ch) {
   adminChannel = ch;
   document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t.dataset.ach === ch));
+  const isRec = ch === 'rec-settings';
   $('adminLivePanel').style.display = ch === 'stream' ? '' : 'none';
+  $('adminRecPanel').style.display = isRec ? '' : 'none';
+  $('dropzone').style.display = isRec ? 'none' : '';
+  $('uploadQueue').style.display = isRec ? 'none' : '';
+  $('adminTrackList').style.display = isRec ? 'none' : '';
+  $('saveOrderBtn').style.display = isRec ? 'none' : '';
+  document.querySelector('.admin-section-title').style.display = isRec ? 'none' : '';
+  if (isRec) {
+    $('recThresholdSlider').value = recSilenceThresholdRaw;
+    $('recThresholdVal').textContent = recSilenceThresholdRaw;
+    const durSec = Math.round(REC_SILENCE_DURATION / 1000);
+    $('recSilenceDurSlider').value = durSec;
+    $('recSilenceDurVal').textContent = durSec + '초';
+    return;
+  }
   if (ch === 'stream') loadAdminCh5State();
   try { const res = await fetch(WORKER_URL + '/api/tracks?channel=' + ch); adminTracks = await res.json(); renderAdminTrackList(); }
   catch (e) { showToast('목록 로드 실패'); }
@@ -2125,6 +2188,28 @@ $('adminPauseBtn').addEventListener('click', toggleCh5Pause);
 $('adminStopBtn').addEventListener('click', () => { if (confirm('방송을 종료하시겠습니까?')) stopCh5Broadcast(); });
 $('adminForceStopLive').addEventListener('click', forceStopLive);
 $('adminSaveStorageLimit').addEventListener('click', saveLiveStorageLimit);
+
+// ── 녹음 설정 슬라이더 ──
+$('recThresholdSlider').addEventListener('input', e => { $('recThresholdVal').textContent = e.target.value; });
+$('recSilenceDurSlider').addEventListener('input', e => { $('recSilenceDurVal').textContent = e.target.value + '초'; });
+$('recSettingsSave').addEventListener('click', () => {
+  recSilenceThresholdRaw = parseInt($('recThresholdSlider').value);
+  REC_SILENCE_THRESHOLD = recSilenceThresholdRaw / 32767;
+  REC_SILENCE_DURATION = parseInt($('recSilenceDurSlider').value) * 1000;
+  localStorage.setItem('radio-rec-threshold', recSilenceThresholdRaw);
+  localStorage.setItem('radio-rec-silence-dur', REC_SILENCE_DURATION);
+  showToast('녹음 설정 저장됨');
+});
+$('recSettingsReset').addEventListener('click', () => {
+  recSilenceThresholdRaw = 50;
+  REC_SILENCE_THRESHOLD = 50 / 32767;
+  REC_SILENCE_DURATION = 1000;
+  localStorage.removeItem('radio-rec-threshold');
+  localStorage.removeItem('radio-rec-silence-dur');
+  $('recThresholdSlider').value = 50; $('recThresholdVal').textContent = '50';
+  $('recSilenceDurSlider').value = 1; $('recSilenceDurVal').textContent = '1초';
+  showToast('기본값 복원됨');
+});
 
 // ── PWA ──
 function initPwa() {

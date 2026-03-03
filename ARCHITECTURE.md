@@ -67,7 +67,7 @@ c:\dev\radio\
 ### 채널 유형별 동작
 
 - **HLS 라이브 (CH1, CH2)**: hls.js로 실시간 스트리밍. 60초마다 프로그램명 갱신. Workers HLS 프록시로 CORS 우회.
-- **R2 개인선택 (CH3, CH4)**: Howler.js로 R2 음원 재생. 이어듣기(resume), 랜덤듣기, 이곡반복, 전곡반복, 속도 조절, 재생목록 지원.
+- **R2 개인선택 (CH3, CH4)**: Howler.js로 R2 음원 재생. 이어듣기(resume), 랜덤듣기, 이곡반복, 전곡반복, 속도 조절, 재생목록 지원. 5분마다 재생목록 자동 갱신.
 - **R2 공유스트리밍 (CH5)**: 관리자가 ON AIR → KV에 상태 저장. 청취자는 10초마다 polling → 오프셋 계산 → 동기화 재생.
 
 ---
@@ -530,7 +530,7 @@ MediaRecorder(recDestination.stream)
 **진입**: 헤더 로고 3회 탭 → Admin Key 입력 (최초 1회, 이후 localStorage 캐시)
 
 **탭 구조**:
-- 말씀의 전당 (`list1`) / 찬양의 숲 (`list2`) / 봄소리 방송 (`stream`)
+- 말씀의 전당 (`list1`) / 찬양의 숲 (`list2`) / 봄소리 방송 (`stream`) / 녹음 설정 (`rec-settings`)
 
 **기능**:
 - 파일 업로드: 드래그&드롭 / 파일 선택, 10MB 이하 단일 업로드, 10MB 초과 시 R2 멀티파트 자동 분할(10MB 단위), 파일별 진행률/상태 표시
@@ -538,6 +538,7 @@ MediaRecorder(recDestination.stream)
 - 순서 변경: HTML5 Drag & Drop → 순서 저장 (`/api/meta`)
 - ON AIR: 봄소리 방송 탭에서 트랙별 "▶ ON AIR" 버튼
 - 일시정지/종료: 라이브 제어 패널
+- 녹음 설정: 무음 감지 레벨(10~500, 기본 50), 무음 지속 시간(1~30초, 기본 1초) 슬라이더, localStorage 저장
 
 ### 9.8 PWA
 
@@ -648,6 +649,8 @@ const nowPlayingEl = new Proxy({}, {
 | `radio-ch4-resume` | 채널4 이어듣기 JSON | `null` |
 | `radio-volume` | 볼륨 (0.0~1.0) | `'0.8'` |
 | `radio-rec-format` | 녹음 형식 (`'webm'` \| `'mp3'`) | `'webm'` |
+| `radio-rec-threshold` | 무음 감지 임계값 (raw, /32767 변환) | `50` |
+| `radio-rec-silence-dur` | 무음 지속 시간 (ms) | `1000` |
 
 ---
 
@@ -784,6 +787,7 @@ git push origin main
 | 2026-03-02 | v2.2 | **라이브 방송 시스템**. Workers API 8개 엔드포인트 (청크 업로드/다운로드, 상태, 보존정책, 세션관리). 파일 ON AIR ↔ 라이브 상호잠금. AudioContext 기반 청크 플레이어 + 다시듣기. 관리자 패널 (라이브 상태/보존설정/세션삭제). 트랙 목록 지난 방송 섹션. Python 호스트 앱 (FFmpeg 믹싱 + tkinter GUI). |
 | 2026-03-03 | v2.2.1 | **호스트 앱 파일 방송 통합**. 라이브 전용 → 탭 UI(라이브+파일). api_client.py 신규 (트랙 관리/CH5 상태/업로드). 파일 선택·업로드·트랙 목록·ON AIR·일시정지·종료·순서 변경. 라이브↔파일 상호잠금(UI+409). host/ 폴더를 git 저장소 안으로 이동. |
 | 2026-03-03 | v2.2.2 | **라이브 방송 품질 대폭 개선**. Cache API로 매 청크마다 latestChunk 실시간 전파 (KV 10초→2초 지연). 클라이언트 순차 fetch로 청크 순서 보장. 버퍼 언더런 갭 제거. 투기적 +2청크 선행 fetch. 연속 에러 시 자동 연결 끊김 처리. 대형 파일 멀티파트 업로드(R2). 업로드 진행률 UI. |
+| 2026-03-03 | v2.2.3 | **재생목록 자동 갱신** (CH3-5, 5분 주기). 관리자 **녹음 설정 탭** (무음 감지 레벨/지속 시간 슬라이더, localStorage 저장). |
 
 ---
 
