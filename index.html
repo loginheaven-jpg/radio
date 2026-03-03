@@ -382,6 +382,7 @@ body{
         <span class="disc-freq" id="discFreq"></span>
       </div>
     </div>
+    <canvas id="lampCanvas" width="420" height="420" style="display:none;width:210px;height:210px"></canvas>
 
     <div class="channel-info">
       <div class="channel-name" id="channelName"></div>
@@ -782,6 +783,12 @@ function applyChannelTheme(ch) {
   bgLayer.style.background = `linear-gradient(170deg, ${def.bg1} 0%, ${def.bg2} 45%, ${def.bg3} 100%)`;
   ambientGlow.style.background = `radial-gradient(circle, ${def.accent}22, transparent 70%)`;
 
+  // CH3: 등잔 ↔ LP 디스크 전환
+  const isLamp = ch === 3;
+  vinylDisc.style.display = isLamp ? 'none' : '';
+  $('lampCanvas').style.display = isLamp ? '' : 'none';
+  if (isLamp) { stopDiscRotation(); startLampAnim(); } else { stopLampAnim(); }
+
   discIcon.innerHTML = CHANNEL_ICONS[def.id](def.accent);
   discFreq.textContent = def.freq ? (def.freq + (def.freqUnit ? ' ' + def.freqUnit : '')) : 'CH.' + def.num;
   discFreq.style.color = def.accentLight;
@@ -865,8 +872,156 @@ function stopDiscRotation() {
   if (discRafId) { cancelAnimationFrame(discRafId); discRafId = null; }
   discLastTime = null;
 }
-function startVis() { startDiscRotation(); }
-function stopVis() { stopDiscRotation(); }
+function startVis() { if (currentChannel === 3) startLampAnim(); else startDiscRotation(); }
+function stopVis() { stopDiscRotation(); stopLampAnim(); }
+
+// ── Lamp (CH3 등잔) ──
+let lampAnimId = null;
+let lampTime = 0;
+const LR = 106, LG = 140, LB = 184; // CH3 accent #6a8cb8
+
+function drawLampFlame(ctx, cx, baseY, t, on) {
+  const fH = on ? 28 + Math.sin(t*1.5)*3 : 14;
+  const fW = on ? 10 + Math.sin(t*2.3)*1.5 : 6;
+  const fx = Math.sin(t*3.7)*1.2 + Math.sin(t*5.1)*0.5;
+  if (on) {
+    const og = ctx.createRadialGradient(cx, baseY-fH*0.4, 2, cx, baseY-fH*0.3, 140);
+    og.addColorStop(0,'rgba(212,149,106,0.06)'); og.addColorStop(0.4,'rgba(200,165,94,0.03)'); og.addColorStop(1,'rgba(200,165,94,0)');
+    ctx.fillStyle = og; ctx.fillRect(0,0,280,280);
+  }
+  const ig = ctx.createRadialGradient(cx, baseY-fH*0.3, 3, cx, baseY-fH*0.2, 70);
+  ig.addColorStop(0, on ? 'rgba(255,200,100,0.15)' : 'rgba(255,200,100,0.04)');
+  ig.addColorStop(0.5, on ? 'rgba(255,180,80,0.06)' : 'rgba(255,180,80,0.01)');
+  ig.addColorStop(1,'rgba(255,180,80,0)');
+  ctx.fillStyle = ig; ctx.fillRect(0,0,280,280);
+  ctx.save(); ctx.translate(cx, baseY);
+  ctx.beginPath(); ctx.moveTo(0,-fH);
+  ctx.quadraticCurveTo(fW+fx,-fH*0.55,fW*0.7,-2);
+  ctx.quadraticCurveTo(0,2,-fW*0.7,-2);
+  ctx.quadraticCurveTo(-fW-fx,-fH*0.55,0,-fH);
+  const fg = ctx.createLinearGradient(0,0,0,-fH);
+  fg.addColorStop(0, on?'rgba(255,160,40,0.9)':'rgba(255,160,40,0.4)');
+  fg.addColorStop(0.4, on?'rgba(255,200,80,0.8)':'rgba(255,200,80,0.3)');
+  fg.addColorStop(0.8, on?'rgba(255,230,150,0.5)':'rgba(255,230,150,0.15)');
+  fg.addColorStop(1,'rgba(255,255,200,0)');
+  ctx.fillStyle = fg; ctx.fill();
+  const cH = fH*0.55, cW = fW*0.4;
+  ctx.beginPath(); ctx.moveTo(0,-cH-4);
+  ctx.quadraticCurveTo(cW,-cH*0.4,cW*0.6,-2);
+  ctx.quadraticCurveTo(0,0,-cW*0.6,-2);
+  ctx.quadraticCurveTo(-cW,-cH*0.4,0,-cH-4);
+  const cg = ctx.createLinearGradient(0,0,0,-cH);
+  cg.addColorStop(0, on?'rgba(100,140,255,0.5)':'rgba(100,140,255,0.15)');
+  cg.addColorStop(0.5, on?'rgba(255,255,220,0.6)':'rgba(255,255,220,0.2)');
+  cg.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle = cg; ctx.fill();
+  ctx.restore();
+  if (on) {
+    ctx.save(); ctx.globalAlpha = 0.025 + Math.sin(t*0.8)*0.008;
+    for (let i=0;i<8;i++) {
+      const a = (i/8)*Math.PI*2 + t*0.05, l = 80 + Math.sin(t*0.4+i*1.2)*15;
+      ctx.beginPath(); ctx.moveTo(cx, baseY-fH*0.4);
+      ctx.lineTo(cx+Math.cos(a)*l, baseY-fH*0.4+Math.sin(a)*l*0.6);
+      ctx.strokeStyle = `rgba(${LR},${LG},${LB},1)`; ctx.lineWidth = 0.5; ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+function drawLampBody(ctx, cx, flameBase, t, on) {
+  ctx.save(); ctx.translate(cx, 0);
+  const sh = on ? 0.7 + Math.sin(t*0.6)*0.1 : 0.35;
+  const sc = `rgba(${LR},${LG},${LB},`;
+  const hl = 'rgba(160,200,240,';
+  // 심지 받침
+  ctx.beginPath(); ctx.moveTo(0,flameBase); ctx.lineTo(0,flameBase+14);
+  ctx.strokeStyle = sc+sh+')'; ctx.lineWidth = 1.2; ctx.stroke();
+  // 기름 접시
+  ctx.beginPath(); ctx.moveTo(-32,flameBase+14);
+  ctx.quadraticCurveTo(-34,flameBase+28,-22,flameBase+30);
+  ctx.lineTo(22,flameBase+30);
+  ctx.quadraticCurveTo(34,flameBase+28,32,flameBase+14);
+  ctx.strokeStyle = sc+sh+')'; ctx.lineWidth = 1.2; ctx.lineCap = 'round'; ctx.stroke();
+  // 접시 안쪽
+  ctx.beginPath(); ctx.moveTo(-24,flameBase+18);
+  ctx.quadraticCurveTo(0,flameBase+24,24,flameBase+18);
+  ctx.strokeStyle = sc+(sh*0.35)+')'; ctx.lineWidth = 0.6; ctx.stroke();
+  // 줄기
+  ctx.beginPath(); ctx.moveTo(0,flameBase+30);
+  ctx.bezierCurveTo(-3,flameBase+55,3,flameBase+80,-1,flameBase+105);
+  ctx.strokeStyle = sc+sh+')'; ctx.lineWidth = 1.2; ctx.stroke();
+  // 줄기 하이라이트
+  ctx.beginPath(); ctx.moveTo(1.5,flameBase+35);
+  ctx.bezierCurveTo(4,flameBase+58,0,flameBase+82,1,flameBase+100);
+  ctx.strokeStyle = hl+(sh*0.2)+')'; ctx.lineWidth = 0.4; ctx.stroke();
+  // 마디
+  ctx.beginPath(); ctx.ellipse(0,flameBase+65,5,2.5,0,0,Math.PI*2);
+  ctx.strokeStyle = sc+(sh*0.7)+')'; ctx.lineWidth = 0.8; ctx.stroke();
+  // 받침대
+  const bY = flameBase+107;
+  ctx.beginPath(); ctx.ellipse(0,bY,40,10,0,0,Math.PI*2);
+  ctx.strokeStyle = sc+sh+')'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(0,bY,28,7,0,0,Math.PI*2);
+  ctx.strokeStyle = sc+(sh*0.5)+')'; ctx.lineWidth = 0.6; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(0,bY,14,3.5,0,0,Math.PI*2);
+  ctx.strokeStyle = sc+(sh*0.3)+')'; ctx.lineWidth = 0.4; ctx.stroke();
+  // 받침 두께
+  ctx.beginPath(); ctx.moveTo(-40,bY); ctx.lineTo(-40,bY+4);
+  ctx.ellipse(0,bY+4,40,10,0,Math.PI,0,true); ctx.lineTo(40,bY);
+  ctx.strokeStyle = sc+(sh*0.6)+')'; ctx.lineWidth = 0.8; ctx.stroke();
+  ctx.restore();
+}
+
+function drawLampVerse(ctx, cx, on) {
+  ctx.save();
+  ctx.font = "italic 10px 'Georgia',serif"; ctx.textAlign = 'center';
+  ctx.fillStyle = on ? `rgba(${LR},${LG},${LB},0.25)` : `rgba(${LR},${LG},${LB},0.1)`;
+  ctx.fillText('주의 말씀은 내 발에 등이요', cx, 240);
+  ctx.fillText('내 길에 빛이니이다', cx, 254);
+  ctx.font = "9px 'Georgia',serif";
+  ctx.fillStyle = on ? `rgba(${LR},${LG},${LB},0.15)` : `rgba(${LR},${LG},${LB},0.06)`;
+  ctx.fillText('시편 119:105', cx, 268);
+  ctx.restore();
+}
+
+function drawLampParticles(ctx, cx, baseY, t, on) {
+  if (!on) return;
+  ctx.save();
+  for (let i=0;i<5;i++) {
+    const px = cx + Math.sin(t*0.25+i*2.0)*70;
+    const py = baseY - 40 + Math.cos(t*0.18+i*1.5)*50 + i*12;
+    const pa = 0.06 + Math.sin(t*0.4+i*2.5)*0.03;
+    ctx.beginPath(); ctx.arc(px,py,0.8,0,Math.PI*2);
+    ctx.fillStyle = `rgba(${LR},${LG},${LB},${pa})`; ctx.fill();
+  }
+  ctx.restore();
+}
+
+function startLampAnim() {
+  if (lampAnimId) return;
+  const cv = $('lampCanvas');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  cv.width = 420; cv.height = 420;
+  ctx.scale(2, 2);
+  function draw() {
+    lampTime += isPlaying ? 0.008 : 0.002;
+    ctx.clearRect(0,0,210,210);
+    ctx.save(); ctx.scale(0.75,0.75); // 280→210
+    const cx = 140, fb = 88;
+    drawLampFlame(ctx, cx, fb, lampTime, isPlaying);
+    drawLampBody(ctx, cx, fb, lampTime, isPlaying);
+    drawLampParticles(ctx, cx, fb, lampTime, isPlaying);
+    drawLampVerse(ctx, cx, isPlaying);
+    ctx.restore();
+    lampAnimId = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+function stopLampAnim() {
+  if (lampAnimId) { cancelAnimationFrame(lampAnimId); lampAnimId = null; }
+}
 
 // ── Dot Indicators ──
 function buildDots() {
