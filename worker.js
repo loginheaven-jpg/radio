@@ -188,6 +188,49 @@ export default {
         return json({ ok: true, uploaded: results }, cors);
       }
 
+      // ── 멀티파트 업로드: 시작 ─────────────────────────────────
+      if (path === '/api/upload/multipart/create' && method === 'POST') {
+        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        const { key, contentType } = await request.json();
+        const mpu = await env.RADIO_BUCKET.createMultipartUpload(key, {
+          httpMetadata: { contentType: contentType || 'audio/mpeg' },
+        });
+        return json({ uploadId: mpu.uploadId, key }, cors);
+      }
+
+      // ── 멀티파트 업로드: 파트 전송 ───────────────────────────
+      if (path === '/api/upload/multipart/part' && method === 'PUT') {
+        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        const key = request.headers.get('X-Upload-Key');
+        const uploadId = request.headers.get('X-Upload-Id');
+        const partNum = parseInt(request.headers.get('X-Part-Number'));
+        const mpu = env.RADIO_BUCKET.resumeMultipartUpload(key, uploadId);
+        const part = await mpu.uploadPart(partNum, request.body);
+        return json({ partNumber: part.partNumber, etag: part.etag }, cors);
+      }
+
+      // ── 멀티파트 업로드: 완료 ─────────────────────────────────
+      if (path === '/api/upload/multipart/complete' && method === 'POST') {
+        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        const { key, uploadId, parts, channel, name } = await request.json();
+        const mpu = env.RADIO_BUCKET.resumeMultipartUpload(key, uploadId);
+        await mpu.complete(parts);
+
+        // _meta.json 업데이트
+        const prefix = DIR_MAP[channel] || DIR_MAP.stream;
+        const metaKey = prefix + '_meta.json';
+        const metaObj = await env.RADIO_BUCKET.get(metaKey);
+        let meta = [];
+        if (metaObj) { try { meta = JSON.parse(await metaObj.text()); } catch {} }
+        const trackName = (name || '').toString() || key.split('/').pop().replace(/\.[^/.]+$/, '');
+        const maxOrder = meta.length > 0 ? Math.max(...meta.map(m => m.order ?? 0)) : -1;
+        meta.push({ key, name: trackName, order: maxOrder + 1 });
+        await env.RADIO_BUCKET.put(metaKey, JSON.stringify(meta), {
+          httpMetadata: { contentType: 'application/json' },
+        });
+        return json({ ok: true, key, name: trackName }, cors);
+      }
+
       // ── 파일 삭제 (관리자) ─────────────────────────────────────
       if (path === '/api/delete' && method === 'POST') {
         if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
@@ -670,8 +713,8 @@ function corsHeaders(request) {
   const origin = request.headers.get('Origin') || '*';
   return {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range, X-Chunk-Index, X-Chunk-Duration',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range, X-Chunk-Index, X-Chunk-Duration, X-Upload-Key, X-Upload-Id, X-Part-Number',
     'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
     'Access-Control-Max-Age': '86400',
   };

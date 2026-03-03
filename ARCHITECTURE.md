@@ -84,7 +84,10 @@ c:\dev\radio\
 | GET | `/api/stream/:key` | R2 음원 Range Request 스트리밍 | 없음 |
 | GET | `/api/ch5/state` | 채널5 재생 상태 (KV `ch5_state`) | 없음 |
 | POST | `/api/ch5/state` | 채널5 재생 상태 변경 | Admin |
-| POST | `/api/upload` | 음원 R2 업로드 + `_meta.json` 갱신 (FormData) | Admin |
+| POST | `/api/upload` | 음원 R2 업로드 + `_meta.json` 갱신 (FormData, ≤10MB) | Admin |
+| POST | `/api/upload/multipart/create` | 대형 파일 멀티파트 업로드 시작 | Admin |
+| PUT | `/api/upload/multipart/part` | 멀티파트 파트 전송 (10MB 단위) | Admin |
+| POST | `/api/upload/multipart/complete` | 멀티파트 완료 + `_meta.json` 갱신 | Admin |
 | POST | `/api/delete` | 음원 R2 삭제 + `_meta.json` 갱신 | Admin |
 | POST | `/api/meta` | `_meta.json` 전체 덮어쓰기 (순서/곡명 변경) | Admin |
 | GET | `/api/febc-schedule` | 극동방송 편성표 프록시 (60초 캐시) | 없음 |
@@ -530,7 +533,7 @@ MediaRecorder(recDestination.stream)
 - 말씀의 전당 (`list1`) / 찬양의 숲 (`list2`) / 봄소리 방송 (`stream`)
 
 **기능**:
-- 파일 업로드: 드래그&드롭 / 파일 선택, XHR progress 표시
+- 파일 업로드: 드래그&드롭 / 파일 선택, 10MB 이하 단일 업로드, 10MB 초과 시 R2 멀티파트 자동 분할(10MB 단위), 파일별 진행률/상태 표시
 - 파일 삭제: confirm 후 `/api/delete`
 - 순서 변경: HTML5 Drag & Drop → 순서 저장 (`/api/meta`)
 - ON AIR: 봄소리 방송 탭에서 트랙별 "▶ ON AIR" 버튼
@@ -755,7 +758,7 @@ git push origin main
 | `openAdmin()` / `closeAdmin()` | 관리자 패널 열기/닫기 |
 | `loadAdminTracks(ch)` | 관리자 트랙 목록 로드 |
 | `handleAdminFiles(fileList)` | 업로드 큐에 파일 추가 |
-| `uploadAll()` | 큐의 모든 파일 업로드 |
+| `uploadAll()` | 큐의 모든 파일 업로드 (≤10MB 단일, >10MB 멀티파트 자동) |
 | `saveAdminOrder()` | 트랙 순서 저장 (`/api/meta`) |
 | `goOnAir(track)` | CH5 ON AIR 시작 |
 | `toggleCh5Pause()` / `stopCh5Broadcast()` | CH5 일시정지/종료 |

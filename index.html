@@ -1780,6 +1780,8 @@ function renderUploadQueue() {
   container.querySelectorAll('input').forEach(inp => { inp.addEventListener('input', e => { uploadQueue[parseInt(e.target.dataset.idx)].name = e.target.value; }); });
   container.querySelectorAll('.upload-remove').forEach(btn => { btn.addEventListener('click', () => { uploadQueue.splice(parseInt(btn.dataset.idx),1); renderUploadQueue(); }); });
 }
+const PART_SIZE = 10 * 1024 * 1024; // 10MB per part
+
 async function uploadAll() {
   const btn = $('uploadAllBtn');
   const total = uploadQueue.length;
@@ -1789,22 +1791,62 @@ async function uploadAll() {
     const row = document.getElementById('uprow-'+i);
     const icon = document.getElementById('upicon-'+i);
     const pct = document.getElementById('uppct-'+i);
+    const progFill = document.getElementById('prog-'+i);
     if (row) row.style.display = 'flex';
     if (icon) icon.textContent = '⏳';
-    const item = uploadQueue[i]; const fd = new FormData(); fd.append('files', item.file); fd.append('channel', adminChannel); fd.append('name', item.name);
-    try { await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest(); xhr.open('POST', WORKER_URL+'/api/upload'); xhr.setRequestHeader('Authorization','Bearer '+adminKey);
-      xhr.upload.onprogress = e => { if (e.lengthComputable) {
-        const p = Math.round(e.loaded/e.total*100);
-        const f = document.getElementById('prog-'+i); if (f) f.style.width = p+'%';
-        if (pct) pct.textContent = p+'%';
-      }};
-      xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else reject(); };
-      xhr.onerror = () => reject(); xhr.send(fd);
-    });
+    const item = uploadQueue[i];
+    const file = item.file;
+    const prefix = {list1:'radio/channel-list1/',list2:'radio/channel-list2/',stream:'radio/channel-stream/'}[adminChannel] || 'radio/channel-stream/';
+    const r2Key = prefix + file.name;
+    try {
+      if (file.size <= PART_SIZE) {
+        // 소형 파일: 기존 단일 업로드
+        await new Promise((resolve, reject) => {
+          const fd = new FormData(); fd.append('files', file); fd.append('channel', adminChannel); fd.append('name', item.name);
+          const xhr = new XMLHttpRequest(); xhr.open('POST', WORKER_URL+'/api/upload'); xhr.setRequestHeader('Authorization','Bearer '+adminKey);
+          xhr.upload.onprogress = e => { if (e.lengthComputable) {
+            const p = Math.round(e.loaded/e.total*100);
+            if (progFill) progFill.style.width = p+'%';
+            if (pct) pct.textContent = p+'%';
+          }};
+          xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else reject(new Error(xhr.statusText)); };
+          xhr.onerror = () => reject(new Error('network')); xhr.send(fd);
+        });
+      } else {
+        // 대형 파일: 멀티파트 업로드
+        const createRes = await fetch(WORKER_URL+'/api/upload/multipart/create', {
+          method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminKey},
+          body: JSON.stringify({ key: r2Key, contentType: file.type || 'audio/mpeg' })
+        });
+        if (!createRes.ok) throw new Error('create failed');
+        const { uploadId } = await createRes.json();
+        const totalParts = Math.ceil(file.size / PART_SIZE);
+        const parts = [];
+        for (let p = 0; p < totalParts; p++) {
+          const start = p * PART_SIZE;
+          const end = Math.min(start + PART_SIZE, file.size);
+          const blob = file.slice(start, end);
+          const partRes = await fetch(WORKER_URL+'/api/upload/multipart/part', {
+            method:'PUT',
+            headers:{'Authorization':'Bearer '+adminKey,'X-Upload-Key':r2Key,'X-Upload-Id':uploadId,'X-Part-Number':String(p+1)},
+            body: blob
+          });
+          if (!partRes.ok) throw new Error('part '+(p+1)+' failed');
+          const partData = await partRes.json();
+          parts.push({ partNumber: partData.partNumber, etag: partData.etag });
+          const percent = Math.round((p+1)/totalParts*100);
+          if (progFill) progFill.style.width = percent+'%';
+          if (pct) pct.textContent = percent+'%';
+        }
+        const compRes = await fetch(WORKER_URL+'/api/upload/multipart/complete', {
+          method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminKey},
+          body: JSON.stringify({ key: r2Key, uploadId, parts, channel: adminChannel, name: item.name })
+        });
+        if (!compRes.ok) throw new Error('complete failed');
+      }
       if (icon) icon.textContent = '✅';
       if (pct) pct.textContent = '완료';
-    } catch {
+    } catch (e) {
       if (icon) icon.textContent = '❌';
       if (pct) pct.textContent = '실패';
       showToast('업로드 실패: '+item.name);
