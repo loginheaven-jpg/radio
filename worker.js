@@ -201,7 +201,7 @@ export default {
       // ── 멀티파트 업로드: 파트 전송 ───────────────────────────
       if (path === '/api/upload/multipart/part' && method === 'PUT') {
         if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
-        const key = request.headers.get('X-Upload-Key');
+        const key = decodeURIComponent(request.headers.get('X-Upload-Key'));
         const uploadId = request.headers.get('X-Upload-Id');
         const partNum = parseInt(request.headers.get('X-Part-Number'));
         const mpu = env.RADIO_BUCKET.resumeMultipartUpload(key, uploadId);

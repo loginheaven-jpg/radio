@@ -1831,7 +1831,7 @@ async function uploadAll() {
           if (pct) pct.textContent = (p+1)+'/'+totalParts;
           const partRes = await fetch(WORKER_URL+'/api/upload/multipart/part', {
             method:'PUT',
-            headers:{'Authorization':'Bearer '+adminKey,'X-Upload-Key':r2Key,'X-Upload-Id':uploadId,'X-Part-Number':String(p+1)},
+            headers:{'Authorization':'Bearer '+adminKey,'X-Upload-Key':encodeURIComponent(r2Key),'X-Upload-Id':uploadId,'X-Part-Number':String(p+1)},
             body: blob
           });
           if (!partRes.ok) { const t = await partRes.text(); throw new Error('파트'+(p+1)+'실패: '+partRes.status+' '+t); }
