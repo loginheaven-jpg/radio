@@ -1785,6 +1785,7 @@ const PART_SIZE = 10 * 1024 * 1024; // 10MB per part
 async function uploadAll() {
   const btn = $('uploadAllBtn');
   const total = uploadQueue.length;
+  let successCount = 0;
   btn.disabled = true;
   for (let i = 0; i < total; i++) {
     btn.textContent = '업로드 중 (' + (i+1) + '/' + total + ')';
@@ -1809,16 +1810,17 @@ async function uploadAll() {
             if (progFill) progFill.style.width = p+'%';
             if (pct) pct.textContent = p+'%';
           }};
-          xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else reject(new Error(xhr.statusText)); };
+          xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else reject(new Error('HTTP '+xhr.status)); };
           xhr.onerror = () => reject(new Error('network')); xhr.send(fd);
         });
       } else {
         // 대형 파일: 멀티파트 업로드
+        if (pct) pct.textContent = '준비중...';
         const createRes = await fetch(WORKER_URL+'/api/upload/multipart/create', {
           method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminKey},
           body: JSON.stringify({ key: r2Key, contentType: file.type || 'audio/mpeg' })
         });
-        if (!createRes.ok) throw new Error('create failed');
+        if (!createRes.ok) { const t = await createRes.text(); throw new Error('시작실패: '+createRes.status+' '+t); }
         const { uploadId } = await createRes.json();
         const totalParts = Math.ceil(file.size / PART_SIZE);
         const parts = [];
@@ -1826,35 +1828,45 @@ async function uploadAll() {
           const start = p * PART_SIZE;
           const end = Math.min(start + PART_SIZE, file.size);
           const blob = file.slice(start, end);
+          if (pct) pct.textContent = (p+1)+'/'+totalParts;
           const partRes = await fetch(WORKER_URL+'/api/upload/multipart/part', {
             method:'PUT',
             headers:{'Authorization':'Bearer '+adminKey,'X-Upload-Key':r2Key,'X-Upload-Id':uploadId,'X-Part-Number':String(p+1)},
             body: blob
           });
-          if (!partRes.ok) throw new Error('part '+(p+1)+' failed');
+          if (!partRes.ok) { const t = await partRes.text(); throw new Error('파트'+(p+1)+'실패: '+partRes.status+' '+t); }
           const partData = await partRes.json();
           parts.push({ partNumber: partData.partNumber, etag: partData.etag });
           const percent = Math.round((p+1)/totalParts*100);
           if (progFill) progFill.style.width = percent+'%';
           if (pct) pct.textContent = percent+'%';
         }
+        if (pct) pct.textContent = '마무리...';
         const compRes = await fetch(WORKER_URL+'/api/upload/multipart/complete', {
           method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminKey},
           body: JSON.stringify({ key: r2Key, uploadId, parts, channel: adminChannel, name: item.name })
         });
-        if (!compRes.ok) throw new Error('complete failed');
+        if (!compRes.ok) { const t = await compRes.text(); throw new Error('완료실패: '+compRes.status+' '+t); }
       }
       if (icon) icon.textContent = '✅';
       if (pct) pct.textContent = '완료';
+      successCount++;
     } catch (e) {
+      console.error('업로드 에러:', item.name, e);
       if (icon) icon.textContent = '❌';
       if (pct) pct.textContent = '실패';
-      showToast('업로드 실패: '+item.name);
+      showToast('업로드 실패: ' + item.name + ' (' + e.message + ')');
     }
   }
-  btn.textContent = '모두 업로드'; btn.disabled = false;
-  showToast('업로드 완료 (' + total + '개)');
-  uploadQueue = []; renderUploadQueue(); loadAdminTracks(adminChannel);
+  btn.disabled = false;
+  if (successCount === total) {
+    btn.textContent = '모두 업로드';
+    showToast('업로드 완료 (' + total + '개)');
+    uploadQueue = []; renderUploadQueue(); loadAdminTracks(adminChannel);
+  } else {
+    btn.textContent = successCount + '/' + total + ' 완료 (실패 ' + (total-successCount) + '개)';
+    if (successCount > 0) loadAdminTracks(adminChannel);
+  }
 }
 async function saveAdminOrder() {
   try { await fetch(WORKER_URL+'/api/meta',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminKey},body:JSON.stringify({channel:adminChannel,tracks:adminTracks})}); showToast('순서 저장 완료'); } catch { showToast('순서 저장 실패'); }
