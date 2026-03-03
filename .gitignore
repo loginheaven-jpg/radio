@@ -22,3 +22,8 @@ public/
 Thumbs.db
 *.zip
 node_modules/
+host/__pycache__/
+host/settings.json
+host/*.spec
+host/dist/
+host/build/
