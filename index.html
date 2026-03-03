@@ -344,8 +344,8 @@ body{
       <span class="clock-hm" id="clockHM">00:00</span><span class="clock-ss" id="clockSS">00</span>
     </div>
     <div class="header-right">
-      <div class="header-logo" id="headerTitle">예봄라디오</div>
-      <div class="header-tagline">Dawn Radio 2.0</div>
+      <div class="header-logo" id="headerTitle">예봄 <span style="font-size:1.4em;font-style:italic">40</span>주년</div>
+      <div class="header-tagline">Yebom Radio 2.0</div>
     </div>
   </div>
 
@@ -446,10 +446,11 @@ body{
       <button class="speed-btn" data-speed="1.25">1.25×</button>
       <button class="speed-btn" data-speed="1.5">1.5×</button>
     </div>
-    <span class="divider">│</span>
-    <button class="pill-btn" id="btnTrackList">📋 목록</button>
-    <button class="pill-btn" id="btnRepeat">🔁 이곡반복</button>
-    <button class="pill-btn" id="btnShuffle">🔀 랜덤듣기</button>
+    <div style="width:100%;display:flex;justify-content:center;gap:8px">
+      <button class="pill-btn" id="btnTrackList">📋 목록</button>
+      <button class="pill-btn" id="btnRepeat">🔁 이곡반복</button>
+      <button class="pill-btn" id="btnShuffle">🔀 랜덤듣기</button>
+    </div>
   </div>
 
   <!-- Bottom Panel -->
@@ -480,7 +481,7 @@ body{
   </div>
 
   <button class="pwa-install-btn" id="pwaInstallBtn">📲 홈 화면에 추가</button>
-  <div class="footer">예봄교회 · Dawn Radio 2.0</div>
+  <div class="footer">예봄교회 · Yebom Radio 2.0</div>
 </div>
 
 <div class="backdrop" id="backdrop"></div>
@@ -541,7 +542,7 @@ body{
           <input type="range" id="recThresholdSlider" min="10" max="500" value="50" style="flex:1;accent-color:var(--amber)">
           <span id="recThresholdVal" style="font-size:0.8rem;min-width:32px;text-align:right">50</span>
         </div>
-        <div style="font-size:0.7rem;color:var(--text-mute);margin-top:2px">낮을수록 민감 (기본: 50)</div>
+        <div style="font-size:0.7rem;color:var(--text-mute);margin-top:2px">높을수록 민감 — 분할 잘 됨 (기본: 50)</div>
       </div>
       <div style="margin-bottom:12px">
         <label style="font-size:0.8rem;color:var(--text-mute)">무음 지속 시간 (초)</label>

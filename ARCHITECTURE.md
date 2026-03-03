@@ -273,8 +273,8 @@ swipeStartX, discTranslateX
 │ ■ AMBIENT-GLOW: 디스크 뒤 280px 글로우  │  ← position:fixed
 │ ■ PARTICLES-WRAP: 채널별 플로팅 파티클   │  ← position:fixed
 ├────────────────────────────────────────┤
-│ [HH:MM SS]              [예봄라디오]   │  ← Header (시계 좌, 로고 우)
-│           [Dawn Radio 2.0]            │     로고 3탭 → 관리자
+│ [HH:MM SS]              [예봄 40주년]   │  ← Header (시계 좌, 로고 우)
+│           [Yebom Radio 2.0]            │     로고 3탭 → 관리자
 ├────────────────────────────────────────┤
 │     [LIVE] 현재 방송 프로그램명         │  ← Now Playing bar
 ├────────────────────────────────────────┤
@@ -304,7 +304,7 @@ swipeStartX, discTranslateX
 │  🕐 [10분] [30분] [1시간] [2시간]      │     볼륨 + 수면타이머
 ├────────────────────────────────────────┤
 │  [📲 홈 화면에 추가]                    │  ← PWA Install (미설치 시)
-│  예봄교회 · Dawn Radio 2.0            │  ← Footer
+│  예봄교회 · Yebom Radio 2.0            │  ← Footer
 └────────────────────────────────────────┘
 ```
 
