@@ -881,8 +881,8 @@ let lampTime = 0;
 const LR = 106, LG = 140, LB = 184; // CH3 accent #6a8cb8
 
 function drawLampFlame(ctx, cx, baseY, t, on) {
-  const fH = on ? 28 + Math.sin(t*1.5)*3 : 14;
-  const fW = on ? 10 + Math.sin(t*2.3)*1.5 : 6;
+  const fH = on ? 38 + Math.sin(t*1.5)*4 : 14;
+  const fW = on ? 13 + Math.sin(t*2.3)*2 : 6;
   const fx = Math.sin(t*3.7)*1.2 + Math.sin(t*5.1)*0.5;
   if (on) {
     const og = ctx.createRadialGradient(cx, baseY-fH*0.4, 2, cx, baseY-fH*0.3, 140);
