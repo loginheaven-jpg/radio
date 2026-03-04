@@ -326,6 +326,16 @@ body{
 .setup-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:800;align-items:center;justify-content:center}
 .setup-modal.open{display:flex}
 
+/* Login Modal */
+.login-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:600;align-items:center;justify-content:center}
+.login-modal.open{display:flex}
+.login-box{background:var(--bg-mid);border:1px solid var(--border-glass);border-radius:16px;padding:28px 24px;width:300px;text-align:center}
+.login-box p{font-size:0.92rem;color:var(--text);margin-bottom:18px;line-height:1.5}
+.login-btn-sso{width:100%;padding:12px;border-radius:10px;border:none;background:var(--amber);color:var(--bg-deep);font-size:0.9rem;font-weight:600;cursor:pointer;margin-bottom:10px;transition:opacity 0.2s}
+.login-btn-sso:hover{opacity:0.85}
+.login-btn-cancel{width:100%;padding:10px;border-radius:10px;border:1px solid var(--border-glass);background:transparent;color:var(--text);font-size:0.85rem;cursor:pointer;opacity:0.6;transition:opacity 0.2s}
+.login-btn-cancel:hover{opacity:1}
+
 /* Toast */
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(26,16,53,0.95);backdrop-filter:blur(10px);border:1px solid var(--border-glass);color:var(--text);padding:10px 20px;border-radius:12px;font-size:0.82rem;opacity:0;pointer-events:none;z-index:700;max-width:360px;text-align:center}
 .toast.show{opacity:1;animation:fadeInUp 0.3s ease}
@@ -588,6 +598,7 @@ body{
   <button class="save-order-btn" id="saveOrderBtn">순서 저장</button>
 </div>
 
+<div class="login-modal" id="loginModal"><div class="login-box"><p>녹음 기능은 로그인이 필요합니다</p><button class="login-btn-sso" id="loginSsoBtn">예봄서비스로 로그인</button><button class="login-btn-cancel" id="loginCancelBtn">취소</button></div></div>
 <div class="auth-modal" id="authModal"><div class="auth-box"><h3>Admin Key 입력</h3><input type="password" id="authInput" placeholder="Admin Key"><button id="authSubmit">확인</button></div></div>
 <div class="setup-modal" id="setupModal"><div class="auth-box"><h3>Workers URL 설정</h3><input type="url" id="setupInput" placeholder="https://radio-worker.xxx.workers.dev"><button id="setupSubmit">저장</button></div></div>
 <div class="toast" id="toast"></div>
@@ -622,6 +633,31 @@ let trackRefreshTimer = null;
 let sleepSecs = 0;
 let sleepTimer = null;
 let sleepCountdown = null;
+
+// SSO Login
+let radioUser = null;
+const loginModal = $('loginModal');
+async function checkSsoSession() {
+  try {
+    const res = await fetch('https://saint.yebom.org/api/auth/session', { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.isLoggedIn) {
+        radioUser = data.user;
+        localStorage.setItem('radio-user', JSON.stringify({ user: data.user, ts: Date.now() }));
+        return true;
+      }
+    }
+  } catch(e) {}
+  radioUser = null;
+  localStorage.removeItem('radio-user');
+  return false;
+}
+(function initSsoCheck() {
+  const cached = JSON.parse(localStorage.getItem('radio-user') || 'null');
+  if (cached && Date.now() - cached.ts < 300000) radioUser = cached.user;
+  checkSsoSession();
+})();
 
 // Recording
 let isRecording = false;
@@ -2314,7 +2350,14 @@ async function loadSessionList() {
 btnPrev.addEventListener('click', () => { if (currentChannel === 3 || currentChannel === 4) playPrev(currentChannel); });
 btnNext.addEventListener('click', () => { if (currentChannel === 3 || currentChannel === 4) playNext(currentChannel); });
 mainPlayBtn.addEventListener('click', handlePlayPause);
-btnRecord.addEventListener('click', () => { if (isRecording) stopRecording(); else startRecording(); });
+btnRecord.addEventListener('click', async () => {
+  if (isRecording) { stopRecording(); return; }
+  if (!radioUser) {
+    const loggedIn = await checkSsoSession();
+    if (!loggedIn) { loginModal.classList.add('open'); return; }
+  }
+  startRecording();
+});
 btnRecordFormat.addEventListener('click', toggleRecordFormat);
 updateRecordFormatBtn();
 
@@ -2456,6 +2499,8 @@ $('sleepBtns').addEventListener('click', e => { const btn = e.target.closest('.s
 $('sleepCancel').addEventListener('click', () => { clearTimeout(sleepTimer); clearInterval(sleepCountdown); sleepSecs = 0; updateSleepUI(); showToast('타이머 취소'); });
 
 $('headerTitle').addEventListener('click', handleHeaderTap);
+$('loginSsoBtn').addEventListener('click', () => { window.location.href = 'https://saint.yebom.org/login?redirect=' + encodeURIComponent(window.location.href); });
+$('loginCancelBtn').addEventListener('click', () => loginModal.classList.remove('open'));
 $('authSubmit').addEventListener('click', () => { const key = $('authInput').value.trim(); if (key) { adminKey = key; localStorage.setItem('radio-admin-key',key); $('authModal').classList.remove('open'); openAdmin(); } });
 $('authInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('authSubmit').click(); });
 $('adminClose').addEventListener('click', closeAdmin);

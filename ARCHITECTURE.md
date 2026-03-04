@@ -1,6 +1,6 @@
 # 예봄라디오 2.0 — 아키텍처 문서
 
-> **버전**: 2026-03-03 v2.2.1 (호스트 앱 통합)
+> **버전**: 2026-03-04 v2.4.0 (SSO 로그인 연동)
 > **프로젝트 경로**: `c:\dev\radio\yebomradio`
 > **GitHub**: https://github.com/loginheaven-jpg/radio
 > **Pages URL**: https://radio-axi.pages.dev
@@ -16,7 +16,7 @@
 |---|---|
 | 인프라 | Cloudflare Workers + R2 + KV + Pages |
 | 프론트엔드 | 단일 `index.html` (Vanilla JS, CSS 인라인, 빌드 도구 없음) |
-| 인증 | Admin Key — Bearer 토큰 방식 (`wrangler secret`) |
+| 인증 | Admin Key — Bearer 토큰 방식 (`wrangler secret`), SSO — 교적부 세션 연동 (녹음 기능) |
 | PWA | `manifest.json` + `sw.js` (자동 업데이트, 오프라인 폴백) |
 | UI 패턴 | **Warm Vinyl** — 중앙 회전 바이닐 디스크 + 채널별 테마 + 앰비언트 효과 |
 | 디자인 참조 | `c:\dev\radio\UI-GUIDE.md` (디자인 명세), `c:\dev\radio\radio-vinyl.jsx` (React 프로토타입) |
@@ -488,7 +488,31 @@ startCh5Polling()
 4. 일시정지: KV에 `paused: true, currentTime: 현재위치` 저장
 5. 종료: `trackKey: null` 저장
 
-### 9.5 브라우저 녹음
+### 9.5 SSO 로그인 연동
+
+**목적**: 녹음 기능 접근 제어 — 로그인한 사용자만 녹음 가능
+
+**아키텍처**:
+```
+radio.yebom.org (클라이언트)
+  → fetch('https://saint.yebom.org/api/auth/session', { credentials: 'include' })
+  → saint_record_session 쿠키 (.yebom.org, sameSite: lax) 자동 전송
+  → { isLoggedIn: true, user: { name, email, permission_level, ... } }
+```
+
+**세션 체크 흐름**:
+1. 페이지 로드 시 localStorage 캐시 확인 (5분 TTL)
+2. 백그라운드에서 `checkSsoSession()` → 교적부 session API 호출
+3. 녹음 버튼 클릭 시 `radioUser` 확인 → 미로그인이면 로그인 모달 표시
+4. "예봄서비스로 로그인" → `saint.yebom.org/login?redirect=현재URL`로 이동
+5. 로그인 후 radio.yebom.org로 리다이렉트 → 쿠키 존재 → 녹음 가능
+
+**CORS 설정** (`saint-record-v2/src/app/api/auth/session/route.ts`):
+- 허용 Origin: `radio.yebom.org`, `finance.yebom.org`, `prayer.yebom.org`
+- `Access-Control-Allow-Credentials: true`
+- OPTIONS preflight 핸들러 포함
+
+### 9.6 브라우저 녹음
 
 **아키텍처**:
 ```
@@ -518,7 +542,7 @@ MediaRecorder(recDestination.stream)
 
 **중요**: Howler.js의 `<audio>` 노드 접근은 비공식 API (`_sounds[0]._node`) 사용. null 체크 필수.
 
-### 9.6 수면 타이머
+### 9.7 수면 타이머
 
 - 버튼: 10분 / 30분 / 1시간 / 2시간
 - 동일 버튼 재클릭: 토글 OFF
@@ -526,7 +550,7 @@ MediaRecorder(recDestination.stream)
 - 카운트다운: `setInterval(1초)` → 남은 시간 표시
 - 버튼 스타일: 채널 accent 컬러 연동
 
-### 9.7 관리자 패널
+### 9.8 관리자 패널
 
 **진입**: 헤더 로고 3회 탭 → Admin Key 입력 (최초 1회, 이후 localStorage 캐시)
 
@@ -541,7 +565,7 @@ MediaRecorder(recDestination.stream)
 - 일시정지/종료: 라이브 제어 패널
 - 녹음 설정: 무음 감지 레벨(10~500, 기본 50), 무음 지속 시간(1~30초, 기본 1초) 슬라이더, localStorage 저장
 
-### 9.8 PWA
+### 9.9 PWA
 
 **`manifest.json`**:
 ```json
@@ -652,6 +676,7 @@ const nowPlayingEl = new Proxy({}, {
 | `radio-rec-format` | 녹음 형식 (`'webm'` \| `'mp3'`) | `'webm'` |
 | `radio-rec-threshold` | 무음 감지 임계값 (raw, /32767 변환) | `50` |
 | `radio-rec-silence-dur` | 무음 지속 시간 (ms) | `1000` |
+| `radio-user` | SSO 로그인 캐시 JSON (`{ user, ts }`, 5분 TTL) | `null` |
 
 ---
 
@@ -793,6 +818,7 @@ git push origin main
 | 2026-03-03 | v2.2.5 | **Seek bar 드래그** (mouse+touch, 재생/멈춤 모두 가능). Thumb 24px 확대 (터치 최적화). CH3 등잔 멈춤 시 작은 불꽃 유지 (애니메이션 정지 버그 수정). 성경 구절 글씨 2배 확대 (10→20px). |
 | 2026-03-04 | v2.3.0 | **곡명 인식 (ACRCloud)**. CH1/CH2 라이브 채널에서 "곡명" 버튼으로 현재 재생 곡 식별. Workers가 HLS 세그먼트 3개(~12초) 병합 fetch → ACRCloud Identification API. 결과 카드 UI (제목/아티스트/작곡가/앨범/정확도). |
 | 2026-03-04 | v2.3.1 | **곡명 인식 버그 수정**. 극동방송 m3u8 URL 수정 (404→정상). 세그먼트 1개→3개 병합으로 인식 정확도 향상. 파일명 sample.ts→sample.aac 수정. |
+| 2026-03-04 | v2.4.0 | **SSO 로그인 연동**. 녹음 기능에 로그인 게이팅 추가. 교적부(saint.yebom.org) 세션 API CORS 연동. 로그인 모달 UI. localStorage 캐시 (5분 TTL). 미로그인 시 녹음 버튼 클릭 → 로그인 팝업 → 교적부 로그인 페이지 리다이렉트. |
 
 ---
 
