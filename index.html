@@ -636,7 +636,7 @@ let sleepCountdown = null;
 
 // SSO Login
 let radioUser = null;
-const loginModal = $('loginModal');
+let loginModal = null;
 async function checkSsoSession() {
   try {
     const res = await fetch('https://saint.yebom.org/api/auth/session', { credentials: 'include' });
@@ -653,11 +653,6 @@ async function checkSsoSession() {
   localStorage.removeItem('radio-user');
   return false;
 }
-(function initSsoCheck() {
-  const cached = JSON.parse(localStorage.getItem('radio-user') || 'null');
-  if (cached && Date.now() - cached.ts < 300000) radioUser = cached.user;
-  checkSsoSession();
-})();
 
 // Recording
 let isRecording = false;
@@ -819,6 +814,14 @@ const backdrop = $('backdrop');
 const toastEl = $('toast');
 const headerSubtitle = $('headerSubtitle');
 const discArea = $('discArea');
+loginModal = $('loginModal');
+
+// SSO: 캐시된 로그인 확인 + 백그라운드 세션 체크
+(function initSsoCheck() {
+  const cached = JSON.parse(localStorage.getItem('radio-user') || 'null');
+  if (cached && Date.now() - cached.ts < 300000) radioUser = cached.user;
+  checkSsoSession();
+})();
 
 const nowPlayingEl = new Proxy({}, {
   set(_, prop, value) {
