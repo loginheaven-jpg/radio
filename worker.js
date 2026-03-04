@@ -706,28 +706,36 @@ async function handleIdentify(request, env, cors) {
       try { m3u8Url = (await getKbsInfo()).streamUrl; } catch {}
       if (!m3u8Url) m3u8Url = 'https://1fm.gscdn.kbs.co.kr/1fm_192_2.m3u8';
     } else {
-      m3u8Url = 'https://mlive2.febc.net/live_m4a/audio.m3u8';
+      m3u8Url = 'https://mlive2.febc.net/live/seoulfm/playlist.m3u8';
     }
 
-    // 2) m3u8 fetch + 세그먼트 URL 추출 (다단계 처리)
+    // 2) m3u8 fetch + 세그먼트 URL 추출 (마지막 3개, ~12초)
     const ua = { 'User-Agent': 'Mozilla/5.0 (compatible; YebomRadio/2.0)' };
-    let segUrl = await resolveSegmentUrl(m3u8Url, ua);
-    if (!segUrl) return json({ found: false, message: '세그먼트를 찾을 수 없습니다' }, cors);
+    const segUrls = await resolveSegmentUrls(m3u8Url, ua, 3);
+    if (!segUrls || segUrls.length === 0) return json({ found: false, message: '세그먼트를 찾을 수 없습니다' }, cors);
 
-    // 3) 세그먼트 fetch
-    const segRes = await fetch(segUrl, { headers: ua });
-    const segBuf = await segRes.arrayBuffer();
-    if (segBuf.byteLength < 1000) return json({ found: false, message: '오디오 데이터가 너무 짧습니다' }, cors);
+    // 3) 세그먼트 fetch + 병합
+    const buffers = [];
+    for (const sUrl of segUrls) {
+      const segRes = await fetch(sUrl, { headers: ua });
+      if (segRes.ok) buffers.push(await segRes.arrayBuffer());
+    }
+    const totalSize = buffers.reduce((s, b) => s + b.byteLength, 0);
+    if (totalSize < 1000) return json({ found: false, message: '오디오 데이터가 너무 짧습니다' }, cors);
+
+    // 병합
+    const merged = new Uint8Array(totalSize);
+    let offset = 0;
+    for (const buf of buffers) { merged.set(new Uint8Array(buf), offset); offset += buf.byteLength; }
 
     // 4) ACRCloud API 호출
-    const result = await callACRCloud(env, segBuf);
-    return json(result, cors);
+    return json(await callACRCloud(env, merged.buffer), cors);
   } catch (e) {
     return json({ found: false, message: '인식 실패: ' + e.message }, cors, 500);
   }
 }
 
-async function resolveSegmentUrl(m3u8Url, headers) {
+async function resolveSegmentUrls(m3u8Url, headers, count = 3) {
   const res = await fetch(m3u8Url, { headers });
   const text = await res.text();
   const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
@@ -736,12 +744,11 @@ async function resolveSegmentUrl(m3u8Url, headers) {
   // variant 플레이리스트면 첫 번째 variant의 세그먼트 URL 재귀 추출
   const first = lines[0];
   if (first.endsWith('.m3u8') || first.includes('.m3u8?')) {
-    const variantUrl = toAbsoluteUrl(first, m3u8Url);
-    return resolveSegmentUrl(variantUrl, headers);
+    return resolveSegmentUrls(toAbsoluteUrl(first, m3u8Url), headers, count);
   }
 
-  // 마지막 세그먼트 반환
-  return toAbsoluteUrl(lines[lines.length - 1], m3u8Url);
+  // 마지막 N개 세그먼트 반환
+  return lines.slice(-count).map(l => toAbsoluteUrl(l, m3u8Url));
 }
 
 function toAbsoluteUrl(relative, baseUrl) {
@@ -767,7 +774,7 @@ async function callACRCloud(env, audioBuffer) {
 
   // multipart/form-data
   const fd = new FormData();
-  fd.append('sample', new Blob([audioBuffer]), 'sample.ts');
+  fd.append('sample', new Blob([audioBuffer]), 'sample.aac');
   fd.append('access_key', accessKey);
   fd.append('data_type', 'audio');
   fd.append('signature_version', '1');
