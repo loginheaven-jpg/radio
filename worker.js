@@ -719,19 +719,24 @@ async function getRscNowPlaying() {
     const params = paramMatch[1].split(',').map(s => s.trim());
 
     // 2) metadata 필드→변수 매핑 (title:VAR, composer:VAR, coverId:VAR)
-    const metaMatch = html.match(/metadata:\{([^}]+)\}/);
+    // current[0].metadata 블록 내에서 탐색
+    const metaMatch = html.match(/current:\[?\{[\s\S]*?metadata:\{([^}]+)\}/);
     if (!metaMatch) throw new Error('metadata not found');
     const meta = metaMatch[1];
-    const getVar = f => { const m = meta.match(new RegExp(f + ':(\\w+)')); return m ? m[1] : null; };
+    // [\w$]+ : $, _ 등 특수 식별자도 포함
+    const getVar = f => { const m = meta.match(new RegExp(f + ':([\\w$]+)')); return m ? m[1] : null; };
     const titleVar = getVar('title');
     const composerVar = getVar('composer');
     const coverIdVar = getVar('coverId');
 
-    // 3) IIFE 호출 인자 파싱 — 마지막 }( ... )) 사이의 문자열
-    const argsStart = html.lastIndexOf('}(');
-    const argsEnd = html.indexOf('))', argsStart);
+    // 3) IIFE 호출 인자 파싱 — __NUXT__ 스크립트 블록 내에서만 탐색
+    const nuxtStart = html.indexOf('window.__NUXT__=');
+    const scriptEnd = html.indexOf('</script>', nuxtStart);
+    const nuxtBlock = nuxtStart >= 0 ? html.substring(nuxtStart, scriptEnd > 0 ? scriptEnd : undefined) : '';
+    const argsStart = nuxtBlock.lastIndexOf('}(');
+    const argsEnd = nuxtBlock.lastIndexOf('))');
     if (argsStart < 0 || argsEnd < 0) throw new Error('args not found');
-    const argsRaw = html.substring(argsStart + 2, argsEnd);
+    const argsRaw = nuxtBlock.substring(argsStart + 2, argsEnd);
 
     // 인자 목록 파싱 (문자열 리터럴 + 기타 리터럴)
     const values = [];
