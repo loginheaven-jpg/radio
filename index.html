@@ -184,6 +184,9 @@ body{
 .identify-btn.visible{display:flex}
 .identify-btn.loading{opacity:0.5;pointer-events:none}
 .identify-btn:active{transform:scale(0.95)}
+.album-btn{background:rgba(176,56,74,0.12);border-color:rgba(176,56,74,0.3);color:#e07888}
+.album-btn:hover{background:rgba(176,56,74,0.2)}
+.album-cover{width:180px;height:180px;border-radius:10px;object-fit:cover;margin:0 auto 10px;display:block;box-shadow:0 4px 20px rgba(0,0,0,0.5)}
 .identify-result{
   position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
   background:rgba(20,18,36,0.95);backdrop-filter:blur(12px);
@@ -464,6 +467,9 @@ body{
     </button>
     <button class="identify-btn" id="btnIdentify">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1v14M4 4v8M12 4v8M1 6v4M15 6v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> 곡명
+    </button>
+    <button class="identify-btn album-btn" id="btnAlbum">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" fill="currentColor" opacity="0.7"/><circle cx="8" cy="8" r="4" stroke="currentColor" stroke-width="0.75" opacity="0.4"/></svg> 앨범
     </button>
   </div>
 
@@ -838,6 +844,7 @@ const btnPrev = $('btnPrev');
 const btnNext = $('btnNext');
 const btnRecord = $('btnRecord');
 const btnIdentify = $('btnIdentify');
+const btnAlbum = $('btnAlbum');
 const btnRecordFormat = $('btnRecordFormat');
 const recordTimerRow = $('recordTimerRow');
 const recordTimerEl = $('recordTimer');
@@ -1550,6 +1557,7 @@ async function enterChannel(channel) {
   btnRecord.classList.toggle('visible', canRecord);
   const canIdentify = channel === 1 || channel === 2;
   btnIdentify.classList.toggle('visible', canIdentify);
+  btnAlbum.classList.toggle('visible', channel === 6);
   recordTimerRow.classList.remove('visible');
 
   playlistExtras.classList.toggle('visible', isPod);
@@ -2564,6 +2572,29 @@ btnRecordFormat.addEventListener('click', toggleRecordFormat);
 updateRecordFormatBtn();
 
 // ── 곡명 인식 ──
+btnAlbum.addEventListener('click', async () => {
+  if (btnAlbum.classList.contains('loading')) return;
+  if (currentChannel !== 6) return;
+  btnAlbum.classList.add('loading');
+  const origHTML = btnAlbum.innerHTML;
+  btnAlbum.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" fill="currentColor" opacity="0.7"/></svg> 로딩…';
+  try {
+    const r = await fetch(WORKER_URL + '/api/rsc-nowplaying');
+    const d = await r.json();
+    let html = '';
+    if (d.coverUrl) html += `<img class="album-cover" src="${d.coverUrl}" alt="album art" onerror="this.style.display='none'">`;
+    if (d.composer) html += `<div class="identify-artist">${d.composer}</div>`;
+    if (d.title) html += `<div class="identify-title">${d.title}</div>`;
+    html += `<div class="identify-meta">Radio Swiss Classic</div>`;
+    showIdentifyPopup(html, 20000);
+  } catch {
+    showIdentifyPopup('<div class="identify-fail-icon">🎵</div><div class="identify-fail">정보를 가져올 수 없습니다</div>', 5000);
+  } finally {
+    btnAlbum.classList.remove('loading');
+    btnAlbum.innerHTML = origHTML;
+  }
+});
+
 btnIdentify.addEventListener('click', async () => {
   if (btnIdentify.classList.contains('loading')) return;
   if (!isPlaying) { showToast('먼저 재생을 시작해주세요'); return; }
