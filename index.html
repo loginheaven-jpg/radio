@@ -643,6 +643,7 @@ let seekRaf = null;
 let userPausedCh5 = false;
 let trackRefreshTimer = null;
 let sharedTrack = null;
+let sharedTrackPos = 0;
 let loadingTimeout = null;
 
 let sleepSecs = 0;
@@ -1620,8 +1621,9 @@ async function enterChannel(channel) {
     if (channel === 4 && !shuffleOn) { shuffleOn = true; btnShuffle.classList.add('active'); shuffleOrder = makeShuffleOrder(tracks.length); }
     if (sharedTrack) {
       const si = tracks.findIndex(t => t.key === sharedTrack);
-      sharedTrack = null;
-      if (si >= 0) { playTrack(channel, si, 0); mainPlayBtn.classList.remove('loading'); clearTimeout(loadingTimeout); return; }
+      const sPos = sharedTrackPos;
+      sharedTrack = null; sharedTrackPos = 0;
+      if (si >= 0) { playTrack(channel, si, sPos); mainPlayBtn.classList.remove('loading'); clearTimeout(loadingTimeout); return; }
     }
     const resume = await restoreResume(channel);
     if (resume) {
@@ -2800,11 +2802,18 @@ $('shareBtn').addEventListener('click', () => {
   url.searchParams.set('ch', String(currentChannel));
   if ((currentChannel === 3 || currentChannel === 4 || currentChannel === 5) && currentTrackKey) {
     url.searchParams.set('track', currentTrackKey);
+    if (currentHowl && isPlaying) {
+      const pos = Math.floor(currentHowl.seek());
+      if (pos > 3) url.searchParams.set('t', String(pos));
+    }
   }
   const chName = channelNameEl.textContent || '';
   const trackName = currentTrackName || '';
   let text = '예봄라디오 - ' + chName;
-  if (trackName) text += '\n' + trackName;
+  if (trackName) {
+    const pos = currentHowl ? Math.floor(currentHowl.seek()) : 0;
+    text += '\n' + trackName + (pos > 3 ? ' (' + formatTime(pos) + '~)' : '');
+  }
   text += '\n' + url.toString();
   navigator.clipboard.writeText(text)
     .then(() => showToast('링크가 복사되었습니다'))
@@ -2894,6 +2903,7 @@ async function init() {
   const sharedCh = parseInt(urlParams.get('ch'));
   if (sharedCh >= 1 && sharedCh <= 6) {
     sharedTrack = urlParams.get('track');
+    sharedTrackPos = parseInt(urlParams.get('t')) || 0;
     history.replaceState(null, '', window.location.pathname);
   }
 
