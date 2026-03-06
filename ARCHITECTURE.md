@@ -1,6 +1,6 @@
 # 예봄라디오 2.0 — 아키텍처 문서
 
-> **버전**: 2026-03-04 v2.4.0 (SSO 로그인 연동)
+> **버전**: 2026-03-06 v2.5.0 (채널 공유 + 로딩 인디케이터)
 > **프로젝트 경로**: `c:\dev\radio\yebomradio`
 > **GitHub**: https://github.com/loginheaven-jpg/radio
 > **Pages URL**: https://radio-axi.pages.dev
@@ -512,7 +512,25 @@ radio.yebom.org (클라이언트)
 - `Access-Control-Allow-Credentials: true`
 - OPTIONS preflight 핸들러 포함
 
-### 9.6 브라우저 녹음
+### 9.6 채널 공유 링크
+
+**공유 버튼**: 채널명 옆 링크 아이콘 (`.share-btn`, 14px SVG, opacity 0.3)
+
+**URL 형식**: `https://radio.yebom.org/?ch=3&track=radio/channel-list1/track.mp3`
+- `ch`: 채널 번호 (1~6, 필수)
+- `track`: R2 트랙 키 (CH3/CH4/CH5만, 라이브 채널은 생략)
+
+**수신 처리**: `init()` → URL 파라미터 파싱 → `sharedTrack` 변수 설정 → `enterChannel()` → CH3/CH4 분기에서 `sharedTrack` 우선 처리 → `restoreResume`보다 우선
+
+### 9.7 로딩 인디케이터
+
+**디자인**: 재생 버튼(62×62) 바깥에 accent 색 회전 링 (`::after` pseudo-element, `btnSpin` 0.8s)
+
+**흐름**: `enterChannel()` 진입 → `.loading` 추가 + 10초 안전 타임아웃 → 오디오 로드 완료/에러 → `.loading` 제거
+
+**텍스트 피드백**: CH1/2/6 "연결 중..." (기존), CH3/4 "트랙 로딩 중...", CH5 "방송 확인 중..."
+
+### 9.8 브라우저 녹음
 
 **아키텍처**:
 ```
@@ -542,7 +560,7 @@ MediaRecorder(recDestination.stream)
 
 **중요**: Howler.js의 `<audio>` 노드 접근은 비공식 API (`_sounds[0]._node`) 사용. null 체크 필수.
 
-### 9.7 수면 타이머
+### 9.9 수면 타이머
 
 - 버튼: 10분 / 30분 / 1시간 / 2시간
 - 동일 버튼 재클릭: 토글 OFF
@@ -550,7 +568,7 @@ MediaRecorder(recDestination.stream)
 - 카운트다운: `setInterval(1초)` → 남은 시간 표시
 - 버튼 스타일: 채널 accent 컬러 연동
 
-### 9.8 관리자 패널
+### 9.10 관리자 패널
 
 **진입**: 헤더 로고 3회 탭 → Admin Key 입력 (최초 1회, 이후 localStorage 캐시)
 
@@ -565,7 +583,7 @@ MediaRecorder(recDestination.stream)
 - 일시정지/종료: 라이브 제어 패널
 - 녹음 설정: 무음 감지 레벨(10~500, 기본 50), 무음 지속 시간(1~30초, 기본 1초) 슬라이더, localStorage 저장
 
-### 9.9 PWA
+### 9.11 PWA
 
 **`manifest.json`**:
 ```json
@@ -819,6 +837,7 @@ git push origin main
 | 2026-03-04 | v2.3.0 | **곡명 인식 (ACRCloud)**. CH1/CH2 라이브 채널에서 "곡명" 버튼으로 현재 재생 곡 식별. Workers가 HLS 세그먼트 3개(~12초) 병합 fetch → ACRCloud Identification API. 결과 카드 UI (제목/아티스트/작곡가/앨범/정확도). |
 | 2026-03-04 | v2.3.1 | **곡명 인식 버그 수정**. 극동방송 m3u8 URL 수정 (404→정상). 세그먼트 1개→3개 병합으로 인식 정확도 향상. 파일명 sample.ts→sample.aac 수정. |
 | 2026-03-04 | v2.4.0 | **SSO 로그인 연동**. 녹음 기능에 로그인 게이팅 추가. 교적부(saint.yebom.org) 세션 API CORS 연동. 로그인 모달 UI. localStorage 캐시 (5분 TTL). 미로그인 시 녹음 버튼 클릭 → 로그인 팝업 → 교적부 로그인 페이지 리다이렉트. |
+| 2026-03-06 | v2.5.0 | **채널 공유 링크 + 로딩 인디케이터**. 채널명 옆 공유 아이콘으로 현재 채널+곡 URL 클립보드 복사 (`?ch=3&track=...`). URL 파라미터로 공유 링크 수신 시 해당 채널/곡 자동 재생. 채널 전환 시 재생 버튼에 회전 링 로딩 애니메이션. CH3/4/5 로딩 중 텍스트 피드백 추가. 10초 안전 타임아웃. |
 
 ---
 

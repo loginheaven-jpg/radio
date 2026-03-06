@@ -136,6 +136,8 @@ body{
 .channel-info{text-align:center;margin-top:12px;margin-bottom:6px}
 .channel-name{font-size:21px;font-weight:700}
 .channel-label{font-size:11px;opacity:0.35;margin-top:3px}
+.share-btn{background:none;border:none;color:var(--accent);opacity:0.3;cursor:pointer;padding:2px 6px;vertical-align:middle;transition:opacity 0.2s}
+.share-btn:hover,.share-btn:active{opacity:0.7}
 
 /* Dots */
 .dot-indicators{display:flex;gap:6px;margin-bottom:4px;align-items:center;justify-content:center}
@@ -165,9 +167,11 @@ body{
 .main-play-btn{
   width:62px;height:62px;border-radius:50%;border:none;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  transition:box-shadow 0.3s,transform 0.15s;
+  transition:box-shadow 0.3s,transform 0.15s;position:relative;
 }
 .main-play-btn:active{transform:scale(0.95)}
+@keyframes btnSpin{to{transform:rotate(360deg)}}
+.main-play-btn.loading::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:2.5px solid transparent;border-top-color:var(--accent);animation:btnSpin .8s linear infinite;pointer-events:none}
 .rec-btn{
   background:rgba(232,64,64,0.1);border:1px solid rgba(232,64,64,0.2);
   border-radius:12px;padding:8px 16px;color:#e88080;font-size:12px;
@@ -421,7 +425,7 @@ body{
     <canvas id="lampCanvas" width="420" height="420" style="display:none;width:210px;height:210px"></canvas>
 
     <div class="channel-info">
-      <div class="channel-name" id="channelName"></div>
+      <div class="channel-name" id="channelName"></div><button class="share-btn" id="shareBtn" aria-label="링크 복사"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
       <div class="channel-label" id="channelLabel"></div>
     </div>
 
@@ -638,6 +642,8 @@ let channelTracks = {};
 let seekRaf = null;
 let userPausedCh5 = false;
 let trackRefreshTimer = null;
+let sharedTrack = null;
+let loadingTimeout = null;
 
 let sleepSecs = 0;
 let sleepTimer = null;
@@ -1571,6 +1577,9 @@ async function enterChannel(channel) {
   clearInterval(rscRefreshTimer); rscRefreshTimer = null;
   clearInterval(trackRefreshTimer); trackRefreshTimer = null;
   nowPlayingEl.textContent = '';
+  clearTimeout(loadingTimeout);
+  mainPlayBtn.classList.add('loading');
+  loadingTimeout = setTimeout(() => mainPlayBtn.classList.remove('loading'), 10000);
 
   const isR2 = channel === 3 || channel === 4;
   const isCh5 = channel === 5;
@@ -1605,8 +1614,14 @@ async function enterChannel(channel) {
   if (channel === 1) await loadKbs();
   else if (channel === 2) await loadFebc();
   else if (channel === 3 || channel === 4) {
+    nowPlayingEl.textContent = '트랙 로딩 중...';
     const tracks = await fetchTracks(channel);
     if (channel === 4 && !shuffleOn) { shuffleOn = true; btnShuffle.classList.add('active'); shuffleOrder = makeShuffleOrder(tracks.length); }
+    if (sharedTrack) {
+      const si = tracks.findIndex(t => t.key === sharedTrack);
+      sharedTrack = null;
+      if (si >= 0) { playTrack(channel, si, 0); mainPlayBtn.classList.remove('loading'); clearTimeout(loadingTimeout); return; }
+    }
     const resume = await restoreResume(channel);
     if (resume) {
       const idx = tracks.findIndex(t => t.key === resume.trackKey);
@@ -1615,6 +1630,7 @@ async function enterChannel(channel) {
     } else if (tracks.length > 0) { playTrack(channel, 0, 0); }
     else { nowPlayingEl.textContent = '등록된 트랙이 없습니다'; }
   } else if (channel === 5) {
+    nowPlayingEl.textContent = '방송 확인 중...';
     await fetchTracks(5);
     // Check live state first
     try {
@@ -1629,6 +1645,7 @@ async function enterChannel(channel) {
           await fetchTracks(5);
           if ((channelTracks[5] || []).length !== oldLen) updateTrackCounter();
         }, 5 * 60 * 1000);
+        clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
         return;
       }
     } catch {}
@@ -1650,6 +1667,8 @@ async function enterChannel(channel) {
       }
     }, 5 * 60 * 1000);
   }
+  clearTimeout(loadingTimeout);
+  mainPlayBtn.classList.remove('loading');
 }
 
 async function refreshLiveNowPlaying() {
@@ -1687,7 +1706,7 @@ async function loadKbs() {
         if (d.programTitle) { nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + d.programTitle; updateMediaSession(); }
       } catch {}
     }, 60000);
-  } catch (e) { nowPlayingEl.textContent = 'KBS 연결 실패'; showToast('KBS 스트리밍 연결 실패'); }
+  } catch (e) { nowPlayingEl.textContent = 'KBS 연결 실패'; showToast('KBS 스트리밍 연결 실패'); clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading'); }
 }
 
 // ── FEBC ──
@@ -1708,7 +1727,7 @@ async function loadFebc() {
         if (d.programTitle) { nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + d.programTitle; updateMediaSession(); }
       } catch {}
     }, 60000);
-  } catch (e) { nowPlayingEl.textContent = '극동방송 연결 실패'; showToast('극동방송 스트리밍 연결 실패'); }
+  } catch (e) { nowPlayingEl.textContent = '극동방송 연결 실패'; showToast('극동방송 스트리밍 연결 실패'); clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading'); }
 }
 
 // ── Radio Swiss Classic (CH6) ──
@@ -1741,6 +1760,7 @@ async function loadRsc() {
   } catch (e) {
     nowPlayingEl.textContent = 'Radio Swiss Classic 연결 실패';
     showToast('Radio Swiss Classic 연결 실패');
+    clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
   }
 }
 
@@ -2774,6 +2794,16 @@ $('sleepCancel').addEventListener('click', () => { clearTimeout(sleepTimer); cle
 $('headerTitle').addEventListener('click', handleHeaderTap);
 $('loginSsoBtn').addEventListener('click', () => { window.location.href = 'https://saint.yebom.org/login?redirect=' + encodeURIComponent(window.location.href); });
 $('loginCancelBtn').addEventListener('click', () => loginModal.classList.remove('open'));
+$('shareBtn').addEventListener('click', () => {
+  const url = new URL(window.location.origin);
+  url.searchParams.set('ch', String(currentChannel));
+  if ((currentChannel === 3 || currentChannel === 4 || currentChannel === 5) && currentTrackKey) {
+    url.searchParams.set('track', currentTrackKey);
+  }
+  navigator.clipboard.writeText(url.toString())
+    .then(() => showToast('링크가 복사되었습니다'))
+    .catch(() => showToast('링크 복사 실패'));
+});
 $('authSubmit').addEventListener('click', () => { const key = $('authInput').value.trim(); if (key) { adminKey = key; localStorage.setItem('radio-admin-key',key); $('authModal').classList.remove('open'); openAdmin(); } });
 $('authInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('authSubmit').click(); });
 $('adminClose').addEventListener('click', closeAdmin);
@@ -2854,10 +2884,17 @@ async function init() {
 
   applyChannelConfig(); // activeChannels 설정
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const sharedCh = parseInt(urlParams.get('ch'));
+  if (sharedCh >= 1 && sharedCh <= 6) {
+    sharedTrack = urlParams.get('track');
+    history.replaceState(null, '', window.location.pathname);
+  }
+
   const lastChannel = parseInt(localStorage.getItem('radio-last-channel') ?? '0');
   const initCfg = getChannelConfig();
   const defaultCh = initCfg.defaultChannel;
-  const startChannel = lastChannel || defaultCh;
+  const startChannel = (sharedCh >= 1 && sharedCh <= 6) ? sharedCh : (lastChannel || defaultCh);
   focusedIndex = activeChannels.findIndex(c => c.num === startChannel);
   if (focusedIndex < 0) focusedIndex = activeChannels.findIndex(c => c.num === defaultCh);
   if (focusedIndex < 0) focusedIndex = 0;
