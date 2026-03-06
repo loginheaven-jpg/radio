@@ -2802,7 +2802,7 @@ $('shareBtn').addEventListener('click', () => {
   url.searchParams.set('ch', String(currentChannel));
   if ((currentChannel === 3 || currentChannel === 4 || currentChannel === 5) && currentTrackKey) {
     url.searchParams.set('track', currentTrackKey);
-    if (currentHowl && isPlaying) {
+    if (currentHowl) {
       const pos = Math.floor(currentHowl.seek());
       if (pos > 3) url.searchParams.set('t', String(pos));
     }
