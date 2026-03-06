@@ -636,6 +636,7 @@ let shuffleOrder = [];
 
 let channelTracks = {};
 let seekRaf = null;
+let userPausedCh5 = false;
 let trackRefreshTimer = null;
 
 let sleepSecs = 0;
@@ -1301,8 +1302,9 @@ function updateMediaSession() {
     const nextIdx = (focusedIndex + 1) % activeChannels.length;
     switchToChannel(nextIdx);
   });
-  navigator.mediaSession.setActionHandler('play', () => handlePlayPause());
-  navigator.mediaSession.setActionHandler('pause', () => handlePlayPause());
+  navigator.mediaSession.setActionHandler('play', () => { if (!isPlaying) handlePlayPause(); });
+  navigator.mediaSession.setActionHandler('pause', () => { if (isPlaying) handlePlayPause(); });
+  navigator.mediaSession.setActionHandler('stop', () => { if (isPlaying) handlePlayPause(); });
 }
 
 // ── Worker URL Setup ──
@@ -1552,13 +1554,17 @@ function handlePlayPause() {
     if (currentHowl) { if (isPlaying) currentHowl.pause(); else currentHowl.play(); }
     else enterChannel(currentChannel);
   } else if (currentChannel === 5) {
-    if (currentHowl) { if (isPlaying) currentHowl.pause(); else currentHowl.play(); }
+    if (currentHowl) {
+      if (isPlaying) { currentHowl.pause(); userPausedCh5 = true; }
+      else { currentHowl.play(); userPausedCh5 = false; }
+    }
   }
 }
 
 // ── Channel Entry ──
 async function enterChannel(channel) {
   currentChannel = channel;
+  userPausedCh5 = false;
   localStorage.setItem('radio-last-channel', String(channel));
   stopPlayback();
   clearInterval(ch5PollTimer);
@@ -1767,7 +1773,7 @@ async function pollCh5State() {
     if (state.paused) targetTime = state.currentTime || 0;
     else targetTime = (Date.now() - state.startEpoch) / 1000;
     if (currentTrackKey === state.trackKey && currentHowl) {
-      if (!state.paused && !isPlaying) currentHowl.play();
+      if (!state.paused && !isPlaying && !userPausedCh5) currentHowl.play();
       else if (state.paused && isPlaying) currentHowl.pause();
       if (!state.paused && Math.abs(currentHowl.seek() - targetTime) > 3) currentHowl.seek(targetTime);
       return;
@@ -1786,7 +1792,7 @@ async function pollCh5State() {
       onstop: function() { isPlaying = false; updatePlayBtn(false); },
       onend: function() { isPlaying = false; stopVis(); updatePlayBtn(false); nowPlayingEl.textContent = '방송이 종료되었습니다'; },
     });
-    if (!state.paused) currentHowl.play();
+    if (!state.paused && !userPausedCh5) currentHowl.play();
   } catch (e) { console.error('ch5 poll error:', e); }
 }
 
@@ -2210,7 +2216,7 @@ function handleHeaderTap() {
   headerTapTimer = setTimeout(() => { headerTapCount = 0; }, 600);
   if (headerTapCount >= 3) { headerTapCount = 0; if (adminKey) openAdmin(); else $('authModal').classList.add('open'); }
 }
-function openAdmin() { $('adminOverlay').classList.add('open'); loadAdminTracks(adminChannel); if (adminChannel === 'stream') loadAdminCh5State(); }
+function openAdmin() { clearInterval(ch5PollTimer); $('adminOverlay').classList.add('open'); loadAdminTracks(adminChannel); if (adminChannel === 'stream') loadAdminCh5State(); }
 function closeAdmin() { $('adminOverlay').classList.remove('open'); adminTempCfg = null; }
 
 function buildChannelConfigUI() {
