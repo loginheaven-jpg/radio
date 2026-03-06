@@ -1606,6 +1606,7 @@ async function enterChannel(channel) {
   else if (channel === 2) await loadFebc();
   else if (channel === 3 || channel === 4) {
     const tracks = await fetchTracks(channel);
+    if (channel === 4 && !shuffleOn) { shuffleOn = true; btnShuffle.classList.add('active'); shuffleOrder = makeShuffleOrder(tracks.length); }
     const resume = await restoreResume(channel);
     if (resume) {
       const idx = tracks.findIndex(t => t.key === resume.trackKey);
