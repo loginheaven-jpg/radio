@@ -305,8 +305,11 @@ body{
 .admin-track-item:active{cursor:grabbing}
 .admin-drag-handle{color:var(--text-mute);font-size:1rem;cursor:grab}
 .admin-track-name{flex:1;font-size:0.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-edit-btn{background:none;border:none;color:var(--text-mute);font-size:0.85rem;cursor:pointer;transition:color 0.2s;padding:2px 4px}
+.admin-edit-btn:hover{color:var(--accent)}
 .admin-delete-btn{background:none;border:none;color:var(--text-mute);font-size:1rem;cursor:pointer;transition:color 0.2s}
 .admin-delete-btn:hover{color:var(--red)}
+.admin-track-item .rename-input{flex:1;background:var(--bg-mid);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:0.85rem;padding:4px 8px;outline:none}
 .admin-onair-btn{background:none;border:none;color:var(--green);font-size:0.78rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:1px solid var(--green);transition:all 0.2s}
 .admin-onair-btn:hover{background:var(--green);color:var(--bg-deep)}
 .save-order-btn{margin-top:8px;width:100%;padding:8px;border-radius:10px;border:1px solid var(--amber);background:transparent;color:var(--amber);font-size:0.82rem;cursor:pointer;transition:all 0.2s}
@@ -2380,7 +2383,7 @@ function renderAdminTrackList() {
     const li = document.createElement('li'); li.className = 'admin-track-item'; li.draggable = true; li.dataset.idx = i;
     let extraBtn = '';
     if (adminChannel === 'stream') extraBtn = '<button class="admin-onair-btn" data-key="'+t.key+'" data-name="'+t.name+'">▶ ON AIR</button>';
-    li.innerHTML = '<span class="admin-drag-handle">≡</span><span class="admin-track-name">'+t.name+'</span>'+extraBtn+'<button class="admin-delete-btn" data-key="'+t.key+'">🗑</button>';
+    li.innerHTML = '<span class="admin-drag-handle">≡</span><span class="admin-track-name">'+t.name+'</span>'+extraBtn+'<button class="admin-delete-btn" data-key="'+t.key+'">🗑</button><button class="admin-edit-btn" data-idx="'+i+'" title="이름 수정">✏️</button>';
     li.addEventListener('dragstart', e => { dragSrcIdx = i; e.dataTransfer.effectAllowed = 'move'; li.style.opacity = '0.5'; });
     li.addEventListener('dragend', () => { li.style.opacity = '1'; });
     li.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
@@ -2392,6 +2395,31 @@ function renderAdminTrackList() {
       const key = btn.dataset.key;
       if (!confirm('삭제하시겠습니까?\n'+key)) return;
       try { await fetch(WORKER_URL+'/api/delete',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminKey},body:JSON.stringify({key,channel:adminChannel})}); cleanupResumeOnDelete(key); showToast('삭제 완료'); loadAdminTracks(adminChannel); } catch { showToast('삭제 실패'); }
+    });
+  });
+  list.querySelectorAll('.admin-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      const li = btn.closest('.admin-track-item');
+      const nameSpan = li.querySelector('.admin-track-name');
+      const oldName = adminTracks[idx].name;
+      const input = document.createElement('input');
+      input.type = 'text'; input.className = 'rename-input'; input.value = oldName;
+      nameSpan.replaceWith(input);
+      input.focus(); input.select();
+      btn.style.display = 'none';
+      const save = async () => {
+        const newName = input.value.trim();
+        if (!newName || newName === oldName) { input.replaceWith(nameSpan); btn.style.display = ''; return; }
+        adminTracks[idx].name = newName;
+        try {
+          await fetch(WORKER_URL+'/api/meta',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminKey},body:JSON.stringify({channel:adminChannel,tracks:adminTracks})});
+          showToast('이름 변경 완료');
+        } catch { showToast('이름 변경 실패'); adminTracks[idx].name = oldName; }
+        renderAdminTrackList();
+      };
+      input.addEventListener('keydown', e => { if(e.key==='Enter') save(); if(e.key==='Escape'){ input.replaceWith(nameSpan); btn.style.display=''; } });
+      input.addEventListener('blur', save);
     });
   });
   list.querySelectorAll('.admin-onair-btn').forEach(btn => { btn.addEventListener('click', () => goOnAir({key:btn.dataset.key,name:btn.dataset.name})); });
