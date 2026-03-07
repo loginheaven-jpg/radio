@@ -3010,7 +3010,14 @@ function isAnniversaryPeriod() {
 }
 
 function shouldShowSplash() {
-  return isAnniversaryPeriod() && !localStorage.getItem(ANNIV_SPLASH_KEY);
+  const seen = localStorage.getItem(ANNIV_SPLASH_KEY);
+  if (isAnniversaryPeriod()) {
+    // 3월 중: 하루 1회 (날짜가 바뀌면 다시 표시)
+    const today = new Date().toISOString().slice(0, 10);
+    return seen !== today;
+  }
+  // 3월 이후: 최초 1회만
+  return !seen;
 }
 
 function initAnniversarySplash() {
@@ -3025,7 +3032,7 @@ function initAnniversarySplash() {
   $('splashEnterBtn').addEventListener('click', () => { clearTimeout(autoTimer); dismissSplash(); });
   function dismissSplash() {
     splash.classList.add('fade-out');
-    localStorage.setItem(ANNIV_SPLASH_KEY, '1');
+    localStorage.setItem(ANNIV_SPLASH_KEY, new Date().toISOString().slice(0, 10));
     setTimeout(() => splash.remove(), 900);
   }
 }
