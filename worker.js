@@ -968,7 +968,7 @@ function corsHeaders(request) {
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range, X-Chunk-Index, X-Chunk-Duration, X-Upload-Key, X-Upload-Id, X-Part-Number, X-User-Id, X-User-Name',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range, X-Chunk-Index, X-Chunk-Duration, X-Upload-Key, X-Upload-Id, X-Part-Number, X-User-Id, X-User-Name, X-Admin-Key',
     'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
     'Access-Control-Max-Age': '86400',
   };
