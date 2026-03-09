@@ -266,13 +266,115 @@ body{
 .track-panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .track-panel-header h3{font-size:1rem}
 .track-panel-close{background:none;border:none;color:var(--text-dim);font-size:1.3rem;cursor:pointer}
+.track-search-wrap{display:none;align-items:center;gap:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:6px 10px;margin-bottom:10px}
+.track-search-wrap.visible{display:flex}
+.track-search-wrap .search-icon{font-size:0.85rem;opacity:0.5;flex-shrink:0}
+.track-search-input{flex:1;background:none;border:none;color:var(--text);font-size:0.85rem;outline:none}
+.track-search-input::placeholder{color:var(--text-dim)}
+.track-search-clear{background:none;border:none;color:var(--text-dim);font-size:1rem;cursor:pointer;padding:0;line-height:1;display:none}
+.track-search-clear.visible{display:block}
+.track-search-count{font-size:0.75rem;color:var(--text-dim);margin-bottom:6px;display:none}
+.track-search-count.visible{display:block}
 .track-list{list-style:none}
 .track-item{display:flex;align-items:center;justify-content:space-between;padding:10px 8px;border-radius:10px;cursor:pointer;transition:background 0.2s}
 .track-item:hover{background:rgba(255,255,255,0.05)}
 .track-item.active{background:rgba(255,255,255,0.08);color:var(--accent)}
 .track-item-name{flex:1;font-size:0.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track-item-name mark{background:none;color:var(--accent);font-weight:600}
 .track-item-dur{font-family:'Space Grotesk',monospace;font-size:0.8rem;color:var(--text-dim);margin-left:12px}
 
+/* ── 열린 음악방 패널 ──────────────────────── */
+.or-panel{
+  position:fixed;bottom:12px;left:12px;right:12px;max-height:75vh;
+  background:rgba(11,16,9,0.97);backdrop-filter:blur(20px);
+  border:1px solid rgba(122,158,110,0.2);border-radius:20px;
+  padding:16px;z-index:300;transform:translateY(calc(100% + 12px));
+  transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  display:flex;flex-direction:column;max-width:480px;margin:0 auto;overflow:hidden;
+}
+.or-panel.open{transform:translateY(0)}
+.or-panel-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-shrink:0}
+.or-panel-title{flex:1;font-size:0.95rem;font-weight:600}
+.or-panel-close,.or-back-btn{background:none;border:none;color:var(--text-dim);font-size:1rem;cursor:pointer;padding:4px 6px;line-height:1}
+.or-back-btn{font-size:1.1rem}
+#orFolderView,#orTrackView{overflow-y:auto;flex:1}
+.or-folder-list{display:flex;flex-direction:column;gap:6px}
+.or-folder-item{display:flex;align-items:center;gap:10px;padding:12px 10px;
+  border-radius:12px;cursor:pointer;transition:background 0.2s;border:1px solid transparent}
+.or-folder-item:hover,.or-folder-item:active{background:rgba(122,158,110,0.1);border-color:rgba(122,158,110,0.2)}
+.or-folder-icon{font-size:1.2rem;width:24px;text-align:center}
+.or-folder-name{flex:1;font-size:0.9rem;font-weight:500}
+.or-folder-count{font-size:0.75rem;color:var(--text-dim);margin-right:4px}
+.or-folder-arrow{color:var(--text-dim);font-size:0.8rem}
+.or-folder-divider{height:1px;background:rgba(255,255,255,0.06);margin:4px 0}
+.or-actions{padding:10px 0 2px;flex-shrink:0}
+.or-add-folder-btn,.or-upload-btn{
+  width:100%;padding:10px;border-radius:12px;border:1px dashed rgba(122,158,110,0.3);
+  background:rgba(122,158,110,0.05);color:rgba(122,158,110,0.8);
+  font-size:0.85rem;cursor:pointer;transition:all 0.2s
+}
+.or-add-folder-btn:hover,.or-upload-btn:hover{background:rgba(122,158,110,0.12);border-color:rgba(122,158,110,0.5)}
+/* 트랙 목록 */
+.or-track-list{list-style:none;display:flex;flex-direction:column;gap:2px}
+.or-track-item{display:flex;align-items:center;gap:8px;padding:10px 8px;border-radius:10px;cursor:pointer;transition:background 0.2s}
+.or-track-item:hover{background:rgba(255,255,255,0.05)}
+.or-track-item.active{background:rgba(122,158,110,0.12);color:#a8c89a}
+.or-track-num{font-size:0.72rem;color:var(--text-dim);width:20px;text-align:center;flex-shrink:0}
+.or-track-info{flex:1;overflow:hidden}
+.or-track-name{font-size:0.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.or-track-meta{font-size:0.72rem;color:var(--text-dim);margin-top:2px}
+.or-track-dur{font-size:0.72rem;color:var(--text-dim);flex-shrink:0}
+.or-track-menu-btn{background:none;border:none;color:var(--text-dim);font-size:1rem;cursor:pointer;padding:2px 6px;flex-shrink:0;opacity:0.6}
+.or-track-menu-btn:hover{opacity:1}
+/* 업로드/생성 바텀시트 */
+.or-sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:400}
+.or-sheet-overlay.open{display:block}
+.or-upload-sheet,.or-create-sheet,.or-admin-sheet{
+  display:none;position:fixed;bottom:0;left:0;right:0;
+  background:rgba(11,16,9,0.98);backdrop-filter:blur(20px);
+  border:1px solid rgba(122,158,110,0.2);border-top-left-radius:20px;border-top-right-radius:20px;
+  padding:20px;z-index:401;max-width:480px;margin:0 auto;
+  transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.4,0,0.2,1)
+}
+.or-upload-sheet.open,.or-create-sheet.open,.or-admin-sheet.open{display:block;transform:translateY(0)}
+.or-sheet-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;font-weight:600;font-size:0.95rem}
+.or-sheet-header button{background:none;border:none;color:var(--text-dim);font-size:1rem;cursor:pointer;padding:2px 4px}
+.or-drop-area{border:2px dashed rgba(122,158,110,0.3);border-radius:14px;padding:28px 16px;
+  text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:14px}
+.or-drop-area:hover,.or-drop-area.dragover{border-color:rgba(122,158,110,0.7);background:rgba(122,158,110,0.05)}
+.or-drop-icon{font-size:1.8rem;margin-bottom:6px}
+.or-drop-text{font-size:0.85rem;color:var(--text)}
+.or-drop-hint{font-size:0.75rem;color:var(--text-dim)}
+.or-drop-area.has-file .or-drop-text{color:#a8c89a}
+.or-label{display:block;font-size:0.75rem;color:var(--text-dim);margin-bottom:6px}
+.or-name-input{width:100%;padding:10px 12px;background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:var(--text);
+  font-size:0.9rem;outline:none;box-sizing:border-box;margin-bottom:12px}
+.or-name-input:focus{border-color:rgba(122,158,110,0.5)}
+.or-progress-wrap{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.or-progress-bar{flex:1;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden}
+.or-progress-fill{height:100%;background:#7a9e6e;border-radius:3px;width:0%;transition:width 0.2s}
+.or-progress-pct{font-size:0.75rem;color:var(--text-dim);width:32px;text-align:right}
+.or-submit-btn{width:100%;padding:12px;border-radius:12px;background:#7a9e6e;
+  border:none;color:#fff;font-size:0.9rem;font-weight:600;cursor:pointer;transition:opacity 0.2s}
+.or-submit-btn:hover{opacity:0.85}
+.or-submit-btn:disabled{opacity:0.4;cursor:not-allowed}
+/* 폴더 피커 (복사/이동) */
+.or-folder-picker{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;max-height:240px;overflow-y:auto}
+.or-picker-item{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;cursor:pointer;transition:background 0.2s}
+.or-picker-item:hover{background:rgba(255,255,255,0.05)}
+.or-picker-item.disabled{opacity:0.4;cursor:not-allowed}
+.or-picker-item input[type=checkbox],.or-picker-item input[type=radio]{accent-color:#7a9e6e}
+/* 트랙 컨텍스트 메뉴 */
+.or-ctx-menu{
+  position:fixed;background:rgba(11,16,9,0.97);backdrop-filter:blur(12px);
+  border:1px solid rgba(122,158,110,0.2);border-radius:12px;padding:6px;
+  z-index:500;min-width:180px;display:none
+}
+.or-ctx-menu.open{display:block}
+.or-ctx-item{padding:10px 14px;border-radius:8px;cursor:pointer;font-size:0.85rem;transition:background 0.15s}
+.or-ctx-item:hover{background:rgba(122,158,110,0.12)}
+.or-ctx-item.danger{color:#e07070}
 /* Admin */
 .admin-overlay{display:none;position:fixed;inset:0;background:rgba(13,11,26,0.98);z-index:500;overflow-y:auto;padding:16px}
 .admin-overlay.open{display:block}
@@ -598,7 +700,88 @@ body{
     <h3 id="trackPanelTitle">재생 목록</h3>
     <button class="track-panel-close" id="trackPanelClose">✕</button>
   </div>
+  <div class="track-search-wrap" id="trackSearchWrap">
+    <span class="search-icon">🔍</span>
+    <input class="track-search-input" id="trackSearchInput" type="search" placeholder="검색...">
+    <button class="track-search-clear" id="trackSearchClear">✕</button>
+  </div>
+  <div class="track-search-count" id="trackSearchCount"></div>
   <ul class="track-list" id="trackList"></ul>
+</div>
+
+<!-- 열린 음악방 패널 -->
+<div class="or-panel" id="orPanel">
+  <div class="or-panel-header">
+    <button class="or-back-btn" id="orBackBtn" style="display:none">←</button>
+    <span class="or-panel-title" id="orPanelTitle">🎵 열린 음악방</span>
+    <button class="or-panel-close" id="orPanelClose">✕</button>
+  </div>
+
+  <!-- 폴더 목록 뷰 -->
+  <div id="orFolderView">
+    <div class="or-folder-list" id="orFolderList"></div>
+    <div class="or-actions">
+      <button class="or-add-folder-btn" id="orAddFolderBtn" style="display:none">+ 폴더 만들기</button>
+    </div>
+  </div>
+
+  <!-- 트랙 목록 뷰 -->
+  <div id="orTrackView" style="display:none">
+    <div class="track-search-wrap" id="orSearchWrap">
+      <span class="search-icon">🔍</span>
+      <input class="track-search-input" id="orSearchInput" type="search" placeholder="검색...">
+      <button class="track-search-clear" id="orSearchClear">✕</button>
+    </div>
+    <div class="track-search-count" id="orSearchCount"></div>
+    <ul class="or-track-list" id="orTrackList"></ul>
+    <div class="or-actions">
+      <button class="or-upload-btn" id="orUploadBtn" style="display:none">🎵 곡 올리기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 업로드 바텀시트 -->
+<div class="or-sheet-overlay" id="orSheetOverlay"></div>
+<div class="or-upload-sheet" id="orUploadSheet">
+  <div class="or-sheet-header">
+    <span>곡 올리기</span>
+    <button id="orUploadSheetClose">✕</button>
+  </div>
+  <div class="or-drop-area" id="orDropArea">
+    <div class="or-drop-icon">📁</div>
+    <div class="or-drop-text">파일 선택하기<br><span class="or-drop-hint">MP3, M4A, WAV · 50MB 이하</span></div>
+    <input type="file" id="orFileInput" accept=".mp3,.m4a,.wav,.aac" style="display:none">
+  </div>
+  <div class="or-upload-name-wrap" id="orUploadNameWrap" style="display:none">
+    <label class="or-label">곡 이름</label>
+    <input class="or-name-input" id="orUploadName" type="text" maxlength="100" placeholder="곡 이름 입력">
+    <div class="or-progress-wrap" id="orProgressWrap" style="display:none">
+      <div class="or-progress-bar"><div class="or-progress-fill" id="orProgressFill"></div></div>
+      <span class="or-progress-pct" id="orProgressPct">0%</span>
+    </div>
+    <button class="or-submit-btn" id="orSubmitBtn">✅ 올리기</button>
+  </div>
+</div>
+
+<!-- 폴더 만들기 바텀시트 -->
+<div class="or-create-sheet" id="orCreateSheet">
+  <div class="or-sheet-header">
+    <span>새 폴더 만들기</span>
+    <button id="orCreateSheetClose">✕</button>
+  </div>
+  <label class="or-label">폴더 이름 (2~10자)</label>
+  <input class="or-name-input" id="orFolderNameInput" type="text" maxlength="10" placeholder="폴더 이름">
+  <button class="or-submit-btn" id="orCreateFolderSubmit">✅ 만들기</button>
+</div>
+
+<!-- 관리자 복사/이동 바텀시트 -->
+<div class="or-admin-sheet" id="orAdminSheet">
+  <div class="or-sheet-header">
+    <span id="orAdminSheetTitle">폴더 선택</span>
+    <button id="orAdminSheetClose">✕</button>
+  </div>
+  <div class="or-folder-picker" id="orFolderPicker"></div>
+  <button class="or-submit-btn" id="orAdminSheetSubmit">실행</button>
 </div>
 
 <div class="admin-overlay" id="adminOverlay">
@@ -609,6 +792,7 @@ body{
     <div class="admin-tab" data-ach="stream">봄소리 방송</div>
     <div class="admin-tab" data-ach="rec-settings">녹음 설정</div>
     <div class="admin-tab" data-ach="channel-cfg">채널 관리</div>
+    <div class="admin-tab" data-ach="openroom-admin">열린 음악방</div>
   </div>
   <div class="dropzone" id="dropzone">♫ 파일을 드래그하거나 클릭하여 선택<div class="dropzone-formats">MP3 M4A OGG WAV FLAC AAC</div></div>
   <input type="file" id="fileInput" multiple accept=".mp3,.m4a,.ogg,.wav,.flac,.aac" style="display:none">
@@ -642,6 +826,19 @@ body{
     </div>
   </div>
   <div id="adminChannelPanel" style="display:none;padding:4px 0"></div>
+  <div id="adminOpenRoomPanel" style="display:none;padding:4px 0">
+    <div style="background:var(--bg-surface);border-radius:16px;padding:16px;border:1px solid var(--border-glass);margin-bottom:12px">
+      <div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:10px">열린 음악방 초기화</div>
+      <div style="font-size:0.78rem;color:var(--text-mute);margin-bottom:12px">최초 1회 실행. 기본 폴더 5개와 설정을 KV에 생성합니다. 이미 초기화된 경우 건너뜁니다.</div>
+      <button class="extra-btn" id="orAdminInitBtn" style="font-size:0.82rem">KV 초기화 실행</button>
+      <span id="orAdminInitResult" style="font-size:0.78rem;margin-left:10px;color:var(--text-mute)"></span>
+    </div>
+    <div style="background:var(--bg-surface);border-radius:16px;padding:16px;border:1px solid var(--border-glass);margin-bottom:12px">
+      <div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:10px">저장 용량 현황</div>
+      <div id="orAdminStorageInfo" style="font-size:0.78rem;color:var(--text-mute)">—</div>
+      <button class="extra-btn" id="orAdminStorageBtn" style="font-size:0.78rem;margin-top:8px">조회</button>
+    </div>
+  </div>
   <div id="adminRecPanel" style="display:none">
     <div style="background:var(--bg-surface);border-radius:16px;padding:16px;border:1px solid var(--border-glass)">
       <div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:12px">녹음 자동 분할 설정</div>
@@ -708,6 +905,7 @@ let loadingTimeout = null;
 
 let sleepSecs = 0;
 let sleepTimer = null;
+let sleepTargetTime = 0; // 백그라운드 throttle 대응용 목표 시각
 let sleepCountdown = null;
 
 // SSO Login
@@ -735,7 +933,7 @@ let isRecording = false;
 let audioCtx = null, gainNode = null, recDestination = null, recAnalyser = null;
 let mediaRecorder = null, recordedChunks = [], recSegmentNum = 0;
 let recStartTime = 0, recTimerInterval = null;
-let recFormat = localStorage.getItem('radio-rec-format') || 'webm';
+let recFormat = 'webm'; // MP3 인코딩은 브라우저 MediaRecorder 미지원, WebM/Opus 고정
 let recSilenceStart = 0, recSilenceTimer = null;
 let recSilenceThresholdRaw = parseInt(localStorage.getItem('radio-rec-threshold')) || 50;
 let REC_SILENCE_THRESHOLD = recSilenceThresholdRaw / 32767;
@@ -770,6 +968,7 @@ let replaySessionId = null, replayChunkCount = 0, replayChunkDuration = 2.0;
 let replayCurrentChunk = 0, replayNextTime = 0, replayPlaying = false;
 let replayFeedTimer = null, replayScheduledSources = [];
 let replayMode = false; // true when replaying a past session
+let replayStartCtxTime = 0; // AudioContext 기준시간 (리플레이 시작 시점)
 
 let focusedIndex = 0;
 let deferredInstallPrompt = null;
@@ -861,6 +1060,17 @@ const CHANNELS = [
       {char:'♪',x:14,delay:0,size:10,opacity:0.06},{char:'🏔',x:28,delay:1.4,size:12,opacity:0.05},
       {char:'♫',x:42,delay:2.8,size:14,opacity:0.08},{char:'✦',x:56,delay:4.2,size:8,opacity:0.06},
       {char:'𝄞',x:70,delay:5.6,size:16,opacity:0.10},{char:'♪',x:84,delay:7.0,size:10,opacity:0.06},
+    ],
+  },
+  { num:7, id:'openroom', name:'열린 음악방', freq:'CH.7', freqUnit:'', type:'openroom',
+    accent:'#7a9e6e', accentLight:'#a8c89a',
+    bg1:'#0d1410', bg2:'#111812', bg3:'#0b1009', discRing:'#6a8a5c',
+    label:'함께 나누는 음악',
+    color:'#7a9e6e', dim:'rgba(122,158,110,0.15)', glow:'rgba(122,158,110,0.3)',
+    particles:[
+      {char:'🎵',x:12,delay:0,size:8,opacity:0.05},{char:'♪',x:25,delay:1.2,size:12,opacity:0.07},
+      {char:'🎶',x:38,delay:2.4,size:10,opacity:0.05},{char:'♫',x:52,delay:3.6,size:14,opacity:0.08},
+      {char:'🎵',x:66,delay:4.8,size:8,opacity:0.05},{char:'♪',x:80,delay:6.0,size:12,opacity:0.07},
     ],
   },
 ];
@@ -1350,6 +1560,9 @@ function updatePlayBtn(playing) {
     playIcon.innerHTML = '<path d="M7 4 L18 11 L7 18Z" fill="currentColor"/>';
     stopVis();
   }
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+  }
 }
 
 function stopPlayback() {
@@ -1357,6 +1570,7 @@ function stopPlayback() {
   if (currentHowl) { currentHowl.unload(); currentHowl = null; }
   stopLivePlayer();
   stopReplay();
+  howlSourceNode = null;
   isPlaying = false;
   updatePlayBtn(false);
   cancelAnimationFrame(seekRaf);
@@ -1492,6 +1706,20 @@ async function playHls(url, useProxy) {
       setTimeout(() => reject(new Error('HLS timeout 20s')), 20000);
     });
     currentHls = hls;
+    hls.on(Hls.Events.ERROR, (_, data) => {
+      if (!data.fatal) return;
+      switch (data.type) {
+        case Hls.ErrorTypes.NETWORK_ERROR:
+          hls.startLoad();
+          break;
+        case Hls.ErrorTypes.MEDIA_ERROR:
+          hls.recoverMediaError();
+          break;
+        default:
+          showToast('스트리밍 오류 — 재연결 중...');
+          enterChannel(currentChannel);
+      }
+    });
   } else if (el.canPlayType('application/vnd.apple.mpegurl')) {
     el.src = url;
     await new Promise(r => el.addEventListener('canplay', r, {once:true}));
@@ -1499,6 +1727,7 @@ async function playHls(url, useProxy) {
   try {
     await el.play();
     isPlaying = true; updatePlayBtn(true);
+    startSilentAnchor();
   } catch (e) { console.log('Autoplay blocked:', e.message); isPlaying = false; updatePlayBtn(false); }
 }
 
@@ -1506,6 +1735,7 @@ function stopHls() {
   if (currentHls) { currentHls.destroy(); currentHls = null; }
   if (audioEl) { audioEl.pause(); audioEl.src = ''; }
   isPlaying = false; updatePlayBtn(false);
+  stopSilentAnchor();
 }
 
 async function playIcecast(url) {
@@ -1522,7 +1752,7 @@ async function playIcecast(url) {
     el.addEventListener('error', () => reject(new Error('Stream error')), {once:true});
     setTimeout(() => reject(new Error('Stream timeout 20s')), 20000);
   });
-  try { await el.play(); isPlaying = true; updatePlayBtn(true); }
+  try { await el.play(); isPlaying = true; updatePlayBtn(true); startSilentAnchor(); }
   catch (e) { isPlaying = false; updatePlayBtn(false); }
 }
 
@@ -1544,10 +1774,11 @@ function playTrack(channel, trackIndex, startPosition = 0) {
       isPlaying = true; updatePlayBtn(true);
       if (startPosition > 3) { currentHowl.seek(startPosition); startPosition = 0; }
       startSeekUpdate();
+      startSilentAnchor();
     },
-    onpause: function() { isPlaying = false; updatePlayBtn(false); saveResume(channel); },
-    onstop: function() { isPlaying = false; updatePlayBtn(false); },
-    onend: function() { isPlaying = false; stopVis(); localStorage.removeItem('radio-ch'+channel+'-resume'); playNext(channel); },
+    onpause: function() { isPlaying = false; updatePlayBtn(false); saveResume(channel); stopSilentAnchor(); },
+    onstop: function() { isPlaying = false; updatePlayBtn(false); stopSilentAnchor(); },
+    onend: function() { isPlaying = false; stopVis(); localStorage.removeItem('radio-ch'+channel+'-resume'); stopSilentAnchor(); playNext(channel); },
     onloaderror: function(_, e) { showToast('로드 오류: ' + (e || '')); },
   });
   currentHowl.play();
@@ -1619,9 +1850,9 @@ function handlePlayPause() {
     else { enterChannel(5); }
     return;
   }
-  // Replay mode: stop replay
+  // Replay mode: 일시정지/재개
   if (replayMode) {
-    if (isPlaying) { stopReplay(); isPlaying = false; updatePlayBtn(false); }
+    if (isPlaying) { pauseReplay(); } else { resumeReplay(); }
     return;
   }
   if (currentChannel === 1 || currentChannel === 2 || currentChannel === 6) {
@@ -1633,9 +1864,17 @@ function handlePlayPause() {
         audioEl.play().then(() => { isPlaying = true; updatePlayBtn(true); refreshLiveNowPlaying(); }).catch(() => {});
       } else { enterChannel(currentChannel); }
     }
-  } else if (currentChannel === 3 || currentChannel === 4) {
-    if (currentHowl) { if (isPlaying) currentHowl.pause(); else currentHowl.play(); }
-    else enterChannel(currentChannel);
+  } else if (currentChannel === 3 || currentChannel === 4 || currentChannel === 7) {
+    if (currentHowl) {
+      if (isPlaying) {
+        currentHowl.pause();
+      } else {
+        currentHowl.play();
+        const ch = currentChannel;
+        const t = setTimeout(() => { if (!isPlaying && currentChannel === ch) { showToast('재연결 중...'); enterChannel(ch); } }, 1500);
+        currentHowl.once('play', () => clearTimeout(t));
+      }
+    } else enterChannel(currentChannel);
   } else if (currentChannel === 5) {
     if (currentHowl) {
       if (isPlaying) { currentHowl.pause(); userPausedCh5 = true; }
@@ -1658,10 +1897,14 @@ async function enterChannel(channel) {
   mainPlayBtn.classList.add('loading');
   loadingTimeout = setTimeout(() => mainPlayBtn.classList.remove('loading'), 10000);
 
+  // CH7 패널 닫기 (다른 채널로 이동 시)
+  if (channel !== 7 && orPanel && orPanel.classList.contains('open')) orClose();
+
   const isR2 = channel === 3 || channel === 4;
   const isCh5 = channel === 5;
+  const isOpenRoom = channel === 7;
   const isLive = channel === 1 || channel === 2 || isCh5 || channel === 6;
-  const isPod = isR2;
+  const isPod = isR2 || isOpenRoom;
 
   // Progress area
   liveProgress.classList.toggle('visible', isLive);
@@ -1706,7 +1949,7 @@ async function enterChannel(channel) {
       const idx = tracks.findIndex(t => t.key === resume.trackKey);
       playTrack(channel, idx >= 0 ? idx : 0, resume.position);
       showToast('↩ ' + resume.trackName + ' — ' + formatTime(resume.position) + '부터 이어듣기');
-    } else if (tracks.length > 0) { playTrack(channel, 0, 0); }
+    } else if (tracks.length > 0) { playTrack(channel, shuffleOn && shuffleOrder.length > 0 ? shuffleOrder[0] : 0, 0); }
     else { nowPlayingEl.textContent = '등록된 트랙이 없습니다'; }
   } else if (channel === 5) {
     nowPlayingEl.textContent = '방송 확인 중...';
@@ -1745,6 +1988,10 @@ async function enterChannel(channel) {
         showToast('재생목록 업데이트됨');
       }
     }, 5 * 60 * 1000);
+  }
+  } else if (channel === 7) {
+    nowPlayingEl.textContent = '열린 음악방';
+    openRoomOpen();
   }
   clearTimeout(loadingTimeout);
   mainPlayBtn.classList.remove('loading');
@@ -1846,6 +2093,7 @@ async function loadRsc() {
 // ── CH5 ──
 async function startCh5Polling() {
   clearInterval(ch5PollTimer);
+  clearInterval(trackRefreshTimer); trackRefreshTimer = null;
   await pollCh5State();
   ch5PollTimer = setInterval(pollCh5State, 10000);
 }
@@ -1922,7 +2170,47 @@ function cleanupResumeOnDelete(deletedKey) {
 setInterval(() => { if (isPlaying && (currentChannel === 3 || currentChannel === 4)) saveResume(currentChannel); }, 5000);
 window.addEventListener('beforeunload', () => saveResume(currentChannel));
 window.addEventListener('pagehide', () => saveResume(currentChannel));
-document.addEventListener('visibilitychange', () => { if (document.hidden) saveResume(currentChannel); });
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden) {
+    saveResume(currentChannel);
+    // CH5 상태 폴링만 중지 (livePollTimer는 라이브 오디오 스트림이므로 유지)
+    clearInterval(ch5PollTimer); ch5PollTimer = null;
+    // 등잔 애니메이션 정지 (배터리 절약)
+    if (currentChannel === 3) stopLampAnim();
+  } else {
+    // AudioContext가 백그라운드에서 suspended 됐으면 복구 (await로 완료 보장)
+    if (audioCtx && audioCtx.state === 'suspended') {
+      try { await audioCtx.resume(); } catch {}
+    }
+    // HLS/Icecast (<audio> 요소): 재생 상태인데 멈춰 있으면 재시작
+    if (isPlaying && audioEl && audioEl.paused && !audioEl.ended) {
+      audioEl.play().catch(() => {});
+    }
+    // Howler: 내부 상태와 실제 재생 불일치 복구
+    if (isPlaying && currentHowl && !currentHowl.playing()) {
+      currentHowl.play();
+    }
+    // 라이브 폴링 재개
+    if (liveMode && liveSessionId && !livePollTimer) {
+      livePollAndPlay();
+      livePollTimer = setInterval(livePollAndPlay, 2000);
+    }
+    // CH5 폴링 재개
+    if (currentChannel === 5 && !liveMode && !ch5PollTimer) {
+      pollCh5State();
+      ch5PollTimer = setInterval(pollCh5State, 10000);
+    }
+    // 등잔 애니메이션 재개
+    if (currentChannel === 3) startLampAnim();
+    // 수면 타이머가 백그라운드에서 만료됐으면 즉시 실행
+    if (sleepTargetTime > 0 && Date.now() >= sleepTargetTime) {
+      clearTimeout(sleepTimer); clearInterval(sleepCountdown);
+      stopPlayback(); stopRecording();
+      sleepSecs = 0; sleepTargetTime = 0;
+      showToast('수면 타이머가 종료되었습니다'); updateSleepUI();
+    }
+  }
+});
 
 // ── Recording ──
 function connectHowlToAudioCtx() {
@@ -1949,12 +2237,9 @@ function updateRecordBtn() {
   if (isRecording) { btnRecord.classList.add('recording'); btnRecord.innerHTML = '<span class="rec-dot"></span> 녹음 중'; recordTimerRow.classList.add('visible'); }
   else { btnRecord.classList.remove('recording'); btnRecord.innerHTML = '<span class="rec-dot"></span> 녹음'; recordTimerRow.classList.remove('visible'); }
 }
-function updateRecordFormatBtn() { btnRecordFormat.textContent = recFormat === 'mp3' ? 'MP3' : 'WebM'; }
+function updateRecordFormatBtn() { btnRecordFormat.textContent = 'WebM'; }
 function toggleRecordFormat() {
-  recFormat = recFormat === 'webm' ? 'mp3' : 'webm';
-  localStorage.setItem('radio-rec-format', recFormat);
-  updateRecordFormatBtn();
-  showToast('녹음 형식: ' + (recFormat === 'mp3' ? 'MP3' : 'WebM/Opus'));
+  showToast('녹음 형식: WebM/Opus (MP3는 브라우저에서 지원되지 않습니다)');
 }
 function startRecordTimer() {
   recStartTime = Date.now();
@@ -2041,9 +2326,55 @@ function stopRecording() {
 }
 
 // ── Live Chunk Player (v2 — 순차 fetch + 버퍼 관리) ──
-function ensureLiveAudioCtx() {
+
+// ── 무음 오디오 앵커 (백그라운드 재생 유지용) ──
+let silentAnchor = null;
+let silentAnchorUrl = null;
+
+function createSilentWavUrl() {
+  if (silentAnchorUrl) return silentAnchorUrl;
+  const sampleRate = 44100;
+  const numSamples = sampleRate; // 1초
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+  const writeStr = (off, str) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); };
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+  silentAnchorUrl = URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+  return silentAnchorUrl;
+}
+
+function startSilentAnchor() {
+  if (silentAnchor) return;
+  silentAnchor = document.createElement('audio');
+  silentAnchor.src = createSilentWavUrl();
+  silentAnchor.loop = true;
+  silentAnchor.volume = 0.01;
+  silentAnchor.play().catch(() => {});
+}
+
+function stopSilentAnchor() {
+  if (silentAnchor) {
+    silentAnchor.pause();
+    silentAnchor.src = '';
+    silentAnchor = null;
+  }
+}
+
+async function ensureLiveAudioCtx() {
   initAudioContext();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
 }
 
 let liveFetching = false; // 중복 fetch 방지 플래그
@@ -2065,6 +2396,8 @@ function startLivePlayer(sessionId, chunkDuration, latestChunk) {
   updatePlayBtn(true);
   nowPlayingEl.innerHTML = '<span class="on-air-badge">LIVE</span> 라이브 방송';
   liveBarFill.style.animation = 'liveBarShimmer 3s ease-in-out infinite';
+  startSilentAnchor();
+  updateMediaSession();
   livePollAndPlay();
   livePollTimer = setInterval(livePollAndPlay, 2000);
 }
@@ -2077,6 +2410,7 @@ function stopLivePlayer() {
   liveLastChunk = -1;
   liveNextTime = 0;
   liveFetching = false;
+  stopSilentAnchor();
 }
 
 async function livePollAndPlay() {
@@ -2161,6 +2495,7 @@ function startReplay(session) {
   replayChunkDuration = session.chunkDuration || 2.0;
   replayCurrentChunk = 0;
   replayNextTime = 0;
+  replayStartCtxTime = 0;
   replayScheduledSources = [];
   replayPlaying = true;
   replayMode = true;
@@ -2172,6 +2507,8 @@ function startReplay(session) {
   liveProgress.classList.remove('visible');
   playlistProgress.classList.add('visible');
   timeDur.textContent = formatTime(session.durationSec || session.chunkCount * session.chunkDuration);
+  startSilentAnchor();
+  updateMediaSession();
   replayFeedLoop();
   replayFeedTimer = setInterval(replayFeedLoop, 500);
 }
@@ -2190,7 +2527,7 @@ async function replayFeedLoop() {
     replayCurrentChunk++;
   }
   // Update seek bar
-  const elapsed = audioCtx.currentTime;
+  const elapsed = replayStartCtxTime > 0 ? audioCtx.currentTime - replayStartCtxTime : 0;
   const total = replayChunkCount * replayChunkDuration;
   if (total > 0) {
     seekFill.style.width = Math.min(100, elapsed / total * 100) + '%';
@@ -2209,6 +2546,7 @@ async function fetchAndScheduleReplayChunk(sessionId, index, chunkDuration) {
     src.connect(gainNode);
     const now = audioCtx.currentTime;
     if (replayNextTime < now + 0.05) replayNextTime = now + 0.05;
+    if (replayStartCtxTime === 0) replayStartCtxTime = replayNextTime;
     src.start(replayNextTime);
     replayNextTime += audioBuf.duration || chunkDuration;
     replayScheduledSources.push(src);
@@ -2233,15 +2571,42 @@ function stopReplay() {
   replayMode = false;
   replayCurrentChunk = 0;
   replayNextTime = 0;
+  replayStartCtxTime = 0;
+  stopSilentAnchor();
+}
+
+function pauseReplay() {
+  clearInterval(replayFeedTimer); replayFeedTimer = null;
+  replayScheduledSources.forEach(s => { try { s.stop(); } catch {} });
+  replayScheduledSources = [];
+  replayNextTime = 0;
+  replayStartCtxTime = 0;
+  replayPlaying = false;
+  isPlaying = false;
+  updatePlayBtn(false);
+}
+
+function resumeReplay() {
+  ensureLiveAudioCtx();
+  replayNextTime = 0;
+  replayStartCtxTime = 0;
+  replayPlaying = true;
+  isPlaying = true;
+  updatePlayBtn(true);
+  startSilentAnchor();
+  updateMediaSession();
+  replayFeedLoop();
+  replayFeedTimer = setInterval(replayFeedLoop, 500);
 }
 
 // ── Sleep Timer ──
 function setSleepTimer(seconds) {
   clearTimeout(sleepTimer); clearInterval(sleepCountdown);
-  if (sleepSecs === seconds) { sleepSecs = 0; updateSleepUI(); return; }
+  if (sleepSecs === seconds) { sleepSecs = 0; sleepTargetTime = 0; updateSleepUI(); return; }
   sleepSecs = seconds;
+  sleepTargetTime = Date.now() + seconds * 1000;
   let remaining = seconds;
-  sleepTimer = setTimeout(() => { stopPlayback(); stopRecording(); sleepSecs = 0; showToast('수면 타이머가 종료되었습니다'); updateSleepUI(); }, seconds * 1000);
+  sleepTimer = setTimeout(() => { stopPlayback(); stopRecording(); sleepSecs = 0; sleepTargetTime = 0; showToast('수면 타이머가 종료되었습니다'); updateSleepUI(); }, seconds * 1000);
   sleepCountdown = setInterval(() => { remaining--; $('sleepRemaining').textContent = formatTime(remaining); if (remaining <= 0) clearInterval(sleepCountdown); }, 1000);
   $('sleepRemaining').textContent = formatTime(remaining);
   updateSleepUI();
@@ -2260,16 +2625,48 @@ function updateSleepUI() {
 }
 
 // ── Track List UI ──
-function updateTrackListUI() {
+const trackSearchWrap = $('trackSearchWrap');
+const trackSearchInput = $('trackSearchInput');
+const trackSearchClear = $('trackSearchClear');
+const trackSearchCount = $('trackSearchCount');
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function highlightMatch(text, query) {
+  if (!query) return escHtml(text);
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return escHtml(text);
+  return escHtml(text.slice(0, idx)) + '<mark>' + escHtml(text.slice(idx, idx + query.length)) + '</mark>' + escHtml(text.slice(idx + query.length));
+}
+
+function updateTrackListUI(query) {
+  if (query === undefined) query = trackSearchInput.value;
+  const isPod = currentChannel === 3 || currentChannel === 4;
+  trackSearchWrap.classList.toggle('visible', isPod);
+  if (currentChannel === 7) return; // CH7은 자체 패널 사용
   const tracks = channelTracks[currentChannel] || [];
+  const q = query ? query.trim() : '';
+  const filtered = q ? tracks.map((t, i) => ({ t, i })).filter(({ t }) => t.name.toLowerCase().includes(q.toLowerCase())) : tracks.map((t, i) => ({ t, i }));
   trackListEl.innerHTML = '';
-  tracks.forEach((t, i) => {
+  filtered.forEach(({ t, i }) => {
     const li = document.createElement('li');
     li.className = 'track-item' + (t.key === currentTrackKey ? ' active' : '');
-    li.innerHTML = '<span class="track-item-name">' + (t.key === currentTrackKey ? '▶ ' : '') + t.name + '</span>';
+    const label = (t.key === currentTrackKey ? '▶ ' : '') + highlightMatch(t.name, q);
+    li.innerHTML = '<span class="track-item-name">' + label + '</span>';
     li.addEventListener('click', () => { closeTrackPanel(); if (currentChannel === 5) return; playTrack(currentChannel, i, 0); });
     trackListEl.appendChild(li);
   });
+  if (isPod && q) {
+    trackSearchCount.textContent = filtered.length + ' / ' + tracks.length + '개';
+    trackSearchCount.classList.add('visible');
+  } else {
+    trackSearchCount.classList.remove('visible');
+  }
+  trackSearchClear.classList.toggle('visible', !!q);
   // CH5: 지난 방송 섹션
   if (currentChannel === 5) {
     loadPastBroadcasts();
@@ -2289,7 +2686,7 @@ async function loadPastBroadcasts() {
       li.className = 'track-item';
       const ts = new Date(s.startedAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
       const dur = formatTime(Math.floor(s.durationSec));
-      li.innerHTML = '<span class="track-item-name">' + (s.title || ts) + ' <span style="opacity:0.4">' + dur + '</span></span>';
+      li.innerHTML = '<span class="track-item-name">' + escHtml(s.title || ts) + ' <span style="opacity:0.4">' + escHtml(dur) + '</span></span>';
       li.addEventListener('click', () => {
         closeTrackPanel();
         startReplay({
@@ -2301,12 +2698,15 @@ async function loadPastBroadcasts() {
     });
   } catch {}
 }
-function openTrackPanel() { updateTrackListUI(); trackPanel.classList.add('open'); backdrop.classList.add('open'); scrollToActiveTrack(); }
+function openTrackPanel() { trackSearchInput.value = ''; updateTrackListUI(''); trackPanel.classList.add('open'); backdrop.classList.add('open'); scrollToActiveTrack(); }
 function closeTrackPanel() { trackPanel.classList.remove('open'); backdrop.classList.remove('open'); }
 function scrollToActiveTrack() {
+  if (trackSearchInput.value) return;
   const active = trackListEl.querySelector('.track-item.active');
   if (active) setTimeout(() => active.scrollIntoView({ block: 'center', behavior: 'smooth' }), 100);
 }
+trackSearchInput.addEventListener('input', () => updateTrackListUI(trackSearchInput.value));
+trackSearchClear.addEventListener('click', () => { trackSearchInput.value = ''; updateTrackListUI(''); trackSearchInput.focus(); scrollToActiveTrack(); });
 
 // ── Admin ──
 let headerTapCount = 0, headerTapTimer = null;
@@ -2417,16 +2817,19 @@ async function loadAdminTracks(ch) {
   document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t.dataset.ach === ch));
   const isRec = ch === 'rec-settings';
   const isCfg = ch === 'channel-cfg';
-  const hideCommon = isRec || isCfg;
+  const isOr = ch === 'openroom-admin';
+  const hideCommon = isRec || isCfg || isOr;
   $('adminLivePanel').style.display = ch === 'stream' ? '' : 'none';
   $('adminRecPanel').style.display = isRec ? '' : 'none';
   $('adminChannelPanel').style.display = isCfg ? '' : 'none';
+  $('adminOpenRoomPanel').style.display = isOr ? '' : 'none';
   $('dropzone').style.display = hideCommon ? 'none' : '';
   $('uploadQueue').style.display = hideCommon ? 'none' : '';
   $('adminTrackList').style.display = hideCommon ? 'none' : '';
   $('saveOrderBtn').style.display = hideCommon ? 'none' : '';
   document.querySelector('.admin-section-title').style.display = hideCommon ? 'none' : '';
   if (isCfg) { buildChannelConfigUI(); return; }
+  if (isOr) { initOrAdminPanel(); return; }
   if (isRec) {
     $('recThresholdSlider').value = recSilenceThresholdRaw;
     $('recThresholdVal').textContent = recSilenceThresholdRaw;
@@ -2439,13 +2842,53 @@ async function loadAdminTracks(ch) {
   try { const res = await fetch(WORKER_URL + '/api/tracks?channel=' + ch); adminTracks = await res.json(); renderAdminTrackList(); }
   catch (e) { showToast('목록 로드 실패'); }
 }
+function initOrAdminPanel() {
+  const initBtn = $('orAdminInitBtn');
+  const initResult = $('orAdminInitResult');
+  const storageBtn = $('orAdminStorageBtn');
+  const storageInfo = $('orAdminStorageInfo');
+  // 중복 이벤트 방지
+  const newInitBtn = initBtn.cloneNode(true);
+  initBtn.replaceWith(newInitBtn);
+  const newStorageBtn = storageBtn.cloneNode(true);
+  storageBtn.replaceWith(newStorageBtn);
+  newInitBtn.addEventListener('click', async () => {
+    newInitBtn.disabled = true;
+    initResult.textContent = '실행 중...';
+    try {
+      const res = await fetch(WORKER_URL + '/api/openroom/admin/init', {
+        method: 'POST', headers: { 'X-Admin-Key': adminKey }
+      });
+      const data = await res.json();
+      initResult.style.color = res.ok ? '#7c9e6e' : '#ff9090';
+      initResult.textContent = res.ok ? (data.message || '완료') : (data.error || '실패');
+    } catch (e) { initResult.style.color = '#ff9090'; initResult.textContent = '오류: ' + e.message; }
+    finally { newInitBtn.disabled = false; }
+  });
+  newStorageBtn.addEventListener('click', async () => {
+    newStorageBtn.disabled = true;
+    storageInfo.textContent = '조회 중...';
+    try {
+      const res = await fetch(WORKER_URL + '/api/openroom/admin/storage', {
+        headers: { 'X-Admin-Key': adminKey }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const mb = (data.totalBytes / 1048576).toFixed(1);
+        const limitMb = (data.limitBytes / 1048576).toFixed(0);
+        storageInfo.textContent = `사용: ${mb} MB / ${limitMb} MB  |  파일 ${data.fileCount}개  |  폴더 ${data.folderCount}개`;
+      } else storageInfo.textContent = data.error || '조회 실패';
+    } catch (e) { storageInfo.textContent = '오류: ' + e.message; }
+    finally { newStorageBtn.disabled = false; }
+  });
+}
 function renderAdminTrackList() {
   const list = $('adminTrackList'); list.innerHTML = '';
   adminTracks.forEach((t, i) => {
     const li = document.createElement('li'); li.className = 'admin-track-item'; li.draggable = true; li.dataset.idx = i;
     let extraBtn = '';
-    if (adminChannel === 'stream') extraBtn = '<button class="admin-onair-btn" data-key="'+t.key+'" data-name="'+t.name+'">▶ ON AIR</button>';
-    li.innerHTML = '<span class="admin-drag-handle">≡</span><span class="admin-track-name">'+t.name+'</span>'+extraBtn+'<button class="admin-delete-btn" data-key="'+t.key+'">🗑</button><button class="admin-edit-btn" data-idx="'+i+'" title="이름 수정">✏️</button>';
+    if (adminChannel === 'stream') extraBtn = '<button class="admin-onair-btn" data-key="'+escHtml(t.key)+'" data-name="'+escHtml(t.name)+'">▶ ON AIR</button>';
+    li.innerHTML = '<span class="admin-drag-handle">≡</span><span class="admin-track-name">'+escHtml(t.name)+'</span>'+extraBtn+'<button class="admin-delete-btn" data-key="'+escHtml(t.key)+'">🗑</button><button class="admin-edit-btn" data-idx="'+i+'" title="이름 수정">✏️</button>';
     li.addEventListener('dragstart', e => { dragSrcIdx = i; e.dataTransfer.effectAllowed = 'move'; li.style.opacity = '0.5'; });
     li.addEventListener('dragend', () => { li.style.opacity = '1'; });
     li.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
@@ -2496,7 +2939,7 @@ function renderUploadQueue() {
   uploadQueue.forEach((item, i) => {
     const div = document.createElement('div'); div.className = 'upload-item';
     const sizeMB = (item.file.size / 1048576).toFixed(1);
-    div.innerHTML = '<input type="text" value="'+item.name+'" data-idx="'+i+'"><span class="upload-file-size">'+sizeMB+'MB</span><button class="upload-remove" data-idx="'+i+'">✕</button>'
+    div.innerHTML = '<input type="text" value="'+escHtml(item.name)+'" data-idx="'+i+'"><span class="upload-file-size">'+sizeMB+'MB</span><button class="upload-remove" data-idx="'+i+'">✕</button>'
       +'<div class="upload-status-row" id="uprow-'+i+'"><span class="upload-status-icon" id="upicon-'+i+'"></span><div class="upload-progress"><div class="upload-progress-fill" id="prog-'+i+'"></div></div><span class="upload-pct" id="uppct-'+i+'">0%</span></div>';
     container.appendChild(div);
   });
@@ -2700,9 +3143,9 @@ async function loadSessionList() {
       li.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.78rem;color:#ece4d8aa';
       const ts = new Date(s.startedAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
       const dur = formatTime(Math.floor(s.durationSec));
-      li.innerHTML = '<span>' + (s.title || ts) + ' <span style="color:#ece4d855">' + dur + '</span></span>' +
-        '<span><button class="extra-btn session-listen-btn" data-sid="' + s.id + '" data-start="' + s.startedAt + '" data-dur="' + s.durationSec + '" data-count="' + s.chunkCount + '" data-cdur="' + s.chunkDuration + '" data-title="' + (s.title || '') + '" style="font-size:0.7rem;margin-right:4px">듣기</button>' +
-        '<button class="extra-btn session-delete-btn" data-sid="' + s.id + '" style="font-size:0.7rem;color:#ff7070">삭제</button></span>';
+      li.innerHTML = '<span>' + escHtml(s.title || ts) + ' <span style="color:#ece4d855">' + escHtml(dur) + '</span></span>' +
+        '<span><button class="extra-btn session-listen-btn" data-sid="' + escHtml(s.id) + '" data-start="' + escHtml(s.startedAt) + '" data-dur="' + s.durationSec + '" data-count="' + s.chunkCount + '" data-cdur="' + s.chunkDuration + '" data-title="' + escHtml(s.title || '') + '" style="font-size:0.7rem;margin-right:4px">듣기</button>' +
+        '<button class="extra-btn session-delete-btn" data-sid="' + escHtml(s.id) + '" style="font-size:0.7rem;color:#ff7070">삭제</button></span>';
       ul.appendChild(li);
     });
     ul.querySelectorAll('.session-listen-btn').forEach(btn => {
@@ -2729,9 +3172,486 @@ async function loadSessionList() {
   } catch {}
 }
 
+// ══════════════════════════════════════════════════════════════════
+// ── 열린 음악방 (Open Room) ──────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+
+const orPanel = document.getElementById('orPanel');
+const orFolderView = document.getElementById('orFolderView');
+const orTrackView = document.getElementById('orTrackView');
+const orPanelTitle = document.getElementById('orPanelTitle');
+const orBackBtn = document.getElementById('orBackBtn');
+const orFolderList = document.getElementById('orFolderList');
+const orTrackList = document.getElementById('orTrackList');
+const orAddFolderBtn = document.getElementById('orAddFolderBtn');
+const orUploadBtn = document.getElementById('orUploadBtn');
+const orSheetOverlay = document.getElementById('orSheetOverlay');
+const orUploadSheet = document.getElementById('orUploadSheet');
+const orCreateSheet = document.getElementById('orCreateSheet');
+const orAdminSheet = document.getElementById('orAdminSheet');
+const orSearchInput = document.getElementById('orSearchInput');
+const orSearchClear = document.getElementById('orSearchClear');
+const orSearchCount = document.getElementById('orSearchCount');
+const orCtxMenu = document.createElement('div');
+orCtxMenu.className = 'or-ctx-menu';
+document.body.appendChild(orCtxMenu);
+
+let orFolders = [];
+let orCurrentFolder = null;
+let orCurrentTracks = [];
+let orCtxTrack = null;
+let orAdminMode = null; // 'copy' | 'move'
+let orAdminR2Key = null;
+let orAdminRefId = null;
+let orUploadFile = null;
+
+function orApiUrl(path) { return WORKER_URL + '/api/openroom' + path; }
+
+function orUserHeaders() {
+  if (!radioUser) return {};
+  return { 'X-User-Id': radioUser.id, 'X-User-Name': radioUser.name || '익명' };
+}
+
+async function orFetch(path, options = {}) {
+  const res = await fetch(orApiUrl(path), {
+    ...options,
+    headers: { ...(options.headers || {}), ...orUserHeaders() },
+  });
+  return res;
+}
+
+function orFormatDuration(sec) {
+  if (!sec || isNaN(sec)) return '';
+  return Math.floor(sec / 60) + ':' + String(Math.floor(sec % 60)).padStart(2, '0');
+}
+
+async function orLoadFolders() {
+  try {
+    const res = await fetch(orApiUrl('/folders'));
+    orFolders = await res.json();
+  } catch { orFolders = []; }
+}
+
+function orRenderFolderList() {
+  orFolderList.innerHTML = '';
+  const defaults = orFolders.filter(f => f.isDefault);
+  const custom = orFolders.filter(f => !f.isDefault);
+  const renderItem = (f) => {
+    const li = document.createElement('div');
+    li.className = 'or-folder-item';
+    li.innerHTML = `<span class="or-folder-icon">${escHtml(f.icon)}</span>
+      <span class="or-folder-name">${escHtml(f.name)}</span>
+      <span class="or-folder-count">${f.trackCount ?? 0}곡</span>
+      <span class="or-folder-arrow">›</span>`;
+    li.addEventListener('click', () => orOpenFolder(f.name));
+    orFolderList.appendChild(li);
+  };
+  defaults.forEach(renderItem);
+  if (custom.length > 0) {
+    const div = document.createElement('div');
+    div.className = 'or-folder-divider';
+    orFolderList.appendChild(div);
+    custom.forEach(renderItem);
+  }
+  orAddFolderBtn.style.display = radioUser ? '' : 'none';
+}
+
+async function orOpenFolder(folderName) {
+  orCurrentFolder = folderName;
+  orPanelTitle.textContent = (orFolders.find(f => f.name === folderName)?.icon || '🎵') + ' ' + folderName;
+  orBackBtn.style.display = '';
+  orFolderView.style.display = 'none';
+  orTrackView.style.display = '';
+  orSearchInput.value = '';
+  orSearchCount.textContent = '';
+  await orLoadTracks(folderName);
+  orRenderTrackList();
+  orUploadBtn.style.display = radioUser ? '' : 'none';
+}
+
+async function orLoadTracks(folderName) {
+  try {
+    const res = await fetch(orApiUrl(`/folders/${encodeURIComponent(folderName)}/tracks`));
+    orCurrentTracks = await res.json();
+  } catch { orCurrentTracks = []; }
+}
+
+function orRenderTrackList(query) {
+  if (query === undefined) query = orSearchInput.value;
+  const q = query ? query.trim().toLowerCase() : '';
+  const filtered = q
+    ? orCurrentTracks.map((t, i) => ({ t, i })).filter(({ t }) => t.displayName.toLowerCase().includes(q))
+    : orCurrentTracks.map((t, i) => ({ t, i }));
+  orTrackList.innerHTML = '';
+  if (filtered.length === 0) {
+    const li = document.createElement('li');
+    li.style.cssText = 'text-align:center;padding:32px 16px;color:var(--text-dim);font-size:0.85rem';
+    li.textContent = q ? '검색 결과가 없습니다' : '아직 곡이 없습니다' + (radioUser ? '' : '\n로그인하면 곡을 올릴 수 있습니다');
+    orTrackList.appendChild(li);
+  }
+  filtered.forEach(({ t, i }) => {
+    const li = document.createElement('li');
+    li.className = 'or-track-item' + (t.r2Key === currentTrackKey ? ' active' : '');
+    const isOwner = radioUser && t.uploaderId === radioUser.id;
+    const showMenu = isOwner || adminKey;
+    li.innerHTML = `
+      <span class="or-track-num">${t.r2Key === currentTrackKey ? '▶' : (i + 1)}</span>
+      <div class="or-track-info">
+        <div class="or-track-name">${highlightMatch(t.displayName, q)}</div>
+        <div class="or-track-meta">${escHtml(t.uploader)} ${t.duration ? '· ' + orFormatDuration(t.duration) : ''}</div>
+      </div>
+      ${showMenu ? `<button class="or-track-menu-btn" data-refid="${escHtml(t.refId)}">⋮</button>` : ''}`;
+    li.addEventListener('click', (e) => {
+      if (e.target.classList.contains('or-track-menu-btn')) return;
+      orPlayTrack(t, i);
+    });
+    if (showMenu) {
+      li.querySelector('.or-track-menu-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        orShowCtxMenu(e, t, isOwner);
+      });
+    }
+    orTrackList.appendChild(li);
+  });
+  if (q) {
+    orSearchCount.textContent = filtered.length + ' / ' + orCurrentTracks.length + '개';
+    orSearchCount.classList.add('visible');
+    orSearchClear.style.opacity = '1';
+  } else {
+    orSearchCount.classList.remove('visible');
+    orSearchClear.style.opacity = '0';
+  }
+}
+
+function orPlayTrack(track, idx) {
+  if (currentHowl) { currentHowl.unload(); currentHowl = null; }
+  stopHls();
+  currentTrackKey = track.r2Key;
+  currentTrackName = track.displayName;
+  currentTrackIdx = idx;
+  const url = WORKER_URL + '/api/stream/' + track.r2Key.split('/').map(encodeURIComponent).join('/');
+  currentHowl = new Howl({
+    src: [url], html5: true, volume: currentVolume, rate: currentSpeed,
+    onplay: () => { isPlaying = true; updatePlayBtn(true); startSeekUpdate(); startSilentAnchor(); updateMediaSession(); },
+    onpause: () => { isPlaying = false; updatePlayBtn(false); stopSilentAnchor(); },
+    onstop: () => { isPlaying = false; updatePlayBtn(false); stopSilentAnchor(); },
+    onend: () => { isPlaying = false; stopVis(); stopSilentAnchor(); orPlayNext(); },
+    onloaderror: (_, e) => { showToast('로드 오류: ' + (e || '')); },
+    onplayerror: () => { enterChannel(currentChannel); },
+  });
+  currentHowl.play();
+  nowPlayingEl.textContent = track.displayName;
+  updateMediaSession();
+  orRenderTrackList();
+}
+
+function orPlayNext() {
+  const idx = orCurrentTracks.findIndex(t => t.r2Key === currentTrackKey);
+  if (idx < 0 || idx >= orCurrentTracks.length - 1) return;
+  orPlayTrack(orCurrentTracks[idx + 1], idx + 1);
+}
+
+function orShowCtxMenu(e, track, isOwner) {
+  orCtxTrack = track;
+  const items = [];
+  if (isOwner || adminKey) items.push({ label: '✏️ 곡 이름 수정', action: 'rename' });
+  if (isOwner || adminKey) items.push({ label: '🗑️ 이 폴더에서 삭제', action: 'remove', danger: true });
+  if (adminKey) items.push({ label: '📋 다른 폴더에 복사', action: 'copy' });
+  if (adminKey) items.push({ label: '📦 다른 폴더로 이동', action: 'move' });
+  if (adminKey) items.push({ label: '⚠️ 완전 삭제 (모든 폴더)', action: 'deleteAll', danger: true });
+  orCtxMenu.innerHTML = items.map(it =>
+    `<div class="or-ctx-item${it.danger ? ' danger' : ''}" data-action="${it.action}">${it.label}</div>`
+  ).join('');
+  orCtxMenu.querySelectorAll('.or-ctx-item').forEach(el => {
+    el.addEventListener('click', () => { orCtxMenu.classList.remove('open'); orHandleCtxAction(el.dataset.action, track); });
+  });
+  const rect = e.target.getBoundingClientRect();
+  orCtxMenu.style.top = Math.min(rect.bottom + 4, window.innerHeight - 200) + 'px';
+  orCtxMenu.style.right = (window.innerWidth - rect.right) + 'px';
+  orCtxMenu.classList.add('open');
+}
+
+async function orHandleCtxAction(action, track) {
+  if (action === 'rename') {
+    const newName = prompt('새 곡 이름:', track.displayName);
+    if (!newName || newName.trim() === track.displayName) return;
+    try {
+      const res = await orFetch(`/tracks/${track.refId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderName: orCurrentFolder, displayName: newName.trim() }),
+      });
+      const data = await res.json();
+      if (data.ok) { await orLoadTracks(orCurrentFolder); orRenderTrackList(); showToast('곡 이름이 수정되었습니다'); }
+      else showToast(data.error || '수정 실패');
+    } catch { showToast('오류가 발생했습니다'); }
+  } else if (action === 'remove') {
+    if (!confirm(`"${track.displayName}"을 이 폴더에서 삭제할까요?`)) return;
+    try {
+      const res = await orFetch(`/tracks/${track.refId}?folder=${encodeURIComponent(orCurrentFolder)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.ok) { await orLoadTracks(orCurrentFolder); orRenderTrackList(); showToast('삭제되었습니다'); }
+      else showToast(data.error || '삭제 실패');
+    } catch { showToast('오류가 발생했습니다'); }
+  } else if (action === 'copy' || action === 'move') {
+    orAdminMode = action;
+    orAdminR2Key = track.r2Key;
+    orAdminRefId = track.refId;
+    orOpenAdminSheet(action, track);
+  } else if (action === 'deleteAll') {
+    if (!confirm(`"${track.displayName}"을 모든 폴더에서 완전히 삭제할까요? R2 파일도 삭제됩니다.`)) return;
+    try {
+      const res = await fetch(orApiUrl(`/admin/files/${encodeURIComponent(track.r2Key)}`), {
+        method: 'DELETE', headers: { 'Authorization': 'Bearer ' + adminKey },
+      });
+      const data = await res.json();
+      if (data.ok) {
+        await orLoadFolders(); await orLoadTracks(orCurrentFolder); orRenderTrackList(); showToast('완전 삭제되었습니다');
+      } else showToast(data.error || '삭제 실패');
+    } catch { showToast('오류가 발생했습니다'); }
+  }
+}
+
+function orOpenAdminSheet(mode, track) {
+  document.getElementById('orAdminSheetTitle').textContent = mode === 'copy' ? '복사할 폴더 선택' : '이동할 폴더 선택';
+  document.getElementById('orAdminSheetSubmit').textContent = mode === 'copy' ? '복사 실행' : '이동 실행';
+  const picker = document.getElementById('orFolderPicker');
+  picker.innerHTML = '';
+  const defaults = orFolders.filter(f => f.isDefault);
+  const custom = orFolders.filter(f => !f.isDefault);
+  const renderPicker = (f) => {
+    if (f.name === orCurrentFolder && mode === 'move') return;
+    const alreadyHere = mode === 'copy' && f.trackCount > 0 &&
+      orCurrentTracks.some(t => t.r2Key === track.r2Key); // approximate
+    const div = document.createElement('div');
+    div.className = 'or-picker-item' + (alreadyHere ? ' disabled' : '');
+    const inputType = mode === 'copy' ? 'checkbox' : 'radio';
+    div.innerHTML = `<input type="${inputType}" name="orPickerRadio" value="${escHtml(f.name)}" ${alreadyHere ? 'disabled' : ''}>
+      <span>${escHtml(f.icon)} ${escHtml(f.name)}</span>`;
+    picker.appendChild(div);
+  };
+  defaults.forEach(renderPicker);
+  if (custom.length > 0) {
+    const divider = document.createElement('div');
+    divider.style.cssText = 'height:1px;background:rgba(255,255,255,0.06);margin:4px 0';
+    picker.appendChild(divider);
+    custom.forEach(renderPicker);
+  }
+  orSheetOverlay.classList.add('open');
+  orAdminSheet.classList.add('open');
+}
+
+document.getElementById('orAdminSheetClose').addEventListener('click', orCloseSheets);
+document.getElementById('orAdminSheetSubmit').addEventListener('click', async () => {
+  const selected = [...document.getElementById('orFolderPicker').querySelectorAll('input:checked')].map(i => i.value);
+  if (selected.length === 0) { showToast('폴더를 선택해주세요'); return; }
+  try {
+    let res;
+    if (orAdminMode === 'copy') {
+      res = await fetch(orApiUrl('/admin/copy'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminKey },
+        body: JSON.stringify({ r2Key: orAdminR2Key, sourceFolder: orCurrentFolder, targetFolders: selected }),
+      });
+    } else {
+      res = await fetch(orApiUrl('/admin/move'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminKey },
+        body: JSON.stringify({ refId: orAdminRefId, sourceFolder: orCurrentFolder, targetFolder: selected[0] }),
+      });
+    }
+    const data = await res.json();
+    if (data.ok) {
+      orCloseSheets();
+      await orLoadFolders(); await orLoadTracks(orCurrentFolder); orRenderTrackList();
+      showToast(orAdminMode === 'copy' ? '복사되었습니다' : '이동되었습니다');
+    } else showToast(data.error || '실패');
+  } catch { showToast('오류가 발생했습니다'); }
+});
+
+async function orOpen() {
+  await orLoadFolders();
+  orRenderFolderList();
+  orFolderView.style.display = '';
+  orTrackView.style.display = 'none';
+  orPanelTitle.textContent = '🎵 열린 음악방';
+  orBackBtn.style.display = 'none';
+  orPanel.classList.add('open');
+}
+
+function orClose() {
+  orPanel.classList.remove('open');
+  orCloseSheets();
+}
+
+function orCloseSheets() {
+  orSheetOverlay.classList.remove('open');
+  orUploadSheet.classList.remove('open');
+  orCreateSheet.classList.remove('open');
+  orAdminSheet.classList.remove('open');
+  orUploadFile = null;
+  const dropArea = document.getElementById('orDropArea');
+  dropArea.classList.remove('has-file');
+  dropArea.querySelector('.or-drop-text').innerHTML = '파일 선택하기<br><span class="or-drop-hint">MP3, M4A, WAV · 50MB 이하</span>';
+  document.getElementById('orUploadNameWrap').style.display = 'none';
+  document.getElementById('orProgressWrap').style.display = 'none';
+  document.getElementById('orProgressFill').style.width = '0%';
+  document.getElementById('orProgressPct').textContent = '0%';
+  document.getElementById('orUploadName').value = '';
+  document.getElementById('orFolderNameInput').value = '';
+  document.getElementById('orFileInput').value = '';
+}
+
+// 업로드 시트
+orUploadBtn.addEventListener('click', () => {
+  if (!radioUser) { showToast('로그인이 필요합니다'); return; }
+  orSheetOverlay.classList.add('open');
+  orUploadSheet.classList.add('open');
+});
+document.getElementById('orUploadSheetClose').addEventListener('click', orCloseSheets);
+
+const orDropArea = document.getElementById('orDropArea');
+const orFileInput = document.getElementById('orFileInput');
+orDropArea.addEventListener('click', () => orFileInput.click());
+orDropArea.addEventListener('dragover', e => { e.preventDefault(); orDropArea.classList.add('dragover'); });
+orDropArea.addEventListener('dragleave', () => orDropArea.classList.remove('dragover'));
+orDropArea.addEventListener('drop', e => { e.preventDefault(); orDropArea.classList.remove('dragover'); if (e.dataTransfer.files[0]) orSetUploadFile(e.dataTransfer.files[0]); });
+orFileInput.addEventListener('change', e => { if (e.target.files[0]) orSetUploadFile(e.target.files[0]); orFileInput.value = ''; });
+
+function orSetUploadFile(file) {
+  orUploadFile = file;
+  const name = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ').trim();
+  orDropArea.classList.add('has-file');
+  orDropArea.querySelector('.or-drop-text').innerHTML = `<strong>${escHtml(file.name)}</strong><br><span class="or-drop-hint">${(file.size/1048576).toFixed(1)} MB</span>`;
+  document.getElementById('orUploadName').value = name;
+  document.getElementById('orUploadNameWrap').style.display = '';
+}
+
+async function orGetFileSha256(file) {
+  const buf = await file.arrayBuffer();
+  const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function orGetAudioDuration(file) {
+  return new Promise(resolve => {
+    const audio = new Audio();
+    const url = URL.createObjectURL(file);
+    audio.src = url;
+    audio.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(Math.round(audio.duration)); };
+    audio.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
+  });
+}
+
+document.getElementById('orSubmitBtn').addEventListener('click', async () => {
+  if (!orUploadFile) { showToast('파일을 선택해주세요'); return; }
+  if (!radioUser) { showToast('로그인이 필요합니다'); return; }
+  const displayName = document.getElementById('orUploadName').value.trim();
+  if (!displayName) { showToast('곡 이름을 입력해주세요'); return; }
+  const submitBtn = document.getElementById('orSubmitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = '준비 중...';
+  const progressWrap = document.getElementById('orProgressWrap');
+  const progressFill = document.getElementById('orProgressFill');
+  const progressPct = document.getElementById('orProgressPct');
+  progressWrap.style.display = 'flex';
+  try {
+    submitBtn.textContent = '해시 계산 중...';
+    const [fileHash, duration] = await Promise.all([orGetFileSha256(orUploadFile), orGetAudioDuration(orUploadFile)]);
+    const fd = new FormData();
+    fd.append('file', orUploadFile);
+    fd.append('displayName', displayName);
+    fd.append('duration', String(duration));
+    fd.append('fileHash', fileHash);
+    submitBtn.textContent = '업로드 중...';
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', orApiUrl(`/folders/${encodeURIComponent(orCurrentFolder)}/tracks`));
+      xhr.setRequestHeader('X-User-Id', radioUser.id);
+      xhr.setRequestHeader('X-User-Name', radioUser.name || '익명');
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable) {
+          const p = Math.round(e.loaded / e.total * 100);
+          progressFill.style.width = p + '%';
+          progressPct.textContent = p + '%';
+        }
+      };
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (data.ok) resolve(data);
+          else reject(new Error(data.error || '업로드 실패'));
+        } catch { reject(new Error('서버 오류')); }
+      };
+      xhr.onerror = () => reject(new Error('네트워크 오류'));
+      xhr.send(fd);
+    });
+    orCloseSheets();
+    await orLoadFolders(); await orLoadTracks(orCurrentFolder); orRenderTrackList();
+    showToast('✅ 업로드되었습니다');
+  } catch (e) {
+    showToast(e.message || '업로드 실패');
+    progressWrap.style.display = 'none';
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = '✅ 올리기';
+  }
+});
+
+// 폴더 만들기 시트
+orAddFolderBtn.addEventListener('click', () => {
+  orSheetOverlay.classList.add('open');
+  orCreateSheet.classList.add('open');
+});
+document.getElementById('orCreateSheetClose').addEventListener('click', orCloseSheets);
+document.getElementById('orCreateFolderSubmit').addEventListener('click', async () => {
+  const name = document.getElementById('orFolderNameInput').value.trim();
+  if (name.length < 2 || name.length > 10) { showToast('폴더 이름은 2~10자여야 합니다'); return; }
+  try {
+    const res = await orFetch('/folders', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      orCloseSheets(); await orLoadFolders(); orRenderFolderList(); showToast('폴더가 만들어졌습니다');
+    } else showToast(data.error || '생성 실패');
+  } catch { showToast('오류가 발생했습니다'); }
+});
+
+// 뒤로가기
+orBackBtn.addEventListener('click', () => {
+  orCurrentFolder = null; orCurrentTracks = [];
+  orPanelTitle.textContent = '🎵 열린 음악방';
+  orBackBtn.style.display = 'none';
+  orTrackView.style.display = 'none';
+  orFolderView.style.display = '';
+  orLoadFolders().then(orRenderFolderList);
+});
+
+document.getElementById('orPanelClose').addEventListener('click', orClose);
+orSheetOverlay.addEventListener('click', orCloseSheets);
+
+// 검색
+orSearchInput.addEventListener('input', () => orRenderTrackList(orSearchInput.value));
+orSearchClear.addEventListener('click', () => { orSearchInput.value = ''; orRenderTrackList(''); });
+
+// 외부 클릭 시 컨텍스트 메뉴 닫기
+document.addEventListener('click', (e) => {
+  if (!orCtxMenu.contains(e.target)) orCtxMenu.classList.remove('open');
+});
+
+// CH7 진입 시 패널 열기
+function openRoomOpen() { orOpen(); }
+
 // ── Event Listeners ──
-btnPrev.addEventListener('click', () => { if (currentChannel === 3 || currentChannel === 4) playPrev(currentChannel); });
-btnNext.addEventListener('click', () => { if (currentChannel === 3 || currentChannel === 4) playNext(currentChannel); });
+btnPrev.addEventListener('click', () => {
+  if (currentChannel === 3 || currentChannel === 4) playPrev(currentChannel);
+  else if (currentChannel === 7) { const idx = orCurrentTracks.findIndex(t => t.r2Key === currentTrackKey); if (idx > 0) orPlayTrack(orCurrentTracks[idx-1], idx-1); }
+});
+btnNext.addEventListener('click', () => {
+  if (currentChannel === 3 || currentChannel === 4) playNext(currentChannel);
+  else if (currentChannel === 7) orPlayNext();
+});
 mainPlayBtn.addEventListener('click', handlePlayPause);
 btnRecord.addEventListener('click', async () => {
   if (isRecording) { stopRecording(); return; }
@@ -2831,13 +3751,17 @@ function showIdentifyFail() {
 
 volSlider.value = currentVolume;
 volNum.textContent = Math.round(currentVolume * 100);
+function applyVolume(v) {
+  if (gainNode) gainNode.gain.value = v;
+  if (currentHowl && !currentHowl._sounds[0]?._node?._acConnected) currentHowl.volume(v);
+  if (audioEl && !hlsSourceNode) audioEl.volume = v;
+}
+
 volSlider.addEventListener('input', e => {
   const v = parseFloat(e.target.value);
   currentVolume = v;
   volNum.textContent = Math.round(v * 100);
-  if (gainNode) gainNode.gain.value = v;
-  if (currentHowl && !currentHowl._sounds[0]?._node?._acConnected) currentHowl.volume(v);
-  if (audioEl && !hlsSourceNode) audioEl.volume = v;
+  applyVolume(v);
   localStorage.setItem('radio-volume', v);
 });
 
@@ -2902,7 +3826,7 @@ $('trackPanelClose').addEventListener('click', closeTrackPanel);
 backdrop.addEventListener('click', closeTrackPanel);
 
 $('sleepBtns').addEventListener('click', e => { const btn = e.target.closest('.sleep-btn'); if (btn) setSleepTimer(parseInt(btn.dataset.sec)); });
-$('sleepCancel').addEventListener('click', () => { clearTimeout(sleepTimer); clearInterval(sleepCountdown); sleepSecs = 0; updateSleepUI(); showToast('타이머 취소'); });
+$('sleepCancel').addEventListener('click', () => { clearTimeout(sleepTimer); clearInterval(sleepCountdown); sleepSecs = 0; sleepTargetTime = 0; updateSleepUI(); showToast('타이머 취소'); });
 
 $('headerTitle').addEventListener('click', handleHeaderTap);
 $('loginSsoBtn').addEventListener('click', () => { window.location.href = 'https://saint.yebom.org/login?redirect=' + encodeURIComponent(window.location.href); });

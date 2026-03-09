@@ -22,6 +22,10 @@ let kbsCache  = { data: null, ts: 0 };
 let rscCache  = { data: null, ts: 0 };
 
 export default {
+  async scheduled(event, env, ctx) {
+    await openRoomCron(env);
+  },
+
   async fetch(request, env, ctx) {
     const url  = new URL(request.url);
     const path = url.pathname;
@@ -41,8 +45,14 @@ export default {
         const channel = url.searchParams.get('channel') || 'stream';
         const prefix  = DIR_MAP[channel] || DIR_MAP.stream;
 
-        const list = await env.RADIO_BUCKET.list({ prefix, limit: 1000 });
-        const audioFiles = list.objects.filter(
+        let allObjects = [];
+        let cursor = undefined;
+        do {
+          const list = await env.RADIO_BUCKET.list({ prefix, limit: 1000, cursor });
+          allObjects = allObjects.concat(list.objects);
+          cursor = list.truncated ? list.cursor : undefined;
+        } while (cursor);
+        const audioFiles = allObjects.filter(
           obj => /\.(mp3|m4a|ogg|wav|flac|aac)$/i.test(obj.key)
         );
 
@@ -376,6 +386,11 @@ export default {
         return json({ ok: true }, cors);
       }
 
+      // ── 열린 음악방 (Open Room) ────────────────────────────────
+      if (path.startsWith('/api/openroom')) {
+        return handleOpenRoom(request, env, cors, path, method, url);
+      }
+
       return new Response('Not Found', { status: 404, headers: cors });
 
     } catch (e) {
@@ -531,7 +546,7 @@ async function handlePostLiveState(request, env, cors) {
         const s = sessions.sessions.find(x => x.id === sessionId);
         if (s) {
           s.endedAt = Date.now();
-          s.totalSize = s.chunkCount * 32000;
+          // totalSize는 청크 업로드 시 누적된 실제값 사용 (추정값 덮어쓰기 제거)
           sessions.totalSize = sessions.sessions.reduce((sum, x) => sum + x.totalSize, 0);
         }
         await env.RADIO_BUCKET.put('radio/live/sessions.json', JSON.stringify(sessions),
@@ -925,7 +940,8 @@ async function getKbsInfo() {
     const schedData = await schedRes.json();
     const schedules = schedData[0]?.schedules ?? [];
     const now = new Date();
-    const nowTime = now.getHours() * 10000 + now.getMinutes() * 100 + now.getSeconds();
+    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000); // UTC → KST(+9h)
+    const nowTime = kst.getUTCHours() * 10000 + kst.getUTCMinutes() * 100 + kst.getUTCSeconds();
     const current = schedules.find(s =>
       parseInt(s.service_start_time) <= nowTime &&
       nowTime < parseInt(s.service_end_time)
@@ -946,11 +962,13 @@ async function getKbsInfo() {
 // ── 유틸리티 ────────────────────────────────────────────────────
 
 function corsHeaders(request) {
-  const origin = request.headers.get('Origin') || '*';
+  const origin = request.headers.get('Origin') || '';
+  // 허용 도메인: radio.yebom.org, yebomradio(workers.dev), localhost
+  const allowed = /yebom\.org|yebomradio|localhost/.test(origin) ? origin : '*';
   return {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range, X-Chunk-Index, X-Chunk-Duration, X-Upload-Key, X-Upload-Id, X-Part-Number',
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range, X-Chunk-Index, X-Chunk-Duration, X-Upload-Key, X-Upload-Id, X-Part-Number, X-User-Id, X-User-Name',
     'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
     'Access-Control-Max-Age': '86400',
   };
@@ -995,4 +1013,457 @@ function guessChannel(key) {
 function formatBytes(bytes) {
   if (bytes < 1073741824) return (bytes / 1048576).toFixed(0) + ' MB';
   return (bytes / 1073741824).toFixed(1) + ' GB';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ── 열린 음악방 (Open Room) ─────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+
+const OR_DEFAULT_FOLDERS = [
+  { name: '졸음운전방지', icon: '☀️', isDefault: true, createdBy: 'system' },
+  { name: '온화한BGM',   icon: '🌿', isDefault: true, createdBy: 'system' },
+  { name: '묵상기도',    icon: '🕯️', isDefault: true, createdBy: 'system' },
+  { name: '성령충만',    icon: '🔥', isDefault: true, createdBy: 'system' },
+  { name: '자유곡',      icon: '🎵', isDefault: true, createdBy: 'system' },
+];
+
+const OR_DEFAULT_SETTINGS = {
+  maxFolders: 15,
+  maxFileSizeMB: 50,
+  maxTotalStorageGB: 2,
+  emptyFolderCleanupDays: 30,
+  allowedMimeTypes: ['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/wav', 'audio/mp3'],
+  maxUploadsPerUser: 20,
+  currentStorageUsed: 0,
+};
+
+function getRequestUser(request) {
+  const userId = (request.headers.get('X-User-Id') || '').trim().slice(0, 100);
+  const userName = (request.headers.get('X-User-Name') || '익명').trim().slice(0, 50);
+  return userId ? { id: userId, name: userName } : null;
+}
+
+async function orGetFolders(env) {
+  const raw = await env.RADIO_KV.get('openroom:folders');
+  if (raw) return JSON.parse(raw);
+  // 최초 초기화
+  await env.RADIO_KV.put('openroom:folders', JSON.stringify(OR_DEFAULT_FOLDERS));
+  return OR_DEFAULT_FOLDERS.map(f => ({ ...f }));
+}
+
+async function orGetSettings(env) {
+  const raw = await env.RADIO_KV.get('openroom:settings');
+  if (raw) return { ...OR_DEFAULT_SETTINGS, ...JSON.parse(raw) };
+  return { ...OR_DEFAULT_SETTINGS };
+}
+
+async function orGetFolderTracks(env, folderName) {
+  const raw = await env.RADIO_KV.get(`openroom:folder:${folderName}`);
+  return raw ? JSON.parse(raw) : [];
+}
+
+async function orSaveFolderTracks(env, folderName, tracks) {
+  await env.RADIO_KV.put(`openroom:folder:${folderName}`, JSON.stringify(tracks));
+}
+
+async function orGetFileMaster(env, r2Key) {
+  const raw = await env.RADIO_KV.get(`openroom:file:${r2Key}`);
+  return raw ? JSON.parse(raw) : null;
+}
+
+async function orSaveFileMaster(env, master) {
+  await env.RADIO_KV.put(`openroom:file:${master.r2Key}`, JSON.stringify(master));
+}
+
+async function handleOpenRoom(request, env, cors, path, method, url) {
+  // GET /api/openroom/folders
+  if (path === '/api/openroom/folders' && method === 'GET') {
+    const folders = await orGetFolders(env);
+    const result = await Promise.all(folders.map(async f => {
+      const tracks = await orGetFolderTracks(env, f.name);
+      return { ...f, trackCount: tracks.length };
+    }));
+    return json(result, cors);
+  }
+
+  // POST /api/openroom/folders — 폴더 생성
+  if (path === '/api/openroom/folders' && method === 'POST') {
+    const user = getRequestUser(request);
+    if (!user) return json({ error: '로그인이 필요합니다' }, cors, 401);
+    const { name } = await request.json();
+    if (!name || name.length < 2 || name.length > 10)
+      return json({ error: '폴더 이름은 2~10자여야 합니다' }, cors, 400);
+    const folders = await orGetFolders(env);
+    if (folders.some(f => f.name === name))
+      return json({ error: '이미 같은 이름의 폴더가 있습니다' }, cors, 409);
+    const settings = await orGetSettings(env);
+    if (folders.length >= settings.maxFolders)
+      return json({ error: `폴더는 최대 ${settings.maxFolders}개까지 만들 수 있습니다` }, cors, 400);
+    const newFolder = { name, icon: '✨', isDefault: false, createdBy: user.id, createdAt: new Date().toISOString() };
+    folders.push(newFolder);
+    await env.RADIO_KV.put('openroom:folders', JSON.stringify(folders));
+    return json({ ok: true, folder: newFolder }, cors);
+  }
+
+  // PUT /api/openroom/folders/:name — 폴더 이름·아이콘 변경 (관리자)
+  const folderEditMatch = path.match(/^\/api\/openroom\/folders\/([^/]+)$/) && method === 'PUT';
+  if (folderEditMatch) {
+    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    const folderName = decodeURIComponent(path.split('/')[4]);
+    const { newName, icon } = await request.json();
+    const folders = await orGetFolders(env);
+    const idx = folders.findIndex(f => f.name === folderName);
+    if (idx < 0) return json({ error: '폴더를 찾을 수 없습니다' }, cors, 404);
+    if (newName && newName !== folderName) {
+      if (folders.some(f => f.name === newName)) return json({ error: '이미 같은 이름의 폴더가 있습니다' }, cors, 409);
+      const tracks = await orGetFolderTracks(env, folderName);
+      await orSaveFolderTracks(env, newName, tracks);
+      await env.RADIO_KV.delete(`openroom:folder:${folderName}`);
+      // 파일 마스터 refs 업데이트
+      for (const t of tracks) {
+        const master = await orGetFileMaster(env, t.r2Key);
+        if (master) {
+          master.refs = master.refs.map(r => r === folderName ? newName : r);
+          await orSaveFileMaster(env, master);
+        }
+      }
+      folders[idx].name = newName;
+    }
+    if (icon) folders[idx].icon = icon;
+    await env.RADIO_KV.put('openroom:folders', JSON.stringify(folders));
+    return json({ ok: true }, cors);
+  }
+
+  // DELETE /api/openroom/folders/:name — 폴더 삭제 (관리자)
+  const folderDeleteMatch = path.match(/^\/api\/openroom\/folders\/([^/]+)$/) && method === 'DELETE';
+  if (folderDeleteMatch) {
+    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    const folderName = decodeURIComponent(path.split('/')[4]);
+    const folders = await orGetFolders(env);
+    const folder = folders.find(f => f.name === folderName);
+    if (!folder) return json({ error: '폴더를 찾을 수 없습니다' }, cors, 404);
+    if (folder.isDefault) return json({ error: '기본 폴더는 삭제할 수 없습니다' }, cors, 400);
+    // refs 정리 및 고아 파일 삭제
+    const tracks = await orGetFolderTracks(env, folderName);
+    for (const t of tracks) {
+      const master = await orGetFileMaster(env, t.r2Key);
+      if (master) {
+        master.refs = master.refs.filter(r => r !== folderName);
+        if (master.refs.length === 0) {
+          await env.RADIO_BUCKET.delete(`openroom/files/${master.r2Key}`);
+          await env.RADIO_KV.delete(`openroom:file:${master.r2Key}`);
+        } else {
+          await orSaveFileMaster(env, master);
+        }
+      }
+    }
+    await env.RADIO_KV.delete(`openroom:folder:${folderName}`);
+    await env.RADIO_KV.put('openroom:folders', JSON.stringify(folders.filter(f => f.name !== folderName)));
+    return json({ ok: true }, cors);
+  }
+
+  // GET /api/openroom/folders/:name/tracks
+  const tracksGetMatch = path.match(/^\/api\/openroom\/folders\/([^/]+)\/tracks$/);
+  if (tracksGetMatch && method === 'GET') {
+    const folderName = decodeURIComponent(path.split('/')[4]);
+    const tracks = await orGetFolderTracks(env, folderName);
+    return json(tracks, cors);
+  }
+
+  // POST /api/openroom/folders/:name/tracks — 곡 업로드
+  const tracksUploadMatch = path.match(/^\/api\/openroom\/folders\/([^/]+)\/tracks$/);
+  if (tracksUploadMatch && method === 'POST') {
+    const user = getRequestUser(request);
+    if (!user) return json({ error: '로그인이 필요합니다' }, cors, 401);
+
+    const folderName = decodeURIComponent(path.split('/')[4]);
+    const folders = await orGetFolders(env);
+    if (!folders.some(f => f.name === folderName))
+      return json({ error: '폴더를 찾을 수 없습니다' }, cors, 404);
+
+    const settings = await orGetSettings(env);
+    const formData = await request.formData();
+    const file = formData.get('file');
+    const displayName = (formData.get('displayName') || '').trim() || (file?.name || '').replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ').trim();
+    const duration = parseInt(formData.get('duration') || '0');
+    const fileHash = (formData.get('fileHash') || '').trim().slice(0, 64);
+
+    if (!file) return json({ error: '파일이 없습니다' }, cors, 400);
+    const fileSizeMB = file.size / 1048576;
+    if (fileSizeMB > settings.maxFileSizeMB)
+      return json({ error: `파일 크기가 ${settings.maxFileSizeMB}MB를 초과합니다` }, cors, 400);
+
+    const mime = file.type || 'audio/mpeg';
+    const allowedMimes = settings.allowedMimeTypes || OR_DEFAULT_SETTINGS.allowedMimeTypes;
+    if (!allowedMimes.includes(mime) && !mime.startsWith('audio/'))
+      return json({ error: 'MP3, M4A, WAV 파일만 올릴 수 있습니다' }, cors, 400);
+
+    // 사용자 업로드 수 체크 (전체 폴더 합산)
+    const allFolders = await orGetFolders(env);
+    let userUploadCount = 0;
+    for (const f of allFolders) {
+      const ft = await orGetFolderTracks(env, f.name);
+      userUploadCount += ft.filter(t => t.uploaderId === user.id).length;
+    }
+    if (userUploadCount >= settings.maxUploadsPerUser)
+      return json({ error: `곡은 최대 ${settings.maxUploadsPerUser}개까지 올릴 수 있습니다` }, cors, 400);
+
+    // 파일 확장자
+    const extMap = { 'audio/mpeg': '.mp3', 'audio/mp3': '.mp3', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/wav': '.wav', 'audio/x-wav': '.wav' };
+    const ext = extMap[mime] || '.mp3';
+
+    // 해시 기반 중복 제거
+    const r2Key = fileHash ? `${fileHash}${ext}` : `${crypto.randomUUID()}${ext}`;
+    const r2Path = `openroom/files/${r2Key}`;
+
+    let master = await orGetFileMaster(env, r2Key);
+    if (!master) {
+      // 신규 파일 R2 업로드
+      const fileBuffer = await file.arrayBuffer();
+      await env.RADIO_BUCKET.put(r2Path, fileBuffer, {
+        httpMetadata: { contentType: mime },
+      });
+      master = {
+        r2Key,
+        originalName: displayName,
+        uploader: user.name,
+        uploaderId: user.id,
+        duration,
+        size: file.size,
+        mimeType: mime,
+        refs: [],
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    // 폴더에 참조 추가
+    const folderTracks = await orGetFolderTracks(env, folderName);
+    if (folderTracks.some(t => t.r2Key === r2Key))
+      return json({ error: '이 폴더에 이미 동일한 곡이 있습니다' }, cors, 409);
+
+    const refId = crypto.randomUUID();
+    const ref = {
+      refId,
+      r2Key,
+      displayName: displayName || master.originalName,
+      uploader: user.name,
+      uploaderId: user.id,
+      duration: duration || master.duration,
+      addedAt: new Date().toISOString(),
+    };
+    folderTracks.push(ref);
+    await orSaveFolderTracks(env, folderName, folderTracks);
+
+    if (!master.refs.includes(folderName)) master.refs.push(folderName);
+    await orSaveFileMaster(env, master);
+
+    return json({ ok: true, track: { ...ref, folder: folderName } }, cors);
+  }
+
+  // PUT /api/openroom/tracks/:refId — 곡 이름 수정
+  const trackEditMatch = path.match(/^\/api\/openroom\/tracks\/([^/]+)$/);
+  if (trackEditMatch && method === 'PUT') {
+    const user = getRequestUser(request);
+    const refId = trackEditMatch[1];
+    const { folderName, displayName } = await request.json();
+    if (!folderName || !displayName) return json({ error: '폴더명과 곡 이름이 필요합니다' }, cors, 400);
+    const tracks = await orGetFolderTracks(env, folderName);
+    const idx = tracks.findIndex(t => t.refId === refId);
+    if (idx < 0) return json({ error: '곡을 찾을 수 없습니다' }, cors, 404);
+    const track = tracks[idx];
+    const isOwner = user && track.uploaderId === user.id;
+    if (!isOwner && !isAdmin(request, env)) return json({ error: '권한이 없습니다' }, cors, 403);
+    tracks[idx].displayName = displayName.trim().slice(0, 100);
+    await orSaveFolderTracks(env, folderName, tracks);
+    return json({ ok: true }, cors);
+  }
+
+  // DELETE /api/openroom/tracks/:refId — 폴더에서 제거
+  const trackDeleteMatch = path.match(/^\/api\/openroom\/tracks\/([^/]+)$/);
+  if (trackDeleteMatch && method === 'DELETE') {
+    const user = getRequestUser(request);
+    const refId = trackDeleteMatch[1];
+    const folderName = url.searchParams.get('folder');
+    if (!folderName) return json({ error: 'folder 파라미터가 필요합니다' }, cors, 400);
+    const tracks = await orGetFolderTracks(env, folderName);
+    const idx = tracks.findIndex(t => t.refId === refId);
+    if (idx < 0) return json({ error: '곡을 찾을 수 없습니다' }, cors, 404);
+    const track = tracks[idx];
+    const isOwner = user && track.uploaderId === user.id;
+    if (!isOwner && !isAdmin(request, env)) return json({ error: '권한이 없습니다' }, cors, 403);
+
+    tracks.splice(idx, 1);
+    await orSaveFolderTracks(env, folderName, tracks);
+
+    // 파일 마스터 refs 업데이트
+    const master = await orGetFileMaster(env, track.r2Key);
+    if (master) {
+      master.refs = master.refs.filter(r => r !== folderName);
+      if (master.refs.length === 0) {
+        await env.RADIO_BUCKET.delete(`openroom/files/${track.r2Key}`);
+        await env.RADIO_KV.delete(`openroom:file:${track.r2Key}`);
+      } else {
+        await orSaveFileMaster(env, master);
+      }
+    }
+    return json({ ok: true }, cors);
+  }
+
+  // POST /api/openroom/admin/copy — 복사
+  if (path === '/api/openroom/admin/copy' && method === 'POST') {
+    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    const { r2Key, sourceFolder, targetFolders } = await request.json();
+    const master = await orGetFileMaster(env, r2Key);
+    if (!master) return json({ error: '파일을 찾을 수 없습니다' }, cors, 404);
+    const copied = [], skipped = [];
+    for (const target of targetFolders) {
+      const tracks = await orGetFolderTracks(env, target);
+      if (tracks.some(t => t.r2Key === r2Key)) { skipped.push(target); continue; }
+      const srcTracks = await orGetFolderTracks(env, sourceFolder);
+      const srcRef = srcTracks.find(t => t.r2Key === r2Key);
+      const newRef = {
+        refId: crypto.randomUUID(),
+        r2Key,
+        displayName: srcRef?.displayName || master.originalName,
+        uploader: master.uploader,
+        uploaderId: master.uploaderId,
+        duration: master.duration,
+        addedAt: new Date().toISOString(),
+      };
+      tracks.push(newRef);
+      await orSaveFolderTracks(env, target, tracks);
+      if (!master.refs.includes(target)) master.refs.push(target);
+      copied.push(target);
+    }
+    await orSaveFileMaster(env, master);
+    return json({ ok: true, copied, skipped, refs: master.refs }, cors);
+  }
+
+  // POST /api/openroom/admin/move — 이동
+  if (path === '/api/openroom/admin/move' && method === 'POST') {
+    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    const { refId, sourceFolder, targetFolder } = await request.json();
+    const srcTracks = await orGetFolderTracks(env, sourceFolder);
+    const idx = srcTracks.findIndex(t => t.refId === refId);
+    if (idx < 0) return json({ error: '곡을 찾을 수 없습니다' }, cors, 404);
+    const ref = srcTracks[idx];
+    const tgtTracks = await orGetFolderTracks(env, targetFolder);
+    if (tgtTracks.some(t => t.r2Key === ref.r2Key)) return json({ error: '대상 폴더에 이미 존재합니다' }, cors, 409);
+    srcTracks.splice(idx, 1);
+    tgtTracks.push({ ...ref, refId: crypto.randomUUID(), addedAt: new Date().toISOString() });
+    await orSaveFolderTracks(env, sourceFolder, srcTracks);
+    await orSaveFolderTracks(env, targetFolder, tgtTracks);
+    const master = await orGetFileMaster(env, ref.r2Key);
+    if (master) {
+      master.refs = master.refs.filter(r => r !== sourceFolder);
+      if (!master.refs.includes(targetFolder)) master.refs.push(targetFolder);
+      await orSaveFileMaster(env, master);
+    }
+    return json({ ok: true }, cors);
+  }
+
+  // DELETE /api/openroom/admin/files/:r2Key — 완전 삭제
+  const adminFileDelete = path.match(/^\/api\/openroom\/admin\/files\/(.+)$/);
+  if (adminFileDelete && method === 'DELETE') {
+    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    const r2Key = decodeURIComponent(adminFileDelete[1]);
+    const master = await orGetFileMaster(env, r2Key);
+    if (!master) return json({ error: '파일을 찾을 수 없습니다' }, cors, 404);
+    for (const folderName of master.refs) {
+      const tracks = await orGetFolderTracks(env, folderName);
+      await orSaveFolderTracks(env, folderName, tracks.filter(t => t.r2Key !== r2Key));
+    }
+    await env.RADIO_BUCKET.delete(`openroom/files/${r2Key}`);
+    await env.RADIO_KV.delete(`openroom:file:${r2Key}`);
+    return json({ ok: true }, cors);
+  }
+
+  // GET /api/openroom/admin/storage
+  if (path === '/api/openroom/admin/storage' && method === 'GET') {
+    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    const settings = await orGetSettings(env);
+    const folders = await orGetFolders(env);
+    let totalTracks = 0;
+    for (const f of folders) {
+      const tracks = await orGetFolderTracks(env, f.name);
+      totalTracks += tracks.length;
+    }
+    return json({
+      currentStorageUsed: settings.currentStorageUsed || 0,
+      maxTotalStorageGB: settings.maxTotalStorageGB,
+      totalTracks,
+      totalFolders: folders.length,
+    }, cors);
+  }
+
+  // PUT /api/openroom/admin/settings
+  if (path === '/api/openroom/admin/settings' && method === 'PUT') {
+    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    const body = await request.json();
+    const settings = await orGetSettings(env);
+    const updated = { ...settings, ...body };
+    await env.RADIO_KV.put('openroom:settings', JSON.stringify(updated));
+    return json({ ok: true, settings: updated }, cors);
+  }
+
+  // POST /api/openroom/admin/init — 기본 폴더 초기화
+  if (path === '/api/openroom/admin/init' && method === 'POST') {
+    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    const existing = await env.RADIO_KV.get('openroom:folders');
+    if (existing) return json({ ok: true, message: '이미 초기화됨', folders: JSON.parse(existing) }, cors);
+    await env.RADIO_KV.put('openroom:folders', JSON.stringify(OR_DEFAULT_FOLDERS));
+    await env.RADIO_KV.put('openroom:settings', JSON.stringify(OR_DEFAULT_SETTINGS));
+    return json({ ok: true, folders: OR_DEFAULT_FOLDERS }, cors);
+  }
+
+  return json({ error: 'openroom: Not Found' }, cors, 404);
+}
+
+// ── Cron: 빈 폴더 정리 + 고아 파일 정리 + 용량 집계 ────────────
+async function openRoomCron(env) {
+  const settings = await orGetSettings(env);
+  const folders = await orGetFolders(env);
+  const cleanupDays = settings.emptyFolderCleanupDays || 30;
+  const now = Date.now();
+
+  // 1. 빈 폴더 자동 삭제
+  const activeFolders = [];
+  for (const folder of folders) {
+    if (folder.isDefault) { activeFolders.push(folder); continue; }
+    const tracks = await orGetFolderTracks(env, folder.name);
+    if (tracks.length > 0) { activeFolders.push(folder); continue; }
+    const created = folder.createdAt ? new Date(folder.createdAt).getTime() : 0;
+    if (now - created >= cleanupDays * 86400000) {
+      await env.RADIO_KV.delete(`openroom:folder:${folder.name}`);
+      // 폴더 삭제 — 이미 빈 폴더이므로 refs 정리 불필요
+    } else {
+      activeFolders.push(folder);
+    }
+  }
+  if (activeFolders.length !== folders.length) {
+    await env.RADIO_KV.put('openroom:folders', JSON.stringify(activeFolders));
+  }
+
+  // 2. 고아 파일 정리 (refs가 빈 파일 마스터 레코드)
+  // KV list로 openroom:file: 접두어 키 순회
+  let listCursor;
+  let totalSize = 0;
+  do {
+    const listed = await env.RADIO_KV.list({ prefix: 'openroom:file:', cursor: listCursor });
+    for (const key of listed.keys) {
+      const raw = await env.RADIO_KV.get(key.name);
+      if (!raw) continue;
+      const master = JSON.parse(raw);
+      totalSize += master.size || 0;
+      if (!master.refs || master.refs.length === 0) {
+        await env.RADIO_BUCKET.delete(`openroom/files/${master.r2Key}`);
+        await env.RADIO_KV.delete(key.name);
+      }
+    }
+    listCursor = listed.list_complete ? undefined : listed.cursor;
+  } while (listCursor);
+
+  // 3. 저장 용량 갱신
+  const updatedSettings = { ...settings, currentStorageUsed: totalSize };
+  await env.RADIO_KV.put('openroom:settings', JSON.stringify(updatedSettings));
 }

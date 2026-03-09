@@ -43,7 +43,7 @@ self.addEventListener('fetch', event => {
           caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
         }
         return response;
-      }).catch(() => caches.match('/') || caches.match(request))
+      }).catch(async () => (await caches.match('/')) || (await caches.match(request)))
     );
     return;
   }
