@@ -1039,7 +1039,7 @@ const OR_DEFAULT_SETTINGS = {
 
 function getRequestUser(request) {
   const userId = (request.headers.get('X-User-Id') || '').trim().slice(0, 100);
-  const userName = (request.headers.get('X-User-Name') || '익명').trim().slice(0, 50);
+  const userName = decodeURIComponent((request.headers.get('X-User-Name') || '%EC%9D%B5%EB%AA%85').trim()).slice(0, 50);
   return userId ? { id: userId, name: userName } : null;
 }
 

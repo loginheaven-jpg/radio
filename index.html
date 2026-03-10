@@ -749,18 +749,11 @@ body{
   </div>
   <div class="or-drop-area" id="orDropArea">
     <div class="or-drop-icon">📁</div>
-    <div class="or-drop-text">파일 선택하기<br><span class="or-drop-hint">MP3, M4A, WAV · 50MB 이하</span></div>
-    <input type="file" id="orFileInput" accept=".mp3,.m4a,.wav,.aac" style="display:none">
+    <div class="or-drop-text">파일 선택 (여러 개 가능)<br><span class="or-drop-hint">MP3, M4A, WAV · 파일당 50MB 이하</span></div>
+    <input type="file" id="orFileInput" accept=".mp3,.m4a,.wav,.aac" multiple style="display:none">
   </div>
-  <div class="or-upload-name-wrap" id="orUploadNameWrap" style="display:none">
-    <label class="or-label">곡 이름</label>
-    <input class="or-name-input" id="orUploadName" type="text" maxlength="100" placeholder="곡 이름 입력">
-    <div class="or-progress-wrap" id="orProgressWrap" style="display:none">
-      <div class="or-progress-bar"><div class="or-progress-fill" id="orProgressFill"></div></div>
-      <span class="or-progress-pct" id="orProgressPct">0%</span>
-    </div>
-    <button class="or-submit-btn" id="orSubmitBtn">✅ 올리기</button>
-  </div>
+  <div class="upload-queue" id="orUploadQueue" style="display:none;margin-top:10px;max-height:240px;overflow-y:auto"></div>
+  <button class="upload-all-btn" id="orUploadAllBtn" style="display:none;margin-top:8px">✅ 모두 올리기</button>
 </div>
 
 <!-- 폴더 만들기 바텀시트 -->
@@ -3217,13 +3210,13 @@ let orCtxTrack = null;
 let orAdminMode = null; // 'copy' | 'move'
 let orAdminR2Key = null;
 let orAdminRefId = null;
-let orUploadFile = null;
+let orUploadQueue = [];
 
 function orApiUrl(path) { return WORKER_URL + '/api/openroom' + path; }
 
 function orUserHeaders() {
   if (!radioUser) return {};
-  return { 'X-User-Id': radioUser.id, 'X-User-Name': radioUser.name || '익명' };
+  return { 'X-User-Id': radioUser.id, 'X-User-Name': encodeURIComponent(radioUser.name || '익명') };
 }
 
 async function orFetch(path, options = {}) {
@@ -3511,15 +3504,14 @@ function orCloseSheets() {
   orUploadSheet.classList.remove('open');
   orCreateSheet.classList.remove('open');
   orAdminSheet.classList.remove('open');
-  orUploadFile = null;
+  orUploadQueue = [];
+  const queueEl = document.getElementById('orUploadQueue');
+  if (queueEl) { queueEl.innerHTML = ''; queueEl.style.display = 'none'; }
+  const allBtn = document.getElementById('orUploadAllBtn');
+  if (allBtn) { allBtn.style.display = 'none'; allBtn.disabled = false; }
   const dropArea = document.getElementById('orDropArea');
   dropArea.classList.remove('has-file');
-  dropArea.querySelector('.or-drop-text').innerHTML = '파일 선택하기<br><span class="or-drop-hint">MP3, M4A, WAV · 50MB 이하</span>';
-  document.getElementById('orUploadNameWrap').style.display = 'none';
-  document.getElementById('orProgressWrap').style.display = 'none';
-  document.getElementById('orProgressFill').style.width = '0%';
-  document.getElementById('orProgressPct').textContent = '0%';
-  document.getElementById('orUploadName').value = '';
+  dropArea.querySelector('.or-drop-text').innerHTML = '파일 선택 (여러 개 가능)<br><span class="or-drop-hint">MP3, M4A, WAV · 파일당 50MB 이하</span>';
   document.getElementById('orFolderNameInput').value = '';
   document.getElementById('orFileInput').value = '';
 }
@@ -3537,16 +3529,36 @@ const orFileInput = document.getElementById('orFileInput');
 orDropArea.addEventListener('click', () => orFileInput.click());
 orDropArea.addEventListener('dragover', e => { e.preventDefault(); orDropArea.classList.add('dragover'); });
 orDropArea.addEventListener('dragleave', () => orDropArea.classList.remove('dragover'));
-orDropArea.addEventListener('drop', e => { e.preventDefault(); orDropArea.classList.remove('dragover'); if (e.dataTransfer.files[0]) orSetUploadFile(e.dataTransfer.files[0]); });
-orFileInput.addEventListener('change', e => { if (e.target.files[0]) orSetUploadFile(e.target.files[0]); orFileInput.value = ''; });
+orDropArea.addEventListener('drop', e => { e.preventDefault(); orDropArea.classList.remove('dragover'); if (e.dataTransfer.files.length) orAddUploadFiles(e.dataTransfer.files); });
+orFileInput.addEventListener('change', e => { if (e.target.files.length) orAddUploadFiles(e.target.files); orFileInput.value = ''; });
 
-function orSetUploadFile(file) {
-  orUploadFile = file;
-  const name = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ').trim();
+function orAddUploadFiles(fileList) {
+  Array.from(fileList).forEach(file => {
+    const name = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ').trim();
+    orUploadQueue.push({ file, name });
+  });
+  renderOrUploadQueue();
   orDropArea.classList.add('has-file');
-  orDropArea.querySelector('.or-drop-text').innerHTML = `<strong>${escHtml(file.name)}</strong><br><span class="or-drop-hint">${(file.size/1048576).toFixed(1)} MB</span>`;
-  document.getElementById('orUploadName').value = name;
-  document.getElementById('orUploadNameWrap').style.display = '';
+  orDropArea.querySelector('.or-drop-text').innerHTML = `<strong>${orUploadQueue.length}개 파일 선택됨</strong><br><span class="or-drop-hint">클릭하여 더 추가</span>`;
+}
+
+function renderOrUploadQueue() {
+  const queueEl = document.getElementById('orUploadQueue');
+  const allBtn = document.getElementById('orUploadAllBtn');
+  queueEl.innerHTML = '';
+  orUploadQueue.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'upload-item';
+    div.innerHTML = `<input type="text" value="${escHtml(item.name)}" placeholder="곡 이름" maxlength="100" data-idx="${i}">`
+      + `<span class="upload-file-size">${(item.file.size/1048576).toFixed(1)}MB</span>`
+      + `<button class="upload-remove" data-idx="${i}">✕</button>`
+      + `<div class="upload-status-row" id="or-uprow-${i}"><span class="upload-status-icon" id="or-upicon-${i}"></span><div class="upload-progress"><div class="upload-progress-fill" id="or-prog-${i}"></div></div><span class="upload-pct" id="or-uppct-${i}"></span></div>`;
+    div.querySelector('input').addEventListener('input', e => { orUploadQueue[i].name = e.target.value; });
+    div.querySelector('.upload-remove').addEventListener('click', () => { orUploadQueue.splice(i, 1); renderOrUploadQueue(); if (!orUploadQueue.length) { orDropArea.classList.remove('has-file'); orDropArea.querySelector('.or-drop-text').innerHTML = '파일 선택 (여러 개 가능)<br><span class="or-drop-hint">MP3, M4A, WAV · 파일당 50MB 이하</span>'; } else { orDropArea.querySelector('.or-drop-text').innerHTML = `<strong>${orUploadQueue.length}개 파일 선택됨</strong><br><span class="or-drop-hint">클릭하여 더 추가</span>`; } });
+    queueEl.appendChild(div);
+  });
+  queueEl.style.display = orUploadQueue.length ? '' : 'none';
+  allBtn.style.display = orUploadQueue.length ? '' : 'none';
 }
 
 async function orGetFileSha256(file) {
@@ -3565,59 +3577,57 @@ async function orGetAudioDuration(file) {
   });
 }
 
-document.getElementById('orSubmitBtn').addEventListener('click', async () => {
-  if (!orUploadFile) { showToast('파일을 선택해주세요'); return; }
+document.getElementById('orUploadAllBtn').addEventListener('click', async () => {
+  if (!orUploadQueue.length) { showToast('파일을 선택해주세요'); return; }
   if (!radioUser) { showToast('로그인이 필요합니다'); return; }
-  const displayName = document.getElementById('orUploadName').value.trim();
-  if (!displayName) { showToast('곡 이름을 입력해주세요'); return; }
-  const submitBtn = document.getElementById('orSubmitBtn');
-  submitBtn.disabled = true;
-  submitBtn.textContent = '준비 중...';
-  const progressWrap = document.getElementById('orProgressWrap');
-  const progressFill = document.getElementById('orProgressFill');
-  const progressPct = document.getElementById('orProgressPct');
-  progressWrap.style.display = 'flex';
-  try {
-    submitBtn.textContent = '해시 계산 중...';
-    const [fileHash, duration] = await Promise.all([orGetFileSha256(orUploadFile), orGetAudioDuration(orUploadFile)]);
-    const fd = new FormData();
-    fd.append('file', orUploadFile);
-    fd.append('displayName', displayName);
-    fd.append('duration', String(duration));
-    fd.append('fileHash', fileHash);
-    submitBtn.textContent = '업로드 중...';
-    await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', orApiUrl(`/folders/${encodeURIComponent(orCurrentFolder)}/tracks`));
-      xhr.setRequestHeader('X-User-Id', radioUser.id);
-      xhr.setRequestHeader('X-User-Name', radioUser.name || '익명');
-      xhr.upload.onprogress = e => {
-        if (e.lengthComputable) {
-          const p = Math.round(e.loaded / e.total * 100);
-          progressFill.style.width = p + '%';
-          progressPct.textContent = p + '%';
-        }
-      };
-      xhr.onload = () => {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          if (data.ok) resolve(data);
-          else reject(new Error(data.error || '업로드 실패'));
-        } catch { reject(new Error('서버 오류')); }
-      };
-      xhr.onerror = () => reject(new Error('네트워크 오류'));
-      xhr.send(fd);
-    });
-    orCloseSheets();
-    await orLoadFolders(); await orLoadTracks(orCurrentFolder); orRenderTrackList();
-    showToast('✅ 업로드되었습니다');
-  } catch (e) {
-    showToast(e.message || '업로드 실패');
-    progressWrap.style.display = 'none';
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = '✅ 올리기';
+  const allBtn = document.getElementById('orUploadAllBtn');
+  allBtn.disabled = true;
+  allBtn.textContent = '업로드 중...';
+  let successCount = 0;
+  for (let i = 0; i < orUploadQueue.length; i++) {
+    const item = orUploadQueue[i];
+    const displayName = item.name.trim();
+    if (!displayName) { document.getElementById(`or-upicon-${i}`).textContent = '⚠️'; continue; }
+    const row = document.getElementById(`or-uprow-${i}`);
+    const icon = document.getElementById(`or-upicon-${i}`);
+    const prog = document.getElementById(`or-prog-${i}`);
+    const pct = document.getElementById(`or-uppct-${i}`);
+    row.style.display = 'flex';
+    icon.textContent = '⏳';
+    pct.textContent = '0%';
+    try {
+      icon.textContent = '🔐';
+      const [fileHash, duration] = await Promise.all([orGetFileSha256(item.file), orGetAudioDuration(item.file)]);
+      const fd = new FormData();
+      fd.append('file', item.file);
+      fd.append('displayName', displayName);
+      fd.append('duration', String(duration));
+      fd.append('fileHash', fileHash);
+      icon.textContent = '📤';
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', orApiUrl(`/folders/${encodeURIComponent(orCurrentFolder)}/tracks`));
+        xhr.setRequestHeader('X-User-Id', radioUser.id);
+        xhr.setRequestHeader('X-User-Name', encodeURIComponent(radioUser.name || '익명'));
+        xhr.upload.onprogress = e => {
+          if (e.lengthComputable) { const p = Math.round(e.loaded / e.total * 100); prog.style.width = p + '%'; pct.textContent = p + '%'; }
+        };
+        xhr.onload = () => {
+          try { const d = JSON.parse(xhr.responseText); if (d.ok) resolve(d); else reject(new Error(d.error || '업로드 실패')); }
+          catch { reject(new Error('서버 오류')); }
+        };
+        xhr.onerror = () => reject(new Error('네트워크 오류'));
+        xhr.send(fd);
+      });
+      icon.textContent = '✅'; pct.textContent = '완료'; successCount++;
+    } catch (e) {
+      icon.textContent = '❌'; pct.textContent = e.message || '실패';
+    }
   }
+  showToast(`✅ ${successCount}/${orUploadQueue.length}개 업로드 완료`);
+  await orLoadFolders(); await orLoadTracks(orCurrentFolder); orRenderTrackList();
+  if (successCount === orUploadQueue.length) orCloseSheets();
+  else { allBtn.disabled = false; allBtn.textContent = '✅ 모두 올리기'; }
 });
 
 // 폴더 만들기 시트
