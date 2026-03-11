@@ -473,7 +473,9 @@ body{
 .pwa-prompt-desc{font-size:0.85rem;color:var(--text-dim);line-height:1.7;margin-bottom:20px}
 .pwa-prompt-install{display:block;width:100%;padding:14px 0;border-radius:14px;border:none;background:var(--accent);color:var(--bg-deep);font-size:0.95rem;font-weight:700;cursor:pointer;margin-bottom:10px;transition:opacity 0.2s}
 .pwa-prompt-install:hover{opacity:0.85}
-.pwa-prompt-later{background:none;border:none;color:var(--text-dim);font-size:0.82rem;cursor:pointer;padding:6px;width:100%}
+.pwa-prompt-actions{display:flex;align-items:center;justify-content:center;gap:6px}
+.pwa-prompt-later,.pwa-prompt-never{background:none;border:none;color:var(--text-dim);font-size:0.82rem;cursor:pointer;padding:6px}
+.pwa-prompt-sep{color:var(--text-dim);opacity:0.4;font-size:0.75rem}
 
 /* Backdrop */
 .backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:150}
@@ -889,7 +891,11 @@ body{
     <div class="pwa-prompt-title">예봄라디오 앱으로 즐기세요</div>
     <div class="pwa-prompt-desc">홈 화면에 추가하면 앱처럼 빠르게 실행되고<br>백그라운드 재생이 더욱 안정적입니다.</div>
     <button class="pwa-prompt-install" id="pwaPromptInstall">📲 홈 화면에 추가하기</button>
-    <button class="pwa-prompt-later" id="pwaPromptLater">나중에 할게요</button>
+    <div class="pwa-prompt-actions">
+      <button class="pwa-prompt-later" id="pwaPromptLater">3일 후 다시 보기</button>
+      <span class="pwa-prompt-sep">·</span>
+      <button class="pwa-prompt-never" id="pwaPromptNever">다시 안 보기</button>
+    </div>
   </div>
 </div>
 
@@ -4271,12 +4277,20 @@ $('recSettingsReset').addEventListener('click', () => {
 });
 
 // ── PWA ──
-function initPwa() {
+async function initPwa() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   if (isStandalone) return;
   const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
-  // 기존 하단 버튼
+  // Android Chrome: getInstalledRelatedApps로 이미 설치됐는지 확인
+  if (!isIos && navigator.getInstalledRelatedApps) {
+    try {
+      const related = await navigator.getInstalledRelatedApps();
+      if (related.length > 0) return; // 이미 설치됨
+    } catch(_) {}
+  }
+
+  // 하단 설치 버튼
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstallPrompt = e; $('pwaInstallBtn').style.display = 'block'; });
   $('pwaInstallBtn').addEventListener('click', async () => {
     if (isIos) { $('iosGuideModal').classList.add('open'); return; }
@@ -4286,25 +4300,23 @@ function initPwa() {
   if (isIos) $('pwaInstallBtn').style.display = 'block';
 
   // ── 설치 권유 팝업 ──
-  const DISMISS_KEY = 'pwa-prompt-dismissed';
-  const DISMISS_DAYS = 7;
-  const dismissed = parseInt(localStorage.getItem(DISMISS_KEY) || '0');
-  if (Date.now() - dismissed < DISMISS_DAYS * 86400000) return; // 7일 이내 → 스킵
+  const DISMISS_KEY = 'pwa-prompt-dismissed';   // 값: 타임스탬프 or 'never'
+  const dismissed   = localStorage.getItem(DISMISS_KEY);
+  if (dismissed === 'never') return;            // 다시 안 보기
+  if (dismissed && Date.now() - parseInt(dismissed) < 3 * 86400000) return; // 3일 억제
 
   const showPromptPopup = () => {
     if ($('pwaPromptModal').classList.contains('open')) return;
     $('pwaPromptModal').classList.add('open');
   };
 
-  // iOS: 2초 후 바로 표시
   if (isIos) {
     setTimeout(showPromptPopup, 2000);
   } else {
-    // Chrome/Edge: beforeinstallprompt 수신 후 2초 후 표시
     window.addEventListener('beforeinstallprompt', () => setTimeout(showPromptPopup, 2000), { once: true });
   }
 
-  // 설치하기 버튼
+  // 설치하기
   $('pwaPromptInstall').addEventListener('click', async () => {
     $('pwaPromptModal').classList.remove('open');
     if (isIos) { $('iosGuideModal').classList.add('open'); return; }
@@ -4316,10 +4328,16 @@ function initPwa() {
     }
   });
 
-  // 나중에 버튼
+  // 3일 후 다시 보기
   $('pwaPromptLater').addEventListener('click', () => {
     $('pwaPromptModal').classList.remove('open');
     localStorage.setItem(DISMISS_KEY, String(Date.now()));
+  });
+
+  // 다시 안 보기
+  $('pwaPromptNever').addEventListener('click', () => {
+    $('pwaPromptModal').classList.remove('open');
+    localStorage.setItem(DISMISS_KEY, 'never');
   });
 }
 
