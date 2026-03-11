@@ -1824,6 +1824,42 @@ function preloadNextTrack(channel) {
   }
 }
 
+// Howler 호환 래퍼 (audioEl 직접 재생용) — currentHowl 인터페이스 유지
+function createAudioElWrapper(el) {
+  return {
+    _el: el,
+    _isUnloaded: false,
+    play: function() { el.play().catch(() => {}); },
+    pause: function() { el.pause(); },
+    stop: function() { el.pause(); el.currentTime = 0; },
+    seek: function(pos) {
+      if (typeof pos === 'number') { el.currentTime = pos; return pos; }
+      return el.currentTime || 0;
+    },
+    duration: function() { return el.duration || 0; },
+    volume: function(v) {
+      if (typeof v === 'number') { el.volume = v; return v; }
+      return el.volume;
+    },
+    rate: function(r) {
+      if (typeof r === 'number') { el.playbackRate = r; return r; }
+      return el.playbackRate;
+    },
+    playing: function() { return !el.paused && !el.ended; },
+    unload: function() {
+      this._isUnloaded = true;
+      el.pause(); el.removeAttribute('src'); el.load();
+      el.onplay = el.onpause = el.onended = el.onerror = null;
+    },
+    once: function(event, fn) {
+      const evMap = { play: 'play', pause: 'pause', end: 'ended' };
+      el.addEventListener(evMap[event] || event, fn, { once: true });
+    },
+    // Howler 내부 API 호환 (녹음 연결용)
+    _sounds: [{ _node: el }],
+  };
+}
+
 async function playTrack(channel, trackIndex, startPosition = 0) {
   const tracks = channelTracks[channel];
   if (!tracks || trackIndex >= tracks.length) return;
@@ -1843,24 +1879,38 @@ async function playTrack(channel, trackIndex, startPosition = 0) {
     return;
   }
 
-  currentHowl = new Howl({
-    src: [src], html5: true, volume: currentVolume, rate: currentSpeed,
-    format: ['mp3'],
-    onplay: function() {
-      isPlaying = true; updatePlayBtn(true);
-      if (startPosition > 3) { currentHowl.seek(startPosition); startPosition = 0; }
-      startSeekUpdate();
-      startSilentAnchor();
-      // 재생 시작 후 다음 곡 미리 프리로드
-      setTimeout(() => preloadNextTrack(channel), 3000);
-    },
-    onpause: function() { isPlaying = false; updatePlayBtn(false); saveResume(channel); stopSilentAnchor(); },
-    onstop: function() { isPlaying = false; updatePlayBtn(false); stopSilentAnchor(); },
-    onend: function() { isPlaying = false; stopVis(); localStorage.removeItem('radio-ch'+channel+'-resume'); stopSilentAnchor(); playNext(channel); },
-    onloaderror: function(_, e) { showToast('로드 오류: ' + (e || '')); },
-  });
+  // 표준 <audio> 요소로 직접 재생 (Chrome 백그라운드 오디오 보호 대상)
+  const el = ensureAudioEl();
+  el.src = src;
+  el.volume = currentVolume;
+  el.playbackRate = currentSpeed;
+  el.preload = 'auto';
+
+  currentHowl = createAudioElWrapper(el);
+
+  el.onplay = function() {
+    if (currentHowl?._isUnloaded) return;
+    isPlaying = true; updatePlayBtn(true);
+    if (startPosition > 3) { el.currentTime = startPosition; startPosition = 0; }
+    startSeekUpdate();
+    startSilentAnchor();
+    setTimeout(() => preloadNextTrack(channel), 3000);
+  };
+  el.onpause = function() {
+    if (currentHowl?._isUnloaded) return;
+    isPlaying = false; updatePlayBtn(false); saveResume(channel); stopSilentAnchor();
+  };
+  el.onended = function() {
+    if (currentHowl?._isUnloaded) return;
+    isPlaying = false; stopVis();
+    localStorage.removeItem('radio-ch'+channel+'-resume');
+    stopSilentAnchor();
+    playNext(channel);
+  };
+  el.onerror = function() { showToast('로드 오류'); };
+
   if (!appStartup) {
-    currentHowl.play();
+    el.play().catch(() => {});
   } else {
     appStartup = false;
     clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
