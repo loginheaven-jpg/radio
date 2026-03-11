@@ -2210,40 +2210,79 @@ function cleanupResumeOnDelete(deletedKey) {
 setInterval(() => { if (isPlaying && (currentChannel === 3 || currentChannel === 4)) saveResume(currentChannel); }, 5000);
 window.addEventListener('beforeunload', () => saveResume(currentChannel));
 window.addEventListener('pagehide', () => saveResume(currentChannel));
-// ── 백그라운드 킵얼라이브 (Android Doze 대응) ──
-let bgKeepAliveTimer = null;
+// ── 백그라운드 킵얼라이브 (Web Worker 기반 — Android Deep Doze 대응) ──
+let bgWorker = null;
+
+function createKeepAliveWorker() {
+  const code = `
+    let tid = null;
+    onmessage = function(e) {
+      if (e.data === 'start') {
+        if (tid) clearInterval(tid);
+        tid = setInterval(() => postMessage('tick'), 20000);
+      } else if (e.data === 'stop') {
+        clearInterval(tid); tid = null;
+      }
+    };
+  `;
+  return new Worker(URL.createObjectURL(new Blob([code], { type: 'application/javascript' })));
+}
+
+function bgKeepAliveHandler() {
+  if (!isPlaying) return;
+  // Howler 노드 복구
+  if (currentHowl) {
+    const node = currentHowl._sounds[0]?._node;
+    if (node && node.paused && !node.ended) {
+      node.play().catch(() => {});
+    }
+    if (currentHowl.volume() !== currentVolume) currentHowl.volume(currentVolume);
+  }
+  // HLS <audio> 노드 복구
+  if (audioEl && audioEl.paused && !audioEl.ended) {
+    audioEl.play().catch(() => {});
+  }
+  // AudioContext suspended 복구
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+  // Wake Lock 재획득
+  if (!wakeLock) requestWakeLock();
+  // Media Session 위치 갱신 (Android에 "아직 재생 중" 신호)
+  if ('mediaSession' in navigator && currentHowl) {
+    try {
+      const dur = currentHowl.duration() || 0;
+      const pos = currentHowl.seek() || 0;
+      if (dur > 0) {
+        navigator.mediaSession.setPositionState({
+          duration: dur, playbackRate: currentSpeed, position: Math.min(pos, dur)
+        });
+      }
+    } catch {}
+  }
+}
 
 function startBgKeepAlive() {
-  if (bgKeepAliveTimer) return;
-  bgKeepAliveTimer = setInterval(() => {
-    if (!isPlaying) return;
-    // Howler 노드가 멈췄으면 즉시 복구
-    if (currentHowl) {
-      const node = currentHowl._sounds[0]?._node;
-      if (node && node.paused && !node.ended) {
-        node.play().catch(() => {});
-      }
-      // 볼륨이 초기화됐으면 복원
-      if (currentHowl.volume() !== currentVolume) {
-        currentHowl.volume(currentVolume);
-      }
-    }
-    // HLS <audio> 노드가 멈췄으면 복구
-    if (audioEl && audioEl.paused && !audioEl.ended) {
-      audioEl.play().catch(() => {});
-    }
-    // AudioContext suspended 복구
-    if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume().catch(() => {});
-    }
-    // Wake Lock 재획득 (해제됐을 수 있음)
-    if (!wakeLock) requestWakeLock();
-  }, 25000); // 25초 주기
+  if (bgWorker) return;
+  try {
+    bgWorker = createKeepAliveWorker();
+    bgWorker.onmessage = () => bgKeepAliveHandler();
+    bgWorker.postMessage('start');
+  } catch {
+    // Worker 생성 실패 시 fallback: setInterval
+    bgWorker = setInterval(bgKeepAliveHandler, 20000);
+  }
 }
 
 function stopBgKeepAlive() {
-  clearInterval(bgKeepAliveTimer);
-  bgKeepAliveTimer = null;
+  if (!bgWorker) return;
+  if (bgWorker instanceof Worker) {
+    bgWorker.postMessage('stop');
+    bgWorker.terminate();
+  } else {
+    clearInterval(bgWorker);
+  }
+  bgWorker = null;
 }
 
 document.addEventListener('visibilitychange', async () => {
@@ -2253,11 +2292,7 @@ document.addEventListener('visibilitychange', async () => {
     clearInterval(ch5PollTimer); ch5PollTimer = null;
     // 등잔 애니메이션 정지 (배터리 절약)
     if (currentChannel === 3) stopLampAnim();
-    // 백그라운드 킵얼라이브 시작
-    if (isPlaying) startBgKeepAlive();
   } else {
-    // 킵얼라이브 중지 (포그라운드에서는 불필요)
-    stopBgKeepAlive();
     // AudioContext가 백그라운드에서 suspended 됐으면 복구 (await로 완료 보장)
     if (audioCtx && audioCtx.state === 'suspended') {
       try { await audioCtx.resume(); } catch {}
@@ -2443,7 +2478,7 @@ let silentAnchorUrl = null;
 function createSilentWavUrl() {
   if (silentAnchorUrl) return silentAnchorUrl;
   const sampleRate = 44100;
-  const numSamples = sampleRate; // 1초
+  const numSamples = sampleRate * 5; // 5초 (더 긴 루프 = 안정적)
   const buffer = new ArrayBuffer(44 + numSamples * 2);
   const view = new DataView(buffer);
   const writeStr = (off, str) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); };
@@ -2460,6 +2495,10 @@ function createSilentWavUrl() {
   view.setUint16(34, 16, true);
   writeStr(36, 'data');
   view.setUint32(40, numSamples * 2, true);
+  // 미세한 노이즈 삽입 (Android가 무음으로 판단해 킬하는 것 방지)
+  for (let i = 0; i < numSamples; i++) {
+    view.setInt16(44 + i * 2, (Math.random() * 6 - 3) | 0, true); // ±3 (거의 무음 노이즈)
+  }
   silentAnchorUrl = URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
   return silentAnchorUrl;
 }
@@ -2469,9 +2508,10 @@ function startSilentAnchor() {
   silentAnchor = document.createElement('audio');
   silentAnchor.src = createSilentWavUrl();
   silentAnchor.loop = true;
-  silentAnchor.volume = 0.01;
+  silentAnchor.volume = 0.05; // 0.01→0.05 (Android 무음 감지 회피)
   silentAnchor.play().catch(() => {});
   requestWakeLock();
+  startBgKeepAlive(); // 재생 시작과 동시에 Worker 킵얼라이브
 }
 
 function stopSilentAnchor() {
@@ -2481,6 +2521,7 @@ function stopSilentAnchor() {
     silentAnchor = null;
   }
   releaseWakeLock();
+  stopBgKeepAlive();
 }
 
 async function ensureLiveAudioCtx() {
