@@ -1590,6 +1590,7 @@ function updatePlayBtn(playing) {
 }
 
 function stopPlayback() {
+  playTrackGeneration++; // 진행 중인 비동기 재생 무효화
   stopHls();
   if (currentHowl) { currentHowl.unload(); currentHowl = null; }
   stopLivePlayer();
@@ -1860,24 +1861,19 @@ function createAudioElWrapper(el) {
   };
 }
 
-async function playTrack(channel, trackIndex, startPosition = 0) {
+let playTrackGeneration = 0; // 채널 전환 시 stale 재생 방지
+
+function playTrack(channel, trackIndex, startPosition = 0) {
   const tracks = channelTracks[channel];
   if (!tracks || trackIndex >= tracks.length) return;
   const track = tracks[trackIndex];
+  const gen = ++playTrackGeneration; // 이 호출의 세대 번호
   stopHls();
   if (currentHowl) { currentHowl.unload(); currentHowl = null; }
   currentTrackKey = track.key; currentTrackName = track.name; currentTrackIdx = trackIndex;
-  nowPlayingEl.textContent = '로딩 중...';
 
-  // 전체 파일을 Blob으로 다운로드
-  let src;
-  try {
-    src = await preloadTrackBlob(track.key);
-  } catch (e) {
-    showToast('로드 오류: ' + (e.message || ''));
-    nowPlayingEl.textContent = track.name;
-    return;
-  }
+  // Blob 캐시에 있으면 즉시 사용, 없으면 스트리밍 URL로 즉시 재생
+  const src = blobCache.get(track.key) || streamUrl(track.key);
 
   // 표준 <audio> 요소로 직접 재생 (Chrome 백그라운드 오디오 보호 대상)
   const el = ensureAudioEl();
@@ -1889,25 +1885,32 @@ async function playTrack(channel, trackIndex, startPosition = 0) {
   currentHowl = createAudioElWrapper(el);
 
   el.onplay = function() {
+    if (gen !== playTrackGeneration) return; // stale 방지
     if (currentHowl?._isUnloaded) return;
     isPlaying = true; updatePlayBtn(true);
     if (startPosition > 3) { el.currentTime = startPosition; startPosition = 0; }
     startSeekUpdate();
     startSilentAnchor();
+    // 다음 곡 미리 프리로드 (백그라운드 재생 대비)
     setTimeout(() => preloadNextTrack(channel), 3000);
   };
   el.onpause = function() {
+    if (gen !== playTrackGeneration) return;
     if (currentHowl?._isUnloaded) return;
     isPlaying = false; updatePlayBtn(false); saveResume(channel); stopSilentAnchor();
   };
   el.onended = function() {
+    if (gen !== playTrackGeneration) return;
     if (currentHowl?._isUnloaded) return;
     isPlaying = false; stopVis();
     localStorage.removeItem('radio-ch'+channel+'-resume');
     stopSilentAnchor();
     playNext(channel);
   };
-  el.onerror = function() { showToast('로드 오류'); };
+  el.onerror = function() {
+    if (gen !== playTrackGeneration) return;
+    showToast('로드 오류');
+  };
 
   if (!appStartup) {
     el.play().catch(() => {});
