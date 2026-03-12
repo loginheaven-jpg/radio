@@ -1672,6 +1672,60 @@ function ensureAudioEl() {
   return audioEl;
 }
 
+// ── 오디오 스톨 감시 (Audio Stall Watchdog) ──
+// 재생 중인데 currentTime이 진행하지 않으면 자동 복구
+let stallWatchdogTimer = null;
+let lastWatchdogTime = -1;
+let stallCount = 0;
+const STALL_CHECK_INTERVAL = 5000; // 5초마다 체크
+const MAX_STALL_BEFORE_RELOAD = 3; // 3회 연속 스톨 시 채널 재로드
+
+function startStallWatchdog() {
+  stopStallWatchdog();
+  lastWatchdogTime = -1;
+  stallCount = 0;
+  stallWatchdogTimer = setInterval(checkAudioStall, STALL_CHECK_INTERVAL);
+}
+function stopStallWatchdog() {
+  if (stallWatchdogTimer) { clearInterval(stallWatchdogTimer); stallWatchdogTimer = null; }
+  stallCount = 0;
+}
+function checkAudioStall() {
+  if (!isPlaying || !audioEl) return;
+  // HLS 라이브 스트림 또는 R2 트랙 모두 동일하게 감시
+  const curTime = audioEl.currentTime;
+  if (lastWatchdogTime >= 0 && curTime === lastWatchdogTime && !audioEl.paused && !audioEl.ended) {
+    stallCount++;
+    console.warn('[StallWatchdog] 스톨 감지 #' + stallCount + ' (currentTime=' + curTime + ')');
+    if (stallCount >= MAX_STALL_BEFORE_RELOAD) {
+      // 3회 연속 스톨 → 채널 전체 재진입
+      console.warn('[StallWatchdog] ' + MAX_STALL_BEFORE_RELOAD + '회 스톨 → 채널 재연결');
+      showToast('연결 끊김 — 재연결 중...');
+      stallCount = 0;
+      lastWatchdogTime = -1;
+      enterChannel(currentChannel);
+    } else {
+      // 1~2회: 부드러운 복구 시도
+      if (currentHls) {
+        // HLS: 로딩 재시작 + play() 강제 호출
+        currentHls.startLoad();
+        audioEl.play().catch(() => {});
+      } else if (audioEl.src) {
+        // R2/Icecast: play() 재시도, 안 되면 현재 위치에서 재시작
+        audioEl.play().catch(() => {
+          if (currentTrackKey && channelTracks[currentChannel]) {
+            playTrack(currentChannel, currentTrackIdx, curTime);
+          }
+        });
+      }
+    }
+  } else {
+    // 진행 중이면 카운터 리셋
+    if (stallCount > 0) stallCount = 0;
+  }
+  lastWatchdogTime = curTime;
+}
+
 function initAudioContext() {
   if (audioCtx) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1732,28 +1786,60 @@ async function playHls(url, useProxy) {
       setTimeout(() => reject(new Error('HLS timeout 20s')), 20000);
     });
     currentHls = hls;
+    // HLS 에러 복구 (fatal + non-fatal 모두 처리)
+    let hlsNetRetry = 0;
     hls.on(Hls.Events.ERROR, (_, data) => {
-      if (!data.fatal) return;
+      if (!data.fatal) {
+        // non-fatal 네트워크 에러도 로깅 (디버그용)
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          console.warn('[HLS] non-fatal network error:', data.details);
+        }
+        return;
+      }
+      console.warn('[HLS] fatal error:', data.type, data.details);
       switch (data.type) {
         case Hls.ErrorTypes.NETWORK_ERROR:
-          hls.startLoad();
+          hlsNetRetry++;
+          if (hlsNetRetry <= 5) {
+            // 네트워크 에러: startLoad + play 재시도 (최대 5회)
+            console.log('[HLS] 네트워크 복구 시도 #' + hlsNetRetry);
+            hls.startLoad();
+            setTimeout(() => el.play().catch(() => {}), 1000);
+          } else {
+            // 5회 초과: 채널 전체 재진입
+            showToast('네트워크 오류 — 재연결 중...');
+            hlsNetRetry = 0;
+            enterChannel(currentChannel);
+          }
           break;
         case Hls.ErrorTypes.MEDIA_ERROR:
           hls.recoverMediaError();
+          setTimeout(() => el.play().catch(() => {}), 500);
           break;
         default:
           showToast('스트리밍 오류 — 재연결 중...');
           enterChannel(currentChannel);
       }
     });
+    // 네트워크 복구 성공 시 카운터 리셋
+    hls.on(Hls.Events.FRAG_LOADED, () => { hlsNetRetry = 0; });
   } else if (el.canPlayType('application/vnd.apple.mpegurl')) {
     el.src = url;
     await new Promise(r => el.addEventListener('canplay', r, {once:true}));
   } else { throw new Error('HLS not supported'); }
+  // HLS 오디오 요소에 stalled/waiting 리스너 추가
+  el.addEventListener('stalled', () => {
+    console.warn('[HLS Audio] stalled event');
+    if (currentHls) currentHls.startLoad();
+  });
+  el.addEventListener('waiting', () => {
+    console.warn('[HLS Audio] waiting/buffering');
+  });
   try {
     await el.play();
     isPlaying = true; updatePlayBtn(true);
     startSilentAnchor();
+    startStallWatchdog();
   } catch (e) { console.log('Autoplay blocked:', e.message); isPlaying = false; updatePlayBtn(false); }
 }
 
@@ -1762,6 +1848,7 @@ function stopHls() {
   if (audioEl) { audioEl.pause(); audioEl.src = ''; }
   isPlaying = false; updatePlayBtn(false);
   stopSilentAnchor();
+  stopStallWatchdog();
 }
 
 async function playIcecast(url) {
@@ -1778,7 +1865,13 @@ async function playIcecast(url) {
     el.addEventListener('error', () => reject(new Error('Stream error')), {once:true});
     setTimeout(() => reject(new Error('Stream timeout 20s')), 20000);
   });
-  try { await el.play(); isPlaying = true; updatePlayBtn(true); startSilentAnchor(); }
+  // Icecast 오디오 요소에 stalled 리스너 추가
+  el.addEventListener('stalled', () => {
+    console.warn('[Icecast] stalled — 재연결 시도');
+    el.load();
+    el.play().catch(() => {});
+  });
+  try { await el.play(); isPlaying = true; updatePlayBtn(true); startSilentAnchor(); startStallWatchdog(); }
   catch (e) { isPlaying = false; updatePlayBtn(false); }
 }
 
@@ -1909,11 +2002,24 @@ function playTrack(channel, trackIndex, startPosition = 0) {
   };
   el.onerror = function() {
     if (gen !== playTrackGeneration) return;
-    showToast('로드 오류');
+    console.warn('[R2 Track] 로드 오류:', track.key);
+    showToast('로드 오류 — 다음 곡으로...');
+    // 오류 시 3초 후 다음 곡 자동 재생
+    setTimeout(() => { if (gen === playTrackGeneration) playNext(channel); }, 3000);
   };
+  // R2 트랙 stalled/waiting 감지 → 자동 복구
+  el.addEventListener('stalled', function() {
+    if (gen !== playTrackGeneration) return;
+    console.warn('[R2 Track] stalled:', track.key);
+  });
+  el.addEventListener('waiting', function() {
+    if (gen !== playTrackGeneration) return;
+    console.warn('[R2 Track] waiting/buffering:', track.key);
+  });
 
   if (!appStartup) {
     el.play().catch(() => {});
+    startStallWatchdog();
   } else {
     appStartup = false;
     clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
@@ -2334,6 +2440,7 @@ function createKeepAliveWorker() {
   return new Worker(URL.createObjectURL(new Blob([code], { type: 'application/javascript' })));
 }
 
+let bgLastAudioTime = -1; // 백그라운드 keepalive용 이전 재생 위치
 function bgKeepAliveHandler() {
   if (!isPlaying) return;
   // Howler 노드 복구
@@ -2344,9 +2451,19 @@ function bgKeepAliveHandler() {
     }
     if (currentHowl.volume() !== currentVolume) currentHowl.volume(currentVolume);
   }
-  // HLS <audio> 노드 복구
-  if (audioEl && audioEl.paused && !audioEl.ended) {
-    audioEl.play().catch(() => {});
+  // HLS <audio> 노드 복구 — paused 상태뿐 아니라 frozen 상태도 감지
+  if (audioEl) {
+    if (audioEl.paused && !audioEl.ended) {
+      audioEl.play().catch(() => {});
+    }
+    // "재생 중"이지만 currentTime이 안 움직이는 경우 (silent stall) 복구
+    const curTime = audioEl.currentTime;
+    if (!audioEl.paused && !audioEl.ended && bgLastAudioTime >= 0 && curTime === bgLastAudioTime) {
+      console.warn('[bgKeepAlive] 백그라운드 스톨 감지, play() 재시도');
+      if (currentHls) { currentHls.startLoad(); }
+      audioEl.play().catch(() => {});
+    }
+    bgLastAudioTime = curTime;
   }
   // AudioContext suspended 복구
   if (audioCtx && audioCtx.state === 'suspended') {
@@ -2406,9 +2523,13 @@ document.addEventListener('visibilitychange', async () => {
     // Wake Lock 재획득
     if (isPlaying) requestWakeLock();
     // HLS/Icecast (<audio> 요소): 재생 상태인데 멈춰 있으면 재시작
-    if (isPlaying && audioEl && audioEl.paused && !audioEl.ended) {
-      audioEl.play().catch(() => {});
+    if (isPlaying && audioEl) {
+      if (audioEl.paused && !audioEl.ended) {
+        audioEl.play().catch(() => {});
+      }
       if (audioEl.volume !== currentVolume && !hlsSourceNode) audioEl.volume = currentVolume;
+      // 스톨 워치독 시간 리셋 (탭 복귀 직후 오탐 방지)
+      lastWatchdogTime = -1;
     }
     // Howler: 내부 상태와 실제 재생 불일치 복구 + 볼륨 보존
     if (isPlaying && currentHowl) {
