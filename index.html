@@ -552,11 +552,11 @@ body{
   <div class="splash-glow"></div>
   <div class="splash-content">
     <div class="splash-cross">✦ ✝ ✦</div>
-    <div class="splash-number">40</div>
+    <div class="splash-number" id="splashNumber"></div>
     <div class="splash-subtitle">ANNIVERSARY</div>
     <div class="splash-divider"></div>
-    <div class="splash-message">하나님의 은혜로 40년</div>
-    <div class="splash-years">1986 — 2026</div>
+    <div class="splash-message" id="splashMessage"></div>
+    <div class="splash-years" id="splashYears"></div>
     <div class="splash-scripture">
       "네 하나님 여호와께서 이 사십 년 동안<br>
       광야에서 네게 행하신<br>
@@ -593,7 +593,7 @@ body{
       <span class="clock-hm" id="clockHM">00:00</span><span class="clock-ss" id="clockSS">00</span>
     </div>
     <div class="header-right">
-      <div class="header-logo" id="headerTitle">예봄 <span class="logo-40">40'</span></div>
+      <div class="header-logo" id="headerTitle">예봄 <span class="logo-40" id="logoYears"></span></div>
       <div class="header-tagline">Yebom Radio 2.0</div>
     </div>
   </div>
@@ -4556,7 +4556,16 @@ function initAutoUpdate() {
   });
 }
 
-// ── 40th Anniversary Splash ──────────────────────────────────
+// ── Anniversary Splash ──────────────────────────────────
+const YEBOM_FOUNDED = 1986;
+const YEBOM_YEARS = new Date().getFullYear() - YEBOM_FOUNDED;
+// 헤더 + 스플래시 연차 동적 표시
+(function() {
+  const el = $('logoYears'); if (el) el.textContent = YEBOM_YEARS + "'";
+  const sn = $('splashNumber'); if (sn) sn.textContent = YEBOM_YEARS;
+  const sm = $('splashMessage'); if (sm) sm.textContent = '하나님의 은혜로 ' + YEBOM_YEARS + '년';
+  const sy = $('splashYears'); if (sy) sy.textContent = YEBOM_FOUNDED + ' — ' + new Date().getFullYear();
+})();
 const ANNIV_SPLASH_KEY = 'yebom-40th-seen';
 const ANNIV_START = new Date('2026-03-01T00:00:00+09:00');
 const ANNIV_END   = new Date('2026-03-31T23:59:59+09:00');
@@ -4648,7 +4657,7 @@ function openGuestbookPopup() {
     const relTime = ts => {
       const diff = Math.floor((Date.now() - ts) / 1000);
       const d = new Date(ts);
-      const date = (d.getMonth()+1) + '/' + d.getDate();
+      const date = d.getFullYear() + '/' + (d.getMonth()+1) + '/' + d.getDate();
       if (diff < 60) return date + ' · 방금 전';
       if (diff < 3600) return date + ' · ' + Math.floor(diff / 60) + '분 전';
       if (diff < 86400) return date + ' · ' + Math.floor(diff / 3600) + '시간 전';
@@ -4763,7 +4772,7 @@ function initAnniversarySplash() {
   function relTime(ts) {
     const diff = Math.floor((Date.now() - ts) / 1000);
     const d = new Date(ts);
-    const date = (d.getMonth()+1) + '/' + d.getDate();
+    const date = d.getFullYear() + '/' + (d.getMonth()+1) + '/' + d.getDate();
     if (diff < 60) return date + ' · 방금 전';
     if (diff < 3600) return date + ' · ' + Math.floor(diff / 60) + '분 전';
     if (diff < 86400) return date + ' · ' + Math.floor(diff / 3600) + '시간 전';
