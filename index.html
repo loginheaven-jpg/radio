@@ -4552,8 +4552,11 @@ function initAutoUpdate() {
 
 // ── 40th Anniversary Splash ──────────────────────────────────
 const ANNIV_SPLASH_KEY = 'yebom-40th-seen';
-const ANNIV_START = new Date('2026-03-07T00:00:00+09:00');
+const ANNIV_START = new Date('2026-03-01T00:00:00+09:00');
 const ANNIV_END   = new Date('2026-03-31T23:59:59+09:00');
+// 기념 주간: 매 실행마다 표시
+const ANNIV_PEAK_START = new Date('2026-03-15T00:00:00+09:00');
+const ANNIV_PEAK_END   = new Date('2026-03-17T23:59:59+09:00');
 
 function isAnniversaryPeriod() {
   const now = new Date();
@@ -4561,6 +4564,9 @@ function isAnniversaryPeriod() {
 }
 
 function shouldShowSplash() {
+  const now = new Date();
+  // 3/15~3/17 기념 주간: 앱 실행할 때마다 표시
+  if (now >= ANNIV_PEAK_START && now <= ANNIV_PEAK_END) return true;
   const seen = localStorage.getItem(ANNIV_SPLASH_KEY);
   if (isAnniversaryPeriod()) {
     // 3월 중: 하루 1회 (날짜가 바뀌면 다시 표시)
