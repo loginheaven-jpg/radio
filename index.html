@@ -1981,7 +1981,12 @@ function playTrack(channel, trackIndex, startPosition = 0) {
     if (gen !== playTrackGeneration) return; // stale 방지
     if (currentHowl?._isUnloaded) return;
     isPlaying = true; updatePlayBtn(true);
-    if (startPosition > 3) { el.currentTime = startPosition; startPosition = 0; }
+    if (startPosition > 3) {
+      el.currentTime = startPosition;
+      // CH3: 트랙별 이어듣기 토스트 (채널 진입 시 토스트는 enterChannel에서 별도 표시)
+      if (channel === 3 && !appStartup) showToast('↩ ' + formatTime(startPosition) + '부터 이어듣기');
+      startPosition = 0;
+    }
     startSeekUpdate();
     startSilentAnchor();
     // 다음 곡 미리 프리로드 (백그라운드 재생 대비)
@@ -1997,6 +2002,8 @@ function playTrack(channel, trackIndex, startPosition = 0) {
     if (currentHowl?._isUnloaded) return;
     isPlaying = false; stopVis();
     localStorage.removeItem('radio-ch'+channel+'-resume');
+    // 끝까지 들은 트랙은 저장 위치 초기화
+    if (channel === 3) clearTrackPosition(track.key);
     stopSilentAnchor();
     playNext(channel);
   };
@@ -2403,6 +2410,8 @@ function saveResume(channel) {
   const position = currentHowl ? Math.round(currentHowl.seek() * 10) / 10 : 0;
   if (position < 3) return;
   localStorage.setItem('radio-ch'+channel+'-resume', JSON.stringify({trackKey:currentTrackKey, trackName:currentTrackName, position, savedAt:Date.now()}));
+  // 트랙별 재생위치 저장 (말씀의 전당 CH3 전용)
+  if (channel === 3) saveTrackPosition(currentTrackKey, position);
 }
 async function restoreResume(channel) {
   const raw = localStorage.getItem('radio-ch'+channel+'-resume');
@@ -2418,6 +2427,37 @@ function cleanupResumeOnDelete(deletedKey) {
   ['radio-ch3-resume','radio-ch4-resume'].forEach(sk => {
     try { const r = JSON.parse(localStorage.getItem(sk)); if (r && r.trackKey === deletedKey) localStorage.removeItem(sk); } catch {}
   });
+  // 트랙별 위치도 삭제
+  removeTrackPosition(deletedKey);
+}
+// ── 트랙별 재생위치 (CH3 말씀의 전당 전용) ──
+const TRACK_POS_KEY = 'radio-ch3-trackpos';
+const TRACK_POS_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30일 만료
+function loadTrackPositions() {
+  try { return JSON.parse(localStorage.getItem(TRACK_POS_KEY)) || {}; } catch { return {}; }
+}
+function saveTrackPosition(trackKey, pos) {
+  const data = loadTrackPositions();
+  data[trackKey] = { pos, ts: Date.now() };
+  // 오래된 항목 정리 (30일 초과)
+  const now = Date.now();
+  for (const k in data) { if (now - data[k].ts > TRACK_POS_MAX_AGE) delete data[k]; }
+  localStorage.setItem(TRACK_POS_KEY, JSON.stringify(data));
+}
+function getTrackPosition(trackKey) {
+  const data = loadTrackPositions();
+  const entry = data[trackKey];
+  if (!entry) return 0;
+  if (Date.now() - entry.ts > TRACK_POS_MAX_AGE) return 0;
+  return entry.pos > 3 ? entry.pos : 0;
+}
+function removeTrackPosition(trackKey) {
+  const data = loadTrackPositions();
+  if (data[trackKey]) { delete data[trackKey]; localStorage.setItem(TRACK_POS_KEY, JSON.stringify(data)); }
+}
+function clearTrackPosition(trackKey) {
+  // 끝까지 들은 트랙은 위치 초기화
+  removeTrackPosition(trackKey);
 }
 setInterval(() => { if (isPlaying && (currentChannel === 3 || currentChannel === 4)) saveResume(currentChannel); }, 5000);
 window.addEventListener('beforeunload', () => saveResume(currentChannel));
@@ -3036,7 +3076,12 @@ function updateTrackListUI(query) {
     li.className = 'track-item' + (t.key === currentTrackKey ? ' active' : '');
     const label = (t.key === currentTrackKey ? '▶ ' : '') + highlightMatch(t.name, q);
     li.innerHTML = '<span class="track-item-name">' + label + '</span>';
-    li.addEventListener('click', () => { closeTrackPanel(); if (currentChannel === 5) return; playTrack(currentChannel, i, 0); });
+    li.addEventListener('click', () => {
+      closeTrackPanel(); if (currentChannel === 5) return;
+      // CH3: 사용자 선택 시 저장된 재생위치에서 이어듣기
+      const savedPos = (currentChannel === 3) ? getTrackPosition(t.key) : 0;
+      playTrack(currentChannel, i, savedPos);
+    });
     trackListEl.appendChild(li);
   });
   if (isPod && q) {
