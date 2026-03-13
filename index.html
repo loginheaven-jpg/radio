@@ -3192,8 +3192,14 @@ let headerTapCount = 0, headerTapTimer = null;
 function handleHeaderTap() {
   headerTapCount++;
   clearTimeout(headerTapTimer);
-  headerTapTimer = setTimeout(() => { headerTapCount = 0; }, 600);
-  if (headerTapCount >= 3) { headerTapCount = 0; if (adminKey) openAdmin(); else $('authModal').classList.add('open'); }
+  headerTapTimer = setTimeout(() => {
+    // 1탭: 축하 메시지 팝업 (40주년 기간 중, 스플래시가 없을 때만)
+    if (headerTapCount === 1 && isAnniversaryPeriod() && !$('anniversarySplash')) {
+      openGuestbookPopup();
+    }
+    headerTapCount = 0;
+  }, 400);
+  if (headerTapCount >= 3) { headerTapCount = 0; clearTimeout(headerTapTimer); if (adminKey) openAdmin(); else $('authModal').classList.add('open'); }
 }
 function openAdmin() { clearInterval(ch5PollTimer); $('adminOverlay').classList.add('open'); loadAdminTracks(adminChannel); if (adminChannel === 'stream') loadAdminCh5State(); }
 function closeAdmin() { $('adminOverlay').classList.remove('open'); adminTempCfg = null; }
@@ -4575,6 +4581,104 @@ function shouldShowSplash() {
   }
   // 3월 이후: 최초 1회만
   return !seen;
+}
+
+// 헤더 1탭으로 축하 메시지 팝업 열기 (스플래시 없이 독립 실행)
+function openGuestbookPopup() {
+  // 기존 팝업 있으면 무시
+  if ($('gbPopupOverlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'gbPopupOverlay';
+  overlay.className = 'anniversary-splash';
+  overlay.style.cssText = 'opacity:1;';
+  overlay.innerHTML =
+    '<canvas id="gbPopupConfetti" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2"></canvas>' +
+    '<div class="splash-guestbook visible" style="opacity:1;transform:none;pointer-events:auto">' +
+      '<div class="guestbook-header">함께 축하해요</div>' +
+      '<div class="guestbook-form"><div class="guestbook-textarea-wrap">' +
+        '<textarea id="gbPopupText" class="guestbook-input guestbook-text" placeholder="축하 메시지 — 성함 을 남겨주세요" maxlength="200" rows="3"></textarea>' +
+        '<span class="guestbook-charcount" id="gbPopupCharCount">0/200</span>' +
+      '</div></div>' +
+      '<div class="guestbook-divider"></div>' +
+      '<div class="guestbook-list" id="gbPopupList"><div class="guestbook-empty">불러오는 중...</div></div>' +
+      '<button class="splash-enter-btn guestbook-enter-btn" id="gbPopupEnterBtn">닫기</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  runConfetti($('gbPopupConfetti'));
+  // 글자수 카운터
+  $('gbPopupText').addEventListener('input', () => {
+    $('gbPopupCharCount').textContent = $('gbPopupText').value.length + '/200';
+  });
+  // 메시지 로드
+  (async () => {
+    try {
+      const res = await fetch(WORKER_URL + '/api/anniversary/messages');
+      const data = await res.json();
+      renderGbPopup(data.messages || []);
+    } catch { renderGbPopup([]); }
+  })();
+  // 닫기 (메시지 있으면 저장)
+  $('gbPopupEnterBtn').addEventListener('click', async () => {
+    const text = ($('gbPopupText').value || '').trim();
+    if (text) {
+      $('gbPopupEnterBtn').textContent = '저장 중...';
+      $('gbPopupEnterBtn').disabled = true;
+      try {
+        const res = await fetch(WORKER_URL + '/api/anniversary/messages', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const d = await res.json();
+        if (d.error) showToast(d.error); else showToast('축하 메시지가 등록되었습니다!');
+      } catch { showToast('전송 실패'); }
+    }
+    overlay.classList.add('fade-out');
+    setTimeout(() => overlay.remove(), 900);
+  });
+
+  function renderGbPopup(messages) {
+    const list = $('gbPopupList');
+    const isAdm = !!adminKey;
+    if (!messages.length) {
+      list.innerHTML = '<div class="guestbook-empty">아직 축하 메시지가 없습니다.<br>첫 번째 메시지를 남겨주세요!</div>';
+      return;
+    }
+    list.innerHTML = '';
+    const escHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const relTime = ts => {
+      const diff = Math.floor((Date.now() - ts) / 1000);
+      const d = new Date(ts);
+      const date = (d.getMonth()+1) + '/' + d.getDate();
+      if (diff < 60) return date + ' · 방금 전';
+      if (diff < 3600) return date + ' · ' + Math.floor(diff / 60) + '분 전';
+      if (diff < 86400) return date + ' · ' + Math.floor(diff / 3600) + '시간 전';
+      return date + ' · ' + Math.floor(diff / 86400) + '일 전';
+    };
+    messages.forEach((m, i) => {
+      const div = document.createElement('div');
+      div.className = 'guestbook-item';
+      div.style.animationDelay = (i * 0.05) + 's';
+      const adminBtns = isAdm
+        ? '<span class="gb-admin-btns"><button class="gb-edit-btn" title="수정">&#9998;</button><button class="gb-del-btn" title="삭제">&#128465;</button></span>'
+        : '';
+      div.innerHTML =
+        '<div class="guestbook-item-text">' + escHtml(m.text) + '</div>' +
+        '<div class="guestbook-item-foot"><span class="guestbook-item-time">' + relTime(m.createdAt) + '</span>' + adminBtns + '</div>';
+      if (isAdm) {
+        div.querySelector('.gb-edit-btn').onclick = async () => {
+          const t = prompt('메시지 수정:', m.text); if (t === null || t.trim() === m.text) return;
+          try { await fetch(WORKER_URL+'/api/anniversary/messages',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminKey},body:JSON.stringify({id:m.id,text:t.trim()})}); } catch {}
+          try { const r=await fetch(WORKER_URL+'/api/anniversary/messages'); const d=await r.json(); renderGbPopup(d.messages||[]); } catch {} showToast('수정 완료');
+        };
+        div.querySelector('.gb-del-btn').onclick = async () => {
+          if (!confirm('삭제할까요?')) return;
+          try { await fetch(WORKER_URL+'/api/anniversary/messages',{method:'DELETE',headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminKey},body:JSON.stringify({id:m.id})}); } catch {}
+          try { const r=await fetch(WORKER_URL+'/api/anniversary/messages'); const d=await r.json(); renderGbPopup(d.messages||[]); } catch {} showToast('삭제 완료');
+        };
+      }
+      list.appendChild(div);
+    });
+  }
 }
 
 function initAnniversarySplash() {
