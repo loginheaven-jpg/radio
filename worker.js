@@ -386,6 +386,32 @@ export default {
         return json({ ok: true }, cors);
       }
 
+      // ── 40주년 축하 메시지 ────────────────────────────────────
+      if (path === '/api/anniversary/messages' && method === 'GET') {
+        const raw = await env.RADIO_KV.get('anniversary:messages');
+        return json({ messages: raw ? JSON.parse(raw) : [] }, cors);
+      }
+      if (path === '/api/anniversary/messages' && method === 'POST') {
+        const body = await request.json();
+        const text = (body.text || '').trim().slice(0, 200);
+        const name = (body.name || '').trim().slice(0, 10) || '익명';
+        if (!text) return json({ error: '메시지를 입력해주세요' }, cors, 400);
+        const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+        const rlKey = 'anniversary:ratelimit:' + ip;
+        if (await env.RADIO_KV.get(rlKey)) {
+          return json({ error: '잠시 후 다시 시도해주세요' }, cors, 429);
+        }
+        await env.RADIO_KV.put(rlKey, '1', { expirationTtl: 600 });
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        const msg = { id, name, text, createdAt: Date.now() };
+        const raw = await env.RADIO_KV.get('anniversary:messages');
+        const messages = raw ? JSON.parse(raw) : [];
+        messages.unshift(msg);
+        if (messages.length > 500) messages.length = 500;
+        await env.RADIO_KV.put('anniversary:messages', JSON.stringify(messages));
+        return json({ ok: true, message: msg }, cors);
+      }
+
       // ── 열린 음악방 (Open Room) ────────────────────────────────
       if (path.startsWith('/api/openroom')) {
         return handleOpenRoom(request, env, cors, path, method, url);
