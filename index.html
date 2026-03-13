@@ -4931,6 +4931,16 @@ async function init() {
   // Auto-hide swipe hint after 6s
   setTimeout(() => { if (swipeHintEl) swipeHintEl.style.display = 'none'; }, 6500);
 
+  // 스플래시가 표시 중이면 채널 진입을 지연 (스플래시 닫힌 후 실행)
+  if ($('anniversarySplash')) {
+    // 스플래시 닫힐 때까지 대기
+    await new Promise(resolve => {
+      const observer = new MutationObserver(() => {
+        if (!$('anniversarySplash')) { observer.disconnect(); resolve(); }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+  }
   await enterChannel(activeChannels[focusedIndex].num);
 }
 
