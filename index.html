@@ -4339,7 +4339,7 @@ const identifyFailMsgs = [
 ];
 function showIdentifyFail() {
   const m = identifyFailMsgs[Math.floor(Math.random() * identifyFailMsgs.length)];
-  showIdentifyPopup(`<div class="identify-fail-icon">${m.icon}</div><div class="identify-fail">${m.text}</div>`);
+  showIdentifyPopup(`<div class="identify-fail-icon">${m.icon}</div><div class="identify-fail">${m.text}</div>`, 5000);
 }
 
 volSlider.value = currentVolume;
