@@ -3176,13 +3176,22 @@ function updateTrackListUI(query) {
     const li = document.createElement('li');
     li.className = 'track-item' + (t.key === currentTrackKey ? ' active' : '');
     const label = (t.key === currentTrackKey ? '▶ ' : '') + highlightMatch(t.name, q);
-    li.innerHTML = '<span class="track-item-name">' + label + '</span>';
-    li.addEventListener('click', () => {
+    const showCrossMenu = adminKey && (currentChannel === 3 || currentChannel === 4);
+    li.innerHTML = '<span class="track-item-name">' + label + '</span>'
+      + (showCrossMenu ? '<button class="or-track-menu-btn cross-menu-btn" data-key="' + escHtml(t.key) + '" data-name="' + escHtml(t.name) + '">⋮</button>' : '');
+    li.addEventListener('click', (e) => {
+      if (e.target.classList.contains('cross-menu-btn')) return;
       closeTrackPanel(); if (currentChannel === 5) return;
       // CH3: 사용자 선택 시 저장된 재생위치에서 이어듣기
       const savedPos = (currentChannel === 3) ? getTrackPosition(t.key) : 0;
       playTrack(currentChannel, i, savedPos);
     });
+    if (showCrossMenu) {
+      li.querySelector('.cross-menu-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        showCrossCtxMenu(e, t.key, t.name, currentChannel);
+      });
+    }
     trackListEl.appendChild(li);
   });
   if (isPod && q) {
@@ -3961,6 +3970,7 @@ function orShowCtxMenu(e, track, isOwner) {
   if (isOwner || adminKey) items.push({ label: '🗑️ 이 폴더에서 삭제', action: 'remove', danger: true });
   if (adminKey) items.push({ label: '📋 다른 폴더에 복사', action: 'copy' });
   if (adminKey) items.push({ label: '📦 다른 폴더로 이동', action: 'move' });
+  if (adminKey) items.push({ label: '🌿 찬양의 숲으로 복사', action: 'cross-to-ch4' });
   if (adminKey) items.push({ label: '⚠️ 완전 삭제 (모든 폴더)', action: 'deleteAll', danger: true });
   orCtxMenu.innerHTML = items.map(it =>
     `<div class="or-ctx-item${it.danger ? ' danger' : ''}" data-action="${it.action}">${it.label}</div>`
@@ -4001,6 +4011,19 @@ async function orHandleCtxAction(action, track) {
     orAdminR2Key = track.r2Key;
     orAdminRefId = track.refId;
     orOpenAdminSheet(action, track);
+  } else if (action === 'cross-to-ch4') {
+    if (!confirm(`"${track.displayName}"을 찬양의 숲에 복사할까요?`)) return;
+    try {
+      const res = await fetch(WORKER_URL + '/api/openroom/admin/cross-copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminKey },
+        body: JSON.stringify({ r2Key: track.r2Key, direction: 'or-to-ch4' }),
+      });
+      const data = await res.json();
+      if (data.ok) showToast('찬양의 숲에 복사되었습니다');
+      else showToast(data.error || '복사 실패');
+    } catch { showToast('오류가 발생했습니다'); }
+    return;
   } else if (action === 'deleteAll') {
     if (!confirm(`"${track.displayName}"을 모든 폴더에서 완전히 삭제할까요? R2 파일도 삭제됩니다.`)) return;
     try {
@@ -4013,6 +4036,55 @@ async function orHandleCtxAction(action, track) {
       } else showToast(data.error || '삭제 실패');
     } catch { showToast('오류가 발생했습니다'); }
   }
+}
+
+// ── CH3/CH4 ↔ CH7 교차 복사/이동 ──
+let crossCtxR2Key = '', crossCtxName = '', crossCtxSourceCh = 0;
+
+function showCrossCtxMenu(e, r2Key, name, sourceCh) {
+  crossCtxR2Key = r2Key; crossCtxName = name; crossCtxSourceCh = sourceCh;
+  const items = [
+    { label: '📋 열린 음악방 폴더에 복사', action: 'cross-copy' },
+    { label: '📦 열린 음악방 폴더로 이동', action: 'cross-move' },
+  ];
+  orCtxMenu.innerHTML = items.map(it =>
+    `<div class="or-ctx-item" data-action="${it.action}">${it.label}</div>`
+  ).join('');
+  orCtxMenu.querySelectorAll('.or-ctx-item').forEach(el => {
+    el.addEventListener('click', () => {
+      orCtxMenu.classList.remove('open');
+      openCrossAdminSheet(el.dataset.action);
+    });
+  });
+  const rect = e.target.getBoundingClientRect();
+  orCtxMenu.style.top = Math.min(rect.bottom + 4, window.innerHeight - 200) + 'px';
+  orCtxMenu.style.right = (window.innerWidth - rect.right) + 'px';
+  orCtxMenu.classList.add('open');
+}
+
+async function openCrossAdminSheet(action) {
+  const mode = action === 'cross-copy' ? 'copy' : 'move';
+  // CH7 폴더 목록 로드
+  if (orFolders.length === 0) await orLoadFolders();
+  document.getElementById('orAdminSheetTitle').textContent = mode === 'copy'
+    ? '복사할 음악방 폴더 선택' : '이동할 음악방 폴더 선택';
+  document.getElementById('orAdminSheetSubmit').textContent = mode === 'copy' ? '복사 실행' : '이동 실행';
+  const picker = document.getElementById('orFolderPicker');
+  picker.innerHTML = '';
+  // CH7 폴더 목록 렌더
+  orFolders.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'or-picker-item';
+    const inputType = mode === 'copy' ? 'checkbox' : 'radio';
+    div.innerHTML = `<input type="${inputType}" name="orPickerRadio" value="${escHtml(f.name)}">
+      <span>${escHtml(f.icon)} ${escHtml(f.name)}</span>`;
+    picker.appendChild(div);
+  });
+  // cross 모드 표시
+  orAdminMode = 'cross-' + mode;
+  orAdminR2Key = crossCtxR2Key;
+  orSheetOverlay.classList.add('open');
+  orAdminSheet.classList.add('open');
 }
 
 function orOpenAdminSheet(mode, track) {
@@ -4050,7 +4122,21 @@ document.getElementById('orAdminSheetSubmit').addEventListener('click', async ()
   if (selected.length === 0) { showToast('폴더를 선택해주세요'); return; }
   try {
     let res;
-    if (orAdminMode === 'copy') {
+    if (orAdminMode === 'cross-copy') {
+      // CH3/CH4 → CH7 폴더로 복사
+      res = await fetch(WORKER_URL + '/api/openroom/admin/cross-copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminKey },
+        body: JSON.stringify({ r2Key: orAdminR2Key, direction: 'ch-to-or', targetFolders: selected }),
+      });
+    } else if (orAdminMode === 'cross-move') {
+      // CH3/CH4 → CH7 폴더로 이동
+      res = await fetch(WORKER_URL + '/api/openroom/admin/cross-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminKey },
+        body: JSON.stringify({ r2Key: orAdminR2Key, direction: 'ch-to-or', targetFolder: selected[0], sourceCh: crossCtxSourceCh }),
+      });
+    } else if (orAdminMode === 'copy') {
       res = await fetch(orApiUrl('/admin/copy'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminKey },
@@ -4066,8 +4152,15 @@ document.getElementById('orAdminSheetSubmit').addEventListener('click', async ()
     const data = await res.json();
     if (data.ok) {
       orCloseSheets();
-      await orLoadFolders(); await orLoadTracks(orCurrentFolder); orRenderTrackList();
-      showToast(orAdminMode === 'copy' ? '복사되었습니다' : '이동되었습니다');
+      const isCross = orAdminMode.startsWith('cross-');
+      if (!isCross) {
+        await orLoadFolders(); await orLoadTracks(orCurrentFolder); orRenderTrackList();
+      } else if (orAdminMode === 'cross-move') {
+        // 이동 시 CH 트랙목록 갱신
+        await fetchTracks(crossCtxSourceCh); updateTrackListUI();
+      }
+      const label = orAdminMode.includes('copy') ? '복사되었습니다' : '이동되었습니다';
+      showToast(label);
     } else showToast(data.error || '실패');
   } catch { showToast('오류가 발생했습니다'); }
 });

@@ -67,11 +67,11 @@ export default {
         if (meta && Array.isArray(meta)) {
           const r2Keys = new Set(audioFiles.map(o => o.key));
           tracks = meta
-            .filter(m => r2Keys.has(m.key))
+            .filter(m => r2Keys.has(m.key) || m.crossRef)
             .map((m, i) => ({
               key:   m.key,
               name:  m.name || decodeFileName(m.key.replace(prefix, '')),
-              size:  audioFiles.find(o => o.key === m.key)?.size ?? 0,
+              size:  m.crossRef ? (m.size || 0) : (audioFiles.find(o => o.key === m.key)?.size ?? 0),
               order: m.order ?? i,
             }));
         } else {
@@ -1448,6 +1448,122 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
     await env.RADIO_BUCKET.delete(`openroom/files/${r2Key}`);
     await env.RADIO_KV.delete(`openroom:file:${r2Key}`);
     return json({ ok: true }, cors);
+  }
+
+  // POST /api/openroom/admin/cross-copy — CH3/CH4 ↔ CH7 교차 복사
+  if (path === '/api/openroom/admin/cross-copy' && method === 'POST') {
+    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    const body = await request.json();
+    const { r2Key, direction, targetFolders } = body;
+    // direction: 'ch-to-or' (CH3/4→CH7), 'or-to-ch4' (CH7→CH4)
+    if (direction === 'ch-to-or' && targetFolders && targetFolders.length > 0) {
+      // CH3/CH4 R2 파일을 CH7 폴더에 참조로 추가
+      const headObj = await env.RADIO_BUCKET.head(r2Key);
+      if (!headObj) return json({ error: '파일을 찾을 수 없습니다' }, cors, 404);
+      const displayName = decodeFileName(r2Key.split('/').pop());
+      const copied = [];
+      for (const folder of targetFolders) {
+        const tracks = await orGetFolderTracks(env, folder);
+        if (tracks.some(t => t.r2Key === r2Key)) continue; // 이미 있음
+        tracks.push({
+          refId: crypto.randomUUID(),
+          r2Key,
+          displayName,
+          uploader: '관리자',
+          uploaderId: 'admin',
+          duration: 0,
+          addedAt: new Date().toISOString(),
+        });
+        await orSaveFolderTracks(env, folder, tracks);
+        copied.push(folder);
+      }
+      // fileMaster가 없으면 생성 (CH 파일이므로)
+      let master = await orGetFileMaster(env, r2Key);
+      if (!master) {
+        master = {
+          r2Key,
+          originalName: displayName,
+          uploader: '관리자',
+          uploaderId: 'admin',
+          duration: 0,
+          size: headObj.size,
+          mimeType: headObj.httpMetadata?.contentType || 'audio/mpeg',
+          refs: [],
+          createdAt: new Date().toISOString(),
+        };
+      }
+      for (const f of copied) { if (!master.refs.includes(f)) master.refs.push(f); }
+      await orSaveFileMaster(env, master);
+      return json({ ok: true, copied }, cors);
+    } else if (direction === 'or-to-ch4') {
+      // CH7 → CH4: _meta.json에 crossRef 추가 (파일 복사 불필요)
+      const prefix = DIR_MAP.list2;
+      const metaKey = prefix + '_meta.json';
+      const metaObj = await env.RADIO_BUCKET.get(metaKey);
+      let meta = [];
+      if (metaObj) { try { meta = JSON.parse(await metaObj.text()); } catch {} }
+      if (!Array.isArray(meta)) meta = [];
+      if (meta.some(m => m.key === r2Key)) return json({ error: '이미 찬양의 숲에 있습니다' }, cors, 409);
+      // OpenRoom fileMaster에서 정보 가져오기
+      const master = await orGetFileMaster(env, r2Key);
+      const headObj = await env.RADIO_BUCKET.head(r2Key.startsWith('openroom/') ? r2Key : `openroom/files/${r2Key}`);
+      const actualKey = headObj ? (r2Key.startsWith('openroom/') ? r2Key : `openroom/files/${r2Key}`) : r2Key;
+      const displayName = master?.originalName || decodeFileName(r2Key);
+      meta.push({
+        key: actualKey,
+        name: displayName,
+        order: meta.length,
+        crossRef: true,
+        size: headObj?.size || master?.size || 0,
+      });
+      await env.RADIO_BUCKET.put(metaKey, JSON.stringify(meta), { httpMetadata: { contentType: 'application/json' } });
+      return json({ ok: true }, cors);
+    }
+    return json({ error: '잘못된 direction' }, cors, 400);
+  }
+
+  // POST /api/openroom/admin/cross-move — CH3/CH4 ↔ CH7 교차 이동
+  if (path === '/api/openroom/admin/cross-move' && method === 'POST') {
+    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    const body = await request.json();
+    const { r2Key, direction, targetFolder, sourceCh } = body;
+    if (direction === 'ch-to-or' && targetFolder) {
+      // CH→CH7: 폴더에 참조 추가 + CH 메타에서 제거
+      const headObj = await env.RADIO_BUCKET.head(r2Key);
+      if (!headObj) return json({ error: '파일을 찾을 수 없습니다' }, cors, 404);
+      const displayName = decodeFileName(r2Key.split('/').pop());
+      const tracks = await orGetFolderTracks(env, targetFolder);
+      if (tracks.some(t => t.r2Key === r2Key)) return json({ error: '대상 폴더에 이미 존재합니다' }, cors, 409);
+      tracks.push({
+        refId: crypto.randomUUID(),
+        r2Key,
+        displayName,
+        uploader: '관리자',
+        uploaderId: 'admin',
+        duration: 0,
+        addedAt: new Date().toISOString(),
+      });
+      await orSaveFolderTracks(env, targetFolder, tracks);
+      // fileMaster 생성/업데이트
+      let master = await orGetFileMaster(env, r2Key);
+      if (!master) {
+        master = { r2Key, originalName: displayName, uploader: '관리자', uploaderId: 'admin', duration: 0, size: headObj.size, mimeType: headObj.httpMetadata?.contentType || 'audio/mpeg', refs: [], createdAt: new Date().toISOString() };
+      }
+      if (!master.refs.includes(targetFolder)) master.refs.push(targetFolder);
+      await orSaveFileMaster(env, master);
+      // 소스 CH 메타에서 제거
+      const chMap = { 3: 'list1', 4: 'list2' };
+      const prefix = DIR_MAP[chMap[sourceCh]] || DIR_MAP.list2;
+      const metaKey = prefix + '_meta.json';
+      const metaObj = await env.RADIO_BUCKET.get(metaKey);
+      if (metaObj) {
+        let meta = []; try { meta = JSON.parse(await metaObj.text()); } catch {}
+        meta = meta.filter(m => m.key !== r2Key);
+        await env.RADIO_BUCKET.put(metaKey, JSON.stringify(meta), { httpMetadata: { contentType: 'application/json' } });
+      }
+      return json({ ok: true }, cors);
+    }
+    return json({ error: '잘못된 direction' }, cors, 400);
   }
 
   // GET /api/openroom/admin/storage
