@@ -4592,24 +4592,10 @@ async function initPwa() {
     history.replaceState(null, '', cleanUrl.toString());
   }
 
-  if (isIos) {
-    showInstallBtn();
-  } else if ('BeforeInstallPromptEvent' in window || 'onbeforeinstallprompt' in window) {
-    // beforeinstallprompt 지원 브라우저: 이벤트 대기
-    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstallPrompt = e; showInstallBtn(); });
-    // 인앱에서 온 경우: 이벤트 안 떠도 설치 버튼 강제 표시 (3초 대기)
-    if (fromInApp) {
-      showInstallBtn();
-      setTimeout(() => {
-        if (!deferredInstallPrompt) {
-          // beforeinstallprompt 아직 안 왔으면 수동 안내
-          installBtn.textContent = '📲 앱으로 설치하기 (메뉴 → 홈 화면에 추가)';
-        }
-      }, 3000);
-    }
-  } else {
-    showInstallBtn();
-  }
+  // beforeinstallprompt 이벤트 캡처 (Chrome/Edge)
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstallPrompt = e; });
+  // 설치 버튼: 미설치 상태면 항상 표시
+  showInstallBtn();
 
   // ── 설치 권유 팝업 (세션당 1회, 인앱 리다이렉트 시 강제 표시) ──
   if (!fromInApp && sessionStorage.getItem('pwa-prompt-shown')) return;
