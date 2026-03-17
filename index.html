@@ -4612,12 +4612,6 @@ async function initPwa() {
       deferredInstallPrompt = null;
     } else {
       // 자동 설치 불가 → 시각적 가이드 표시
-      const isSamsung = /SamsungBrowser/i.test(navigator.userAgent);
-      const arrow = $('installGuide').querySelector('.install-guide-arrow');
-      if (isSamsung) {
-        // 삼성 인터넷: 메뉴가 하단 오른쪽 ≡
-        arrow.style.cssText = 'position:fixed;bottom:10px;right:20px;top:auto;transform:rotate(180deg)';
-      }
       $('installGuide').classList.add('open');
     }
   };
