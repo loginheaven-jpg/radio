@@ -4207,7 +4207,7 @@ function orCloseSheets() {
 
 // 업로드 시트
 orUploadBtn.addEventListener('click', () => {
-  if (!radioUser) { showToast('로그인이 필요합니다'); return; }
+  if (!radioUser && !adminKey) { showToast('로그인이 필요합니다'); return; }
   orSheetOverlay.classList.add('open');
   orUploadSheet.classList.add('open');
 });
@@ -4296,8 +4296,9 @@ document.getElementById('orUploadAllBtn').addEventListener('click', async () => 
       await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', orApiUrl(`/folders/${encodeURIComponent(orCurrentFolder)}/tracks`));
-        xhr.setRequestHeader('X-User-Id', radioUser.id);
-        xhr.setRequestHeader('X-User-Name', encodeURIComponent(radioUser.name || '익명'));
+        xhr.setRequestHeader('X-User-Id', radioUser ? radioUser.id : 'admin');
+        xhr.setRequestHeader('X-User-Name', encodeURIComponent(radioUser ? (radioUser.name || '익명') : '관리자'));
+        if (adminKey) xhr.setRequestHeader('Authorization', 'Bearer ' + adminKey);
         xhr.upload.onprogress = e => {
           if (e.lengthComputable) { const p = Math.round(e.loaded / e.total * 100); prog.style.width = p + '%'; pct.textContent = p + '%'; }
         };
