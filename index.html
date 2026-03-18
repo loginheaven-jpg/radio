@@ -778,7 +778,7 @@ body{
   </div>
 
   <button class="pwa-install-btn" id="pwaInstallBtn">📲 앱으로 설치하기</button>
-  <div class="footer">예봄교회 · Yebom Radio 2.0</div>
+  <div class="footer" id="appFooter" style="cursor:pointer">예봄교회 · Yebom Radio 2.0</div>
 </div>
 
 <!-- 인앱 브라우저 감지 배너 -->
@@ -1041,13 +1041,22 @@ async function checkSsoSession() {
       if (data.isLoggedIn) {
         radioUser = data.user;
         localStorage.setItem('radio-user', JSON.stringify({ user: data.user, ts: Date.now() }));
+        updateFooterLogin();
         return true;
       }
     }
   } catch(e) {}
   radioUser = null;
   localStorage.removeItem('radio-user');
+  updateFooterLogin();
   return false;
+}
+function updateFooterLogin() {
+  const el = document.getElementById('appFooter');
+  if (!el) return;
+  el.textContent = radioUser
+    ? radioUser.name + '님 · Yebom Radio 2.0'
+    : '예봄교회 · Yebom Radio 2.0';
 }
 
 // Recording
@@ -1285,7 +1294,7 @@ loginModal = $('loginModal');
 // SSO: 캐시된 로그인 확인 + 백그라운드 세션 체크
 (function initSsoCheck() {
   const cached = JSON.parse(localStorage.getItem('radio-user') || 'null');
-  if (cached && Date.now() - cached.ts < 300000) radioUser = cached.user;
+  if (cached && Date.now() - cached.ts < 300000) { radioUser = cached.user; updateFooterLogin(); }
   checkSsoSession();
 })();
 
@@ -4583,6 +4592,19 @@ $('sleepCancel').addEventListener('click', () => { clearTimeout(sleepTimer); cle
 $('headerTitle').addEventListener('click', handleHeaderTap);
 $('loginSsoBtn').addEventListener('click', () => { window.location.href = 'https://saint.yebom.org/login?redirect=' + encodeURIComponent(window.location.href); });
 $('loginCancelBtn').addEventListener('click', () => loginModal.classList.remove('open'));
+// 푸터 클릭 → 로그인/로그아웃
+$('appFooter').addEventListener('click', () => {
+  if (radioUser) {
+    if (confirm(radioUser.name + '님으로 로그인 중입니다.\n로그아웃 하시겠습니까?')) {
+      radioUser = null;
+      localStorage.removeItem('radio-user');
+      showToast('로그아웃 되었습니다');
+      updateFooterLogin();
+    }
+  } else {
+    window.location.href = 'https://saint.yebom.org/login?redirect=' + encodeURIComponent(window.location.href);
+  }
+});
 $('shareBtn').addEventListener('click', () => {
   const url = new URL(window.location.origin);
   url.searchParams.set('ch', String(currentChannel));
