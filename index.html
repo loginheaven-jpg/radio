@@ -1822,12 +1822,15 @@ function updatePlayBtn(playing) {
   }
 }
 
+let enterChannelGen = 0; // 채널 전환 세대 카운터 (레이스 컨디션 방지)
+
 function stopPlayback() {
   // 이전 트랙 재생위치 즉시 저장 (세대 번호 증가 전에!)
   if (currentTrackKey && currentHowl && isPlaying) {
     saveResume(currentChannel);
     scheduleServerSync();
   }
+  enterChannelGen++; // 진행 중인 채널 로더 무효화
   playTrackGeneration++; // 진행 중인 비동기 재생 무효화
   stopHls();
   if (currentHowl) { currentHowl.unload(); currentHowl = null; }
@@ -1978,6 +1981,7 @@ function initAudioContext() {
 }
 
 async function playHls(url, useProxy) {
+  const hlsGen = enterChannelGen; // 호출 시점의 채널 세대 캡처
   if (currentHls) { currentHls.destroy(); currentHls = null; }
   if (currentHowl) { currentHowl.unload(); currentHowl = null; }
   const el = ensureAudioEl();
@@ -2073,6 +2077,8 @@ async function playHls(url, useProxy) {
   el.addEventListener('waiting', () => {
     console.warn('[HLS Audio] waiting/buffering');
   });
+  // stale 체크: 다른 채널로 이미 전환되었으면 재생하지 않음
+  if (hlsGen !== enterChannelGen) return;
   try {
     await el.play();
     isPlaying = true; updatePlayBtn(true);
@@ -2090,6 +2096,7 @@ function stopHls() {
 }
 
 async function playIcecast(url) {
+  const iceGen = enterChannelGen; // 호출 시점의 채널 세대 캡처
   if (currentHls) { currentHls.destroy(); currentHls = null; }
   if (currentHowl) { currentHowl.unload(); currentHowl = null; }
   const el = ensureAudioEl();
@@ -2103,6 +2110,8 @@ async function playIcecast(url) {
     el.addEventListener('error', () => reject(new Error('Stream error')), {once:true});
     setTimeout(() => reject(new Error('Stream timeout 20s')), 20000);
   });
+  // stale 체크: 다른 채널로 이미 전환되었으면 재생하지 않음
+  if (iceGen !== enterChannelGen) return;
   // Icecast 오디오 요소에 stalled 리스너 추가
   el.addEventListener('stalled', () => {
     console.warn('[Icecast] stalled — 재연결 시도');
@@ -2377,6 +2386,7 @@ function handlePlayPause() {
 
 // ── Channel Entry ──
 async function enterChannel(channel) {
+  const gen = ++enterChannelGen; // 이 호출의 세대 번호
   currentChannel = channel;
   userPausedCh5 = false;
   localStorage.setItem('radio-last-channel', String(channel));
@@ -2440,11 +2450,12 @@ async function enterChannel(channel) {
     return;
   }
 
-  if (channel === 1) await loadKbs();
-  else if (channel === 2) await loadFebc();
+  if (channel === 1) { await loadKbs(); if (gen !== enterChannelGen) { stopPlayback(); return; } }
+  else if (channel === 2) { await loadFebc(); if (gen !== enterChannelGen) { stopPlayback(); return; } }
   else if (channel === 3 || channel === 4) {
     nowPlayingEl.textContent = '트랙 로딩 중...';
     const tracks = await fetchTracks(channel);
+    if (gen !== enterChannelGen) { stopPlayback(); return; }
     if (channel === 3 && shuffleOn) { shuffleOn = false; btnShuffle.classList.remove('active'); }
     if (channel === 4 && !shuffleOn) { shuffleOn = true; btnShuffle.classList.add('active'); shuffleOrder = makeShuffleOrder(tracks.length); }
     if (sharedTrack) {
@@ -2463,10 +2474,12 @@ async function enterChannel(channel) {
   } else if (channel === 5) {
     nowPlayingEl.textContent = '방송 확인 중...';
     await fetchTracks(5);
+    if (gen !== enterChannelGen) { stopPlayback(); return; }
     // Check live state first
     try {
       const liveRes = await fetch(WORKER_URL + '/api/live/state');
       const liveState = await liveRes.json();
+      if (gen !== enterChannelGen) { stopPlayback(); return; }
       if (liveState.active && liveState.sessionId) {
         startLivePlayer(liveState.sessionId, liveState.chunkDuration, liveState.latestChunk);
         // 라이브 중에도 트랙 목록 자동 갱신
@@ -2480,9 +2493,10 @@ async function enterChannel(channel) {
         return;
       }
     } catch {}
+    if (gen !== enterChannelGen) { stopPlayback(); return; }
     await startCh5Polling();
   } else if (channel === 6) {
-    await loadRsc();
+    await loadRsc(); if (gen !== enterChannelGen) { stopPlayback(); return; }
   } else if (channel === 7) {
     nowPlayingEl.textContent = '열린 음악방';
     openRoomOpen();
