@@ -134,6 +134,9 @@ body{
 .disc-center.torch-active{box-shadow:0 0 18px rgba(255,215,0,0.45),inset 0 0 12px rgba(255,215,0,0.15);border-color:rgba(255,215,0,0.5)!important}
 .torch-indicator{font-size:11px;position:absolute;top:6px;right:6px;filter:drop-shadow(0 0 4px rgba(255,215,0,0.8));animation:torchPulse 2s ease-in-out infinite}
 @keyframes torchPulse{0%,100%{opacity:1}50%{opacity:0.6}}
+.screen-light{position:fixed;top:0;left:0;width:100vw;height:100vh;background:#fff;z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.screen-light-hint{color:#999;font-size:14px;animation:hintFade 3s ease-in-out infinite}
+@keyframes hintFade{0%,100%{opacity:0.4}50%{opacity:0.8}}
 
 /* Channel Info */
 .channel-info{text-align:center;margin-top:12px;margin-bottom:6px}
@@ -1113,6 +1116,7 @@ let torchOn = false;
 let torchTimer = null;
 const TORCH_TIMEOUT = 10 * 60 * 1000; // 10분
 let torchSupported = false;
+let torchMode = 'none'; // 'led' | 'screen' | 'none'
 
 // Radio Swiss Classic
 let rscFormat = localStorage.getItem('radio-rsc-format') || 'aac';
@@ -1704,9 +1708,9 @@ function initDiscSwipe() {
 
 // ── 플래시(Torch) ──
 function checkTorchSupportLazy() {
-  const isAndroid = /Android/i.test(navigator.userAgent);
-  const hasGUM = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-  if (isAndroid && hasGUM) {
+  // 모바일(Android/iOS)이면 플래시 지원 — LED 실패 시 화면 조명 fallback
+  const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  if (isMobile) {
     torchSupported = true;
     discCenter.style.cursor = 'pointer';
   }
@@ -1714,51 +1718,61 @@ function checkTorchSupportLazy() {
 
 async function toggleTorch() {
   if (torchOn) { stopTorch(); return; }
-  try {
-    // 방법 1: facingMode + advanced constraint
-    // 방법 2: 직접 torch 요청
-    // 방법 3: facingMode 없이 시도
+  // LED torch 시도 (Android only)
+  if (/Android/i.test(navigator.userAgent) && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     const attempts = [
       { video: { facingMode: 'environment' } },
       { video: { facingMode: { exact: 'environment' }, torch: true } },
       { video: true }
     ];
-    let success = false;
     for (const constraint of attempts) {
       try {
         torchStream = await navigator.mediaDevices.getUserMedia(constraint);
         torchTrack = torchStream.getVideoTracks()[0];
         await torchTrack.applyConstraints({ advanced: [{ torch: true }] });
-        success = true;
-        break;
+        torchMode = 'led';
+        torchOn = true;
+        updateTorchUI(true);
+        clearTimeout(torchTimer);
+        torchTimer = setTimeout(() => { stopTorch(); showToast('플래시가 자동으로 꺼졌습니다 (10분)'); }, TORCH_TIMEOUT);
+        torchTrack.onended = () => { torchOn = false; torchMode = 'none'; clearTimeout(torchTimer); torchTimer = null; updateTorchUI(false); };
+        return; // LED 성공
       } catch (e) {
         if (torchTrack) { torchTrack.stop(); torchTrack = null; }
         if (torchStream) { torchStream.getTracks().forEach(t => t.stop()); torchStream = null; }
       }
     }
-    if (!success) {
-      torchSupported = false;
-      discCenter.style.cursor = 'default';
-      showToast('이 기기의 브라우저에서 플래시를 지원하지 않습니다');
-      return;
-    }
-    torchOn = true;
-    updateTorchUI(true);
-    // 10분 자동 꺼짐
-    clearTimeout(torchTimer);
-    torchTimer = setTimeout(() => { stopTorch(); showToast('플래시가 자동으로 꺼졌습니다 (10분)'); }, TORCH_TIMEOUT);
-    // OS/다른 앱이 카메라 강제 해제 시
-    torchTrack.onended = () => { torchOn = false; clearTimeout(torchTimer); torchTimer = null; updateTorchUI(false); };
-  } catch (e) {
-    if (e.name === 'NotAllowedError') showToast('카메라 권한이 필요합니다');
-    else showToast('플래시를 켤 수 없습니다');
   }
+  // LED 실패 또는 iOS → 화면 조명 fallback
+  startScreenLight();
+}
+
+function startScreenLight() {
+  if ($('screenLight')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'screenLight';
+  overlay.className = 'screen-light';
+  overlay.innerHTML = '<div class="screen-light-hint">탭하여 끄기</div>';
+  overlay.addEventListener('click', stopTorch);
+  document.body.appendChild(overlay);
+  torchMode = 'screen';
+  torchOn = true;
+  updateTorchUI(true);
+  clearTimeout(torchTimer);
+  torchTimer = setTimeout(() => { stopTorch(); showToast('화면 조명이 자동으로 꺼졌습니다 (10분)'); }, TORCH_TIMEOUT);
+  // Wake Lock 유지 (화면 꺼짐 방지)
+  requestWakeLock();
 }
 
 function stopTorch() {
+  // LED 정리
   if (torchTrack) { torchTrack.stop(); torchTrack = null; }
   if (torchStream) { torchStream.getTracks().forEach(t => t.stop()); torchStream = null; }
+  // 화면 조명 정리
+  const overlay = $('screenLight');
+  if (overlay) overlay.remove();
   torchOn = false;
+  torchMode = 'none';
   clearTimeout(torchTimer); torchTimer = null;
   updateTorchUI(false);
 }
