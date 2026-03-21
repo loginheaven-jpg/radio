@@ -131,6 +131,9 @@ body{
   z-index:2;will-change:transform;transition:background 0.6s,border-color 0.6s;
 }
 .disc-freq{font-size:7px;font-weight:700;opacity:0.7;margin-top:3px;letter-spacing:0.03em;transition:color 0.6s}
+.disc-center.torch-active{box-shadow:0 0 18px rgba(255,215,0,0.45),inset 0 0 12px rgba(255,215,0,0.15);border-color:rgba(255,215,0,0.5)!important}
+.torch-indicator{font-size:11px;position:absolute;top:6px;right:6px;filter:drop-shadow(0 0 4px rgba(255,215,0,0.8));animation:torchPulse 2s ease-in-out infinite}
+@keyframes torchPulse{0%,100%{opacity:1}50%{opacity:0.6}}
 
 /* Channel Info */
 .channel-info{text-align:center;margin-top:12px;margin-bottom:6px}
@@ -1103,6 +1106,14 @@ let ch5AdminState = null;
 
 let ch5PollTimer = null;
 
+// ── 플래시(Torch) 상태 ──
+let torchStream = null;
+let torchTrack = null;
+let torchOn = false;
+let torchTimer = null;
+const TORCH_TIMEOUT = 10 * 60 * 1000; // 10분
+let torchSupported = false;
+
 // Radio Swiss Classic
 let rscFormat = localStorage.getItem('radio-rsc-format') || 'aac';
 let rscRefreshTimer = null;
@@ -1358,7 +1369,7 @@ function applyChannelTheme(ch) {
   discFreq.style.color = def.accentLight;
   discCenter.style.background = `linear-gradient(145deg, ${def.accent}35, ${def.accent}10)`;
   discCenter.style.border = `1.5px solid ${def.accent}30`;
-  discCenter.style.cursor = (ch === 6) ? 'pointer' : 'default';
+  discCenter.style.cursor = torchSupported ? 'pointer' : 'default';
   $('discRingOuter').style.borderColor = def.discRing + '12';
   $('discRingInner').style.borderColor = def.discRing + '08';
   // 40th: 원형 텍스트 색상 채널 연동
@@ -1684,7 +1695,73 @@ function initDiscSwipe() {
     else if (e.key === 'ArrowRight') switchToChannel(focusedIndex + 1);
   });
 
-  // CH6 디스크 중앙 클릭 → 음질 토글 제거 (관리자 설정으로 이동)
+  // 디스크 중앙 클릭 → 플래시 토글 (Android만, 모든 채널)
+  discCenter.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (torchSupported) toggleTorch();
+  });
+}
+
+// ── 플래시(Torch) ──
+function checkTorchSupportLazy() {
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const hasGUM = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  if (isAndroid && hasGUM) {
+    torchSupported = true;
+    discCenter.style.cursor = 'pointer';
+  }
+}
+
+async function toggleTorch() {
+  if (torchOn) { stopTorch(); return; }
+  try {
+    torchStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    torchTrack = torchStream.getVideoTracks()[0];
+    const caps = torchTrack.getCapabilities ? torchTrack.getCapabilities() : {};
+    if (!caps.torch) {
+      torchTrack.stop(); torchStream = null; torchTrack = null;
+      torchSupported = false;
+      discCenter.style.cursor = 'default';
+      showToast('이 기기에서는 플래시를 지원하지 않습니다');
+      return;
+    }
+    await torchTrack.applyConstraints({ advanced: [{ torch: true }] });
+    torchOn = true;
+    updateTorchUI(true);
+    // 10분 자동 꺼짐
+    clearTimeout(torchTimer);
+    torchTimer = setTimeout(() => { stopTorch(); showToast('플래시가 자동으로 꺼졌습니다 (10분)'); }, TORCH_TIMEOUT);
+    // OS/다른 앱이 카메라 강제 해제 시
+    torchTrack.onended = () => { torchOn = false; clearTimeout(torchTimer); torchTimer = null; updateTorchUI(false); };
+  } catch (e) {
+    if (e.name === 'NotAllowedError') showToast('카메라 권한이 필요합니다');
+    else showToast('플래시를 켤 수 없습니다');
+  }
+}
+
+function stopTorch() {
+  if (torchTrack) { torchTrack.stop(); torchTrack = null; }
+  if (torchStream) { torchStream.getTracks().forEach(t => t.stop()); torchStream = null; }
+  torchOn = false;
+  clearTimeout(torchTimer); torchTimer = null;
+  updateTorchUI(false);
+}
+
+function updateTorchUI(isOn) {
+  if (isOn) {
+    discCenter.classList.add('torch-active');
+    if (!$('torchIndicator')) {
+      const ind = document.createElement('span');
+      ind.id = 'torchIndicator';
+      ind.className = 'torch-indicator';
+      ind.textContent = '🔦';
+      discCenter.appendChild(ind);
+    }
+  } else {
+    discCenter.classList.remove('torch-active');
+    const ind = $('torchIndicator');
+    if (ind) ind.remove();
+  }
 }
 
 // ── Toast ──
@@ -2696,7 +2773,7 @@ window.addEventListener('beforeunload', () => {
     navigator.sendBeacon(WORKER_URL + '/api/user/trackpos?userId=' + radioUser.id, payload);
   }
 });
-window.addEventListener('pagehide', () => saveResume(currentChannel));
+window.addEventListener('pagehide', () => { saveResume(currentChannel); if (torchOn) stopTorch(); });
 // ── 백그라운드 킵얼라이브 (Web Worker 기반 — Android Deep Doze 대응) ──
 let bgWorker = null;
 
@@ -5371,6 +5448,7 @@ async function init() {
   initPwa();
   initAutoUpdate();
   updateSleepUI();
+  checkTorchSupportLazy();
 
   // Auto-hide swipe hint after 6s
   setTimeout(() => { if (swipeHintEl) swipeHintEl.style.display = 'none'; }, 6500);
