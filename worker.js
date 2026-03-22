@@ -386,6 +386,11 @@ export default {
         return json({ ok: true }, cors);
       }
 
+      // ── 간편 로그인 (이름+전화뒤4자리 → members 매칭) ──
+      if (path === '/api/auth/simple-login' && method === 'POST') {
+        return handleSimpleLogin(request, env, cors);
+      }
+
       // ── 트랙별 재생위치 동기화 (로그인 사용자 전용) ──
       if (path === '/api/user/trackpos' && method === 'GET') {
         const userId = request.headers.get('X-User-Id');
@@ -1079,6 +1084,70 @@ function json(data, cors, status = 200) {
 function isAdmin(request, env) {
   const auth = request.headers.get('Authorization') || '';
   return auth === `Bearer ${env.ADMIN_KEY}`;
+}
+
+async function handleSimpleLogin(request, env, cors) {
+  try {
+    const { name, phone_last4 } = await request.json();
+
+    if (!name?.trim()) {
+      return json({ error: '이름을 입력해 주세요.' }, cors, 400);
+    }
+    if (!phone_last4 || phone_last4.length !== 4 || !/^\d{4}$/.test(phone_last4)) {
+      return json({ error: '전화번호 뒤 4자리를 정확히 입력해 주세요.' }, cors, 400);
+    }
+
+    // Supabase REST API로 members 조회
+    const supabaseUrl = env.SUPABASE_URL;
+    const supabaseKey = env.SUPABASE_SERVICE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return json({ error: '서버 설정 오류입니다.' }, cors, 500);
+    }
+
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/members?name=eq.${encodeURIComponent(name.trim())}&status=neq.삭제&select=member_id,name,phone`,
+      {
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+      }
+    );
+
+    if (!res.ok) {
+      return json({ error: '서버 오류가 발생했습니다.' }, cors, 500);
+    }
+
+    const members = await res.json();
+
+    if (!members || members.length === 0) {
+      return json({ error: '일치하는 성도를 찾을 수 없습니다.', notFound: true }, cors, 404);
+    }
+
+    // 전화번호 뒤 4자리 매칭
+    const matched = members.filter(m => {
+      if (!m.phone) return false;
+      const cleanPhone = m.phone.replace(/[^0-9]/g, '');
+      return cleanPhone.slice(-4) === phone_last4;
+    });
+
+    if (matched.length === 0) {
+      return json({ error: '이름과 전화번호가 일치하는 성도를 찾을 수 없습니다.', notFound: true }, cors, 404);
+    }
+
+    if (matched.length > 1) {
+      return json({ error: '동일 정보의 성도가 여러 명 있습니다. 관리자에게 문의해 주세요.' }, cors, 409);
+    }
+
+    const member = matched[0];
+    return json({
+      success: true,
+      user: { id: member.member_id, name: member.name },
+    }, cors);
+  } catch (e) {
+    return json({ error: '서버 오류가 발생했습니다.' }, cors, 500);
+  }
 }
 
 function parseRange(header, totalSize) {
