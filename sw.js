@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yebom-radio-v8';
+const CACHE_NAME = 'yebom-radio-v9';
 
 const NO_CACHE_PATTERNS = [
   /\.mp3$/, /\.m4a$/, /\.ogg$/, /\.wav$/, /\.flac$/, /\.opus$/,
