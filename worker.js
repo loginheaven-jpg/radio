@@ -386,9 +386,9 @@ export default {
         return json({ ok: true }, cors);
       }
 
-      // ── 간편 로그인 (이름+전화뒤4자리 → members 매칭) ──
-      if (path === '/api/auth/simple-login' && method === 'POST') {
-        return handleSimpleLogin(request, env, cors);
+      // ── 이메일+비밀번호 로그인 ──
+      if (path === '/api/auth/email-login' && method === 'POST') {
+        return handleEmailLogin(request, env, cors);
       }
 
       // ── 트랙별 재생위치 동기화 (로그인 사용자 전용) ──
@@ -1086,18 +1086,17 @@ function isAdmin(request, env) {
   return auth === `Bearer ${env.ADMIN_KEY}`;
 }
 
-async function handleSimpleLogin(request, env, cors) {
+async function handleEmailLogin(request, env, cors) {
   try {
-    const { name, phone_last4 } = await request.json();
+    const { email, password } = await request.json();
 
-    if (!name?.trim()) {
-      return json({ error: '이름을 입력해 주세요.' }, cors, 400);
+    if (!email?.trim()) {
+      return json({ error: '이메일을 입력해 주세요.' }, cors, 400);
     }
-    if (!phone_last4 || phone_last4.length !== 4 || !/^\d{4}$/.test(phone_last4)) {
-      return json({ error: '전화번호 뒤 4자리를 정확히 입력해 주세요.' }, cors, 400);
+    if (!password) {
+      return json({ error: '비밀번호를 입력해 주세요.' }, cors, 400);
     }
 
-    // Supabase REST API로 members 조회
     const supabaseUrl = env.SUPABASE_URL;
     const supabaseKey = env.SUPABASE_SERVICE_KEY;
 
@@ -1105,8 +1104,9 @@ async function handleSimpleLogin(request, env, cors) {
       return json({ error: '서버 설정 오류입니다.' }, cors, 500);
     }
 
+    // users 테이블에서 이메일로 조회
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/members?name=eq.${encodeURIComponent(name.trim())}&status=neq.삭제&select=member_id,name,phone`,
+      `${supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(email.trim())}&select=user_id,email,password_hash,name,member_id,is_approved`,
       {
         headers: {
           'apikey': supabaseKey,
@@ -1119,31 +1119,30 @@ async function handleSimpleLogin(request, env, cors) {
       return json({ error: '서버 오류가 발생했습니다.' }, cors, 500);
     }
 
-    const members = await res.json();
-
-    if (!members || members.length === 0) {
-      return json({ error: '일치하는 성도를 찾을 수 없습니다.', notFound: true }, cors, 404);
+    const users = await res.json();
+    if (!users || users.length === 0) {
+      return json({ error: '등록되지 않은 이메일입니다.' }, cors, 401);
     }
 
-    // 전화번호 뒤 4자리 매칭
-    const matched = members.filter(m => {
-      if (!m.phone) return false;
-      const cleanPhone = m.phone.replace(/[^0-9]/g, '');
-      return cleanPhone.slice(-4) === phone_last4;
+    const user = users[0];
+
+    // bcrypt 비교 (Cloudflare Workers에서는 직접 구현 필요)
+    // Workers 환경에서 bcryptjs를 사용할 수 없으므로 교적부 API에 위임
+    const loginRes = await fetch(`https://saint.yebom.org/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), password }),
     });
 
-    if (matched.length === 0) {
-      return json({ error: '이름과 전화번호가 일치하는 성도를 찾을 수 없습니다.', notFound: true }, cors, 404);
+    if (!loginRes.ok) {
+      const errData = await loginRes.json().catch(() => ({}));
+      return json({ error: errData.error || '이메일 또는 비밀번호가 일치하지 않습니다.' }, cors, 401);
     }
 
-    if (matched.length > 1) {
-      return json({ error: '동일 정보의 성도가 여러 명 있습니다. 관리자에게 문의해 주세요.' }, cors, 409);
-    }
-
-    const member = matched[0];
+    // 교적부 로그인 성공 → 라디오용 user 정보 반환
     return json({
       success: true,
-      user: { id: member.member_id, name: member.name },
+      user: { id: user.member_id || user.user_id, name: user.name },
     }, cors);
   } catch (e) {
     return json({ error: '서버 오류가 발생했습니다.' }, cors, 500);
