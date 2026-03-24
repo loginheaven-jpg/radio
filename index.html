@@ -1664,13 +1664,16 @@ function updateDotIndicators() {
 }
 
 // ── Channel Switching ──
+let switchDebounce = null;
 function switchToChannel(idx) {
   if (idx < 0) idx = activeChannels.length - 1;
   if (idx >= activeChannels.length) idx = 0;
   focusedIndex = idx;
   const ch = activeChannels[idx];
   applyChannelTheme(ch.num);
-  enterChannel(ch.num);
+  // 빠른 스와이프 디바운스: 150ms 이내 연속 전환 시 마지막만 실행
+  clearTimeout(switchDebounce);
+  switchDebounce = setTimeout(() => enterChannel(ch.num), 150);
   if (swipeHintEl) swipeHintEl.style.display = 'none';
 }
 
@@ -2499,12 +2502,12 @@ async function enterChannel(channel) {
     return;
   }
 
-  if (channel === 1) { await loadKbs(); if (gen !== enterChannelGen) { stopPlayback(); return; } }
-  else if (channel === 2) { await loadFebc(); if (gen !== enterChannelGen) { stopPlayback(); return; } }
+  if (channel === 1) { await loadKbs(); if (gen !== enterChannelGen) return; }
+  else if (channel === 2) { await loadFebc(); if (gen !== enterChannelGen) return; }
   else if (channel === 3 || channel === 4) {
     nowPlayingEl.textContent = '트랙 로딩 중...';
     const tracks = await fetchTracks(channel);
-    if (gen !== enterChannelGen) { stopPlayback(); return; }
+    if (gen !== enterChannelGen) return;
     if (channel === 3 && shuffleOn) { shuffleOn = false; btnShuffle.classList.remove('active'); }
     if (channel === 4 && !shuffleOn) { shuffleOn = true; btnShuffle.classList.add('active'); shuffleOrder = makeShuffleOrder(tracks.length); }
     if (sharedTrack) {
@@ -2523,12 +2526,12 @@ async function enterChannel(channel) {
   } else if (channel === 5) {
     nowPlayingEl.textContent = '방송 확인 중...';
     await fetchTracks(5);
-    if (gen !== enterChannelGen) { stopPlayback(); return; }
+    if (gen !== enterChannelGen) return;
     // Check live state first
     try {
       const liveRes = await fetch(WORKER_URL + '/api/live/state');
       const liveState = await liveRes.json();
-      if (gen !== enterChannelGen) { stopPlayback(); return; }
+      if (gen !== enterChannelGen) return;
       if (liveState.active && liveState.sessionId) {
         startLivePlayer(liveState.sessionId, liveState.chunkDuration, liveState.latestChunk);
         // 라이브 중에도 트랙 목록 자동 갱신
@@ -2542,10 +2545,10 @@ async function enterChannel(channel) {
         return;
       }
     } catch {}
-    if (gen !== enterChannelGen) { stopPlayback(); return; }
+    if (gen !== enterChannelGen) return;
     await startCh5Polling();
   } else if (channel === 6) {
-    await loadRsc(); if (gen !== enterChannelGen) { stopPlayback(); return; }
+    await loadRsc(); if (gen !== enterChannelGen) return;
   } else if (channel === 7) {
     nowPlayingEl.textContent = '열린 음악방';
     openRoomOpen();
