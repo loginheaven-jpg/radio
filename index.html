@@ -2166,18 +2166,18 @@ function stopOnlyMusicDetection() {
 function applyOnlyMusicVolume(isSpeech) {
   const wasSpeech = onlyMusicMultiplier < 1.0;
   const targetMult = isSpeech ? (onlyMusicSpeechVol / 100) : 1.0;
-  // gainNode.gain에 1초 fade 적용
-  if (audioCtx && gainNode) {
-    const now = audioCtx.currentTime;
-    gainNode.gain.cancelScheduledValues(now);
-    gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-    const newGain = currentVolume * targetMult;
-    gainNode.gain.linearRampToValueAtTime(
-      boostChainActive ? targetMult : newGain,
-      now + ONLY_MUSIC_FADE_MS / 1000
-    );
-  }
   onlyMusicMultiplier = targetMult;
+  // applyVolume으로 통합 제어 (fade 적용)
+  if (audioCtx && gainNode) {
+    const targetGain = currentVolume * targetMult;
+    const now = audioCtx.currentTime;
+    // 볼륨 제어 대상 결정
+    const targetNode = boostChainActive ? boostGainNode.gain : gainNode.gain;
+    const targetVal = boostChainActive ? (currentVolume > 1.0 ? (1.0 + (currentVolume - 1.0) * 3.0) * targetMult : currentVolume * targetMult) : targetGain;
+    targetNode.cancelScheduledValues(now);
+    targetNode.setValueAtTime(targetNode.value, now);
+    targetNode.linearRampToValueAtTime(targetVal, now + ONLY_MUSIC_FADE_MS / 1000);
+  }
   // 음악 시작 감지 → 곡 제목 취득 (녹음 파일명용)
   if (!isSpeech && wasSpeech && isRecording && recAutoSplit) {
     fetchCurrentTrackTitle();
@@ -5078,27 +5078,31 @@ volSlider.classList.toggle('boost-zone', isBoostedInit);
 volNum.classList.toggle('boost-zone', isBoostedInit);
 
 function applyVolume(v) {
+  const omMult = onlyMusicMultiplier; // Only Music 배수 (1.0 또는 speechVol/100)
   const isBoosted = v > 1.0;
   if (isBoosted) {
     // 부스트 구간 (100~150%): AudioContext 체인 사용
     ensureBoostChain();
-    const boostGain = 1.0 + (v - 1.0) * 3.0; // 1.0 ~ 2.5
+    const boostGain = (1.0 + (v - 1.0) * 3.0) * omMult; // 1.0~2.5 × Only Music
     boostGainNode.gain.value = boostGain;
     if (gainNode) gainNode.gain.value = 1.0;
     if (audioEl) audioEl.volume = 1;
     if (currentHowl && !currentHowl._sounds[0]?._node?._acConnected) currentHowl.volume(1);
   } else if (boostChainActive) {
-    // 일반 구간이지만 부스트 체인이 이미 활성화됨
-    // audioEl.volume은 AudioContext 연결 후 무의미, boostGainNode로 제어
-    boostGainNode.gain.value = v;
+    boostGainNode.gain.value = v * omMult;
     if (gainNode) gainNode.gain.value = 1.0;
     if (audioEl) audioEl.volume = 1;
     if (currentHowl && !currentHowl._sounds[0]?._node?._acConnected) currentHowl.volume(1);
+  } else if (hlsSourceNode) {
+    // AudioContext 연결됨 (Only Music 등) — gainNode로 볼륨 제어
+    if (gainNode) gainNode.gain.value = v * omMult;
+    if (audioEl) audioEl.volume = 1;
+    if (currentHowl && !currentHowl._sounds[0]?._node?._acConnected) currentHowl.volume(1);
   } else {
-    // 부스트 체인 비활성 — 기존 동작 100% 유지
+    // AudioContext 미연결 — 기존 동작 100% 유지
     if (gainNode) gainNode.gain.value = v;
     if (currentHowl && !currentHowl._sounds[0]?._node?._acConnected) currentHowl.volume(v);
-    if (audioEl && !hlsSourceNode) audioEl.volume = v;
+    if (audioEl) audioEl.volume = v;
   }
 }
 
