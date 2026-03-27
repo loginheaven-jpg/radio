@@ -144,6 +144,9 @@ body{
 .channel-label{font-size:13px;opacity:0.72;margin-top:3px}
 .share-btn{background:none;border:none;color:var(--accent);opacity:0.5;cursor:pointer;padding:6px 8px;vertical-align:middle;transition:opacity 0.2s;flex-shrink:0}
 .share-btn:hover,.share-btn:active{opacity:0.85}
+.only-music-badge{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:2px 8px;color:rgba(255,255,255,0.4);font-size:10px;font-weight:600;cursor:pointer;flex-shrink:0;transition:all 0.3s;letter-spacing:0.5px}
+.only-music-badge.active{background:rgba(106,170,96,0.2);border-color:rgba(106,170,96,0.5);color:#6aaa60}
+.only-music-badge.active.speech-active{background:rgba(232,128,128,0.15);border-color:rgba(232,128,128,0.4);color:#e88080}
 
 /* Dots */
 .dot-indicators{display:flex;gap:6px;margin-bottom:4px;align-items:center;justify-content:center}
@@ -673,6 +676,7 @@ body{
   <div class="now-playing" id="nowPlayingBar">
     <span id="headerSubtitle"></span>
     <button class="share-btn" id="shareBtn" aria-label="링크 복사"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+    <button class="only-music-badge" id="onlyMusicBadge" style="display:none" aria-label="Only Music 토글">♪ Only</button>
   </div>
 
   <!-- Disc Area -->
@@ -991,6 +995,16 @@ body{
       </div>
       <button class="extra-btn" id="recSettingsSave" style="font-size:0.8rem">저장</button>
       <button class="extra-btn" id="recSettingsReset" style="font-size:0.75rem;margin-left:6px;opacity:0.6">기본값</button>
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08)">
+        <div style="font-size:0.85rem;font-weight:600;color:var(--amber);margin-bottom:8px">♪ Only Music 설정</div>
+        <div style="font-size:0.75rem;color:var(--text-mute);margin-bottom:8px">공중파 채널에서 멘트(음성) 감지 시 자동 볼륨 조절</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:0.8rem;white-space:nowrap">멘트 볼륨</span>
+          <input type="range" id="onlyMusicVolSlider" min="0" max="100" value="30" step="5" style="flex:1;accent-color:var(--amber)">
+          <span id="onlyMusicVolVal" style="font-size:0.8rem;min-width:32px;text-align:right">30%</span>
+        </div>
+        <div style="font-size:0.7rem;color:var(--text-mute)">0% = 완전 무음, 30% = 멘트가 작게 들림 (권장), 100% = 기능 OFF</div>
+      </div>
     </div>
   </div>
   <div class="admin-section-title"><span>등록된 목록</span><button class="extra-btn" id="adminRefresh" style="font-size:0.75rem">새로고침</button></div>
@@ -1133,6 +1147,19 @@ let hlsSourceNode = null, howlSourceNode = null;
 let boostGainNode = null;
 let boostCompressor = null;
 let boostChainActive = false;
+
+// ── Only Music (공중파 음성/음악 자동 감지) ──
+let onlyMusicEnabled = false;
+let onlyMusicAnalyser = null;
+let onlyMusicTimer = null;
+let onlyMusicSpeechDetected = false;
+let onlyMusicMultiplier = 1.0; // 현재 적용 중인 볼륨 배수
+let onlyMusicSpeechVol = parseInt(localStorage.getItem('radio-onlymusic-vol')) || 30; // 멘트 볼륨 % (관리자 설정)
+const ONLY_MUSIC_FADE_MS = 1000; // fade 시간 (ms)
+const ONLY_MUSIC_CHECK_MS = 200; // 분석 간격 (ms)
+// 분류 히스토리 (오탐 방지: 최근 5프레임 중 다수결)
+let onlyMusicHistory = [];
+const ONLY_MUSIC_HISTORY_LEN = 5;
 
 // Admin
 let adminChannel = 'list1';
@@ -1872,6 +1899,7 @@ function stopPlayback() {
   if (currentHowl) { currentHowl.unload(); currentHowl = null; }
   stopLivePlayer();
   stopReplay();
+  stopOnlyMusicDetection();
   howlSourceNode = null;
   isPlaying = false;
   updatePlayBtn(false);
@@ -2047,6 +2075,137 @@ function ensureBoostChain() {
   if (audioEl) audioEl.volume = 1;
 }
 
+// ── Only Music: 음성/음악 분류기 ──
+function startOnlyMusicDetection() {
+  if (onlyMusicTimer || !audioCtx) return;
+  if (!onlyMusicAnalyser) {
+    onlyMusicAnalyser = audioCtx.createAnalyser();
+    onlyMusicAnalyser.fftSize = 2048;
+    onlyMusicAnalyser.smoothingTimeConstant = 0.8;
+    gainNode.connect(onlyMusicAnalyser);
+  }
+  const freqBins = onlyMusicAnalyser.frequencyBinCount; // 1024
+  const freqData = new Uint8Array(freqBins);
+  const timeData = new Float32Array(onlyMusicAnalyser.fftSize);
+  onlyMusicHistory = [];
+
+  onlyMusicTimer = setInterval(() => {
+    if (!onlyMusicEnabled || !onlyMusicAnalyser) return;
+    onlyMusicAnalyser.getByteFrequencyData(freqData);
+    onlyMusicAnalyser.getFloatTimeDomainData(timeData);
+
+    // 1. Spectral Centroid (주파수 무게중심)
+    let weightedSum = 0, magSum = 0;
+    for (let i = 0; i < freqBins; i++) { weightedSum += i * freqData[i]; magSum += freqData[i]; }
+    const centroid = magSum > 0 ? weightedSum / magSum : 0;
+    // centroid를 Hz로 변환: bin * (sampleRate/2) / freqBins
+    const centroidHz = centroid * (audioCtx.sampleRate / 2) / freqBins;
+
+    // 2. 에너지 대역 비율 (저: 0-500Hz, 중: 500-4kHz, 고: 4k+)
+    const hzPerBin = (audioCtx.sampleRate / 2) / freqBins;
+    const lowEnd = Math.floor(500 / hzPerBin);
+    const midEnd = Math.floor(4000 / hzPerBin);
+    let lowE = 0, midE = 0, highE = 0;
+    for (let i = 0; i < lowEnd; i++) lowE += freqData[i];
+    for (let i = lowEnd; i < midEnd; i++) midE += freqData[i];
+    for (let i = midEnd; i < freqBins; i++) highE += freqData[i];
+    const totalE = lowE + midE + highE || 1;
+    const midRatio = midE / totalE;
+    const highRatio = highE / totalE;
+
+    // 3. Zero-Crossing Rate (시간 도메인)
+    let zcr = 0;
+    for (let i = 1; i < timeData.length; i++) {
+      if ((timeData[i] >= 0) !== (timeData[i-1] >= 0)) zcr++;
+    }
+    const zcrNorm = zcr / timeData.length;
+
+    // 4. Spectral Flatness (평탄도 — 음악은 높고, 음성은 낮음)
+    let logSum = 0, linSum = 0, validBins = 0;
+    for (let i = 1; i < freqBins; i++) {
+      if (freqData[i] > 0) { logSum += Math.log(freqData[i]); linSum += freqData[i]; validBins++; }
+    }
+    const flatness = validBins > 0 ? Math.exp(logSum / validBins) / (linSum / validBins) : 0;
+
+    // 판정: 음성 특성 점수
+    // 음성: 중역대 집중(midRatio 높음), centroid 1k-3kHz, ZCR 높음, flatness 낮음
+    let speechScore = 0;
+    if (centroidHz > 800 && centroidHz < 3500) speechScore += 2; // 음성 주파수 대역
+    if (midRatio > 0.45) speechScore += 1; // 중역대 에너지 집중
+    if (highRatio < 0.15) speechScore += 1; // 고역 에너지 적음
+    if (zcrNorm > 0.05 && zcrNorm < 0.20) speechScore += 1; // 음성 전형적 ZCR
+    if (flatness < 0.3) speechScore += 1; // 낮은 평탄도 (음성)
+
+    const isSpeech = speechScore >= 4; // 6점 중 4점 이상이면 음성
+
+    // 히스토리 기반 다수결 (오탐 방지)
+    onlyMusicHistory.push(isSpeech);
+    if (onlyMusicHistory.length > ONLY_MUSIC_HISTORY_LEN) onlyMusicHistory.shift();
+    const speechCount = onlyMusicHistory.filter(v => v).length;
+    const newSpeechState = speechCount >= 3; // 5프레임 중 3 이상이면 음성
+
+    if (newSpeechState !== onlyMusicSpeechDetected) {
+      onlyMusicSpeechDetected = newSpeechState;
+      applyOnlyMusicVolume(newSpeechState);
+    }
+  }, ONLY_MUSIC_CHECK_MS);
+}
+
+function stopOnlyMusicDetection() {
+  if (onlyMusicTimer) { clearInterval(onlyMusicTimer); onlyMusicTimer = null; }
+  onlyMusicSpeechDetected = false;
+  onlyMusicHistory = [];
+  // 볼륨 복원
+  if (onlyMusicMultiplier < 1.0) {
+    onlyMusicMultiplier = 1.0;
+    applyVolume(currentVolume);
+  }
+}
+
+function applyOnlyMusicVolume(isSpeech) {
+  const targetMult = isSpeech ? (onlyMusicSpeechVol / 100) : 1.0;
+  // gainNode.gain에 1초 fade 적용
+  if (audioCtx && gainNode) {
+    const now = audioCtx.currentTime;
+    gainNode.gain.cancelScheduledValues(now);
+    gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+    const newGain = currentVolume * targetMult;
+    gainNode.gain.linearRampToValueAtTime(
+      boostChainActive ? targetMult : newGain,
+      now + ONLY_MUSIC_FADE_MS / 1000
+    );
+  }
+  onlyMusicMultiplier = targetMult;
+  // UI 업데이트 — Only Music 배지 상태 표시
+  const badge = $('onlyMusicBadge');
+  if (badge) {
+    badge.classList.toggle('speech-active', isSpeech);
+    badge.textContent = isSpeech ? '♪ 멘트' : '♪ Only';
+  }
+}
+
+function toggleOnlyMusic() {
+  onlyMusicEnabled = !onlyMusicEnabled;
+  const badge = $('onlyMusicBadge');
+  if (badge) badge.classList.toggle('active', onlyMusicEnabled);
+  if (onlyMusicEnabled) {
+    // AudioContext 필요 — 없으면 lazy init
+    if (!audioCtx) { initAudioContext(); }
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    // 공중파 채널의 audio 요소를 AudioContext에 연결
+    if (audioEl && !hlsSourceNode) {
+      hlsSourceNode = audioCtx.createMediaElementSource(audioEl);
+      hlsSourceNode.connect(gainNode);
+      audioEl.volume = 1;
+    }
+    startOnlyMusicDetection();
+    showToast('Only Music ON — 멘트 볼륨 ' + onlyMusicSpeechVol + '%');
+  } else {
+    stopOnlyMusicDetection();
+    showToast('Only Music OFF');
+  }
+}
+
 async function playHls(url, useProxy) {
   const hlsGen = enterChannelGen; // 호출 시점의 채널 세대 캡처
   if (currentHls) { currentHls.destroy(); currentHls = null; }
@@ -2151,6 +2310,8 @@ async function playHls(url, useProxy) {
     isPlaying = true; updatePlayBtn(true);
     startSilentAnchor();
     startStallWatchdog();
+    // Only Music: 공중파 HLS 재생 시작 → 분류기 자동 시작
+    if (onlyMusicEnabled) startOnlyMusicDetection();
   } catch (e) { console.log('Autoplay blocked:', e.message); isPlaying = false; updatePlayBtn(false); }
 }
 
@@ -2185,8 +2346,10 @@ async function playIcecast(url) {
     el.load();
     el.play().catch(() => {});
   });
-  try { await el.play(); isPlaying = true; updatePlayBtn(true); startSilentAnchor(); startStallWatchdog(); }
-  catch (e) { isPlaying = false; updatePlayBtn(false); }
+  try {
+    await el.play(); isPlaying = true; updatePlayBtn(true); startSilentAnchor(); startStallWatchdog();
+    if (onlyMusicEnabled) startOnlyMusicDetection();
+  } catch (e) { isPlaying = false; updatePlayBtn(false); }
 }
 
 // ── R2 Track Playback ──
@@ -2474,6 +2637,17 @@ async function enterChannel(channel) {
   const isOpenRoom = channel === 7;
   const isLive = channel === 1 || channel === 2 || isCh5 || channel === 6;
   const isPod = isR2 || isOpenRoom;
+  const isLiveBroadcast = channel === 1 || channel === 2 || channel === 6;
+
+  // Only Music: 공중파 채널만 배지 표시, 비공중파 진입 시 분류기 중지
+  const omBadge = $('onlyMusicBadge');
+  if (omBadge) {
+    omBadge.style.display = isLiveBroadcast ? '' : 'none';
+    if (!isLiveBroadcast && onlyMusicEnabled) {
+      stopOnlyMusicDetection();
+      // onlyMusicEnabled는 유지 (다시 공중파로 오면 자동 재시작)
+    }
+  }
 
   // Progress area
   liveProgress.classList.toggle('visible', isLive);
@@ -3772,6 +3946,9 @@ async function loadAdminTracks(ch) {
     const durSec = Math.round(REC_SILENCE_DURATION / 1000);
     $('recSilenceDurSlider').value = durSec;
     $('recSilenceDurVal').textContent = durSec + '초';
+    // Only Music 설정 반영
+    $('onlyMusicVolSlider').value = onlyMusicSpeechVol;
+    $('onlyMusicVolVal').textContent = onlyMusicSpeechVol + '%';
     return;
   }
   if (ch === 'stream') loadAdminCh5State();
@@ -5072,13 +5249,18 @@ $('adminSaveStorageLimit').addEventListener('click', saveLiveStorageLimit);
 // ── 녹음 설정 슬라이더 ──
 $('recThresholdSlider').addEventListener('input', e => { $('recThresholdVal').textContent = e.target.value; });
 $('recSilenceDurSlider').addEventListener('input', e => { $('recSilenceDurVal').textContent = e.target.value + '초'; });
+$('onlyMusicVolSlider').addEventListener('input', e => { $('onlyMusicVolVal').textContent = e.target.value + '%'; });
+$('onlyMusicBadge').addEventListener('click', toggleOnlyMusic);
 $('recSettingsSave').addEventListener('click', () => {
   recSilenceThresholdRaw = parseInt($('recThresholdSlider').value);
   REC_SILENCE_THRESHOLD = recSilenceThresholdRaw / 32767;
   REC_SILENCE_DURATION = parseInt($('recSilenceDurSlider').value) * 1000;
   localStorage.setItem('radio-rec-threshold', recSilenceThresholdRaw);
   localStorage.setItem('radio-rec-silence-dur', REC_SILENCE_DURATION);
-  showToast('녹음 설정 저장됨');
+  // Only Music 볼륨 설정 저장
+  onlyMusicSpeechVol = parseInt($('onlyMusicVolSlider').value);
+  localStorage.setItem('radio-onlymusic-vol', onlyMusicSpeechVol);
+  showToast('설정 저장됨');
 });
 $('recSettingsReset').addEventListener('click', () => {
   recSilenceThresholdRaw = 50;
@@ -5088,6 +5270,8 @@ $('recSettingsReset').addEventListener('click', () => {
   localStorage.removeItem('radio-rec-silence-dur');
   $('recThresholdSlider').value = 50; $('recThresholdVal').textContent = '50';
   $('recSilenceDurSlider').value = 1; $('recSilenceDurVal').textContent = '1초';
+  onlyMusicSpeechVol = 30; localStorage.removeItem('radio-onlymusic-vol');
+  $('onlyMusicVolSlider').value = 30; $('onlyMusicVolVal').textContent = '30%';
   showToast('기본값 복원됨');
 });
 
