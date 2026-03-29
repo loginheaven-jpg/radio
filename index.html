@@ -112,10 +112,10 @@ body{
 .ch-glow-right{right:8px}
 @keyframes glowBreath{0%,100%{opacity:0.4}50%{opacity:0.8}}
 .ch-glow.breathing{animation:glowBreath 3s ease-in-out infinite}
-.ch-glow-label{position:absolute;bottom:28px;font-size:9px;font-weight:500;letter-spacing:0.3px;pointer-events:none;opacity:0;transition:opacity 0.6s;white-space:nowrap}
+.ch-glow-label{position:absolute;bottom:28px;font-size:11px;font-weight:600;letter-spacing:0.5px;pointer-events:none;opacity:0;transition:opacity 0.6s;white-space:nowrap;text-shadow:0 0 8px currentColor}
 .ch-glow-label-left{left:4px;text-align:left}
 .ch-glow-label-right{right:4px;text-align:right}
-.ch-glow-label.visible{opacity:0.35}
+.ch-glow-label.visible{opacity:0.5}
 
 /* Vinyl Disc */
 .vinyl-disc{width:210px;height:210px;border-radius:50%;position:relative;cursor:grab;will-change:transform}
@@ -2711,7 +2711,7 @@ async function enterChannel(channel) {
   // Only Music: 공중파 채널만 배지 표시, 비공중파 진입 시 분류기 중지
   const omBadge = $('onlyMusicBadge');
   if (omBadge) {
-    omBadge.style.display = isLiveBroadcast ? '' : 'none';
+    omBadge.style.display = 'none'; // Only Music: 테스트 완료 후 노출 예정
     if (!isLiveBroadcast && onlyMusicEnabled) {
       stopOnlyMusicDetection();
       // onlyMusicEnabled는 유지 (다시 공중파로 오면 자동 재시작)
