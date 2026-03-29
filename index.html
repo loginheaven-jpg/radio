@@ -96,11 +96,17 @@ body{
   position:absolute;top:20px;bottom:20px;width:48px;
   background:transparent;border:none;
   display:flex;align-items:center;justify-content:center;
-  cursor:pointer;z-index:5;transition:background 0.2s;
+  cursor:pointer;z-index:5;transition:background 0.2s,opacity 0.3s;
+  opacity:0.35;
 }
-.arrow-btn:active{background:rgba(255,255,255,0.06)}
+.arrow-btn:hover{opacity:0.6}
+.arrow-btn:active{background:rgba(255,255,255,0.08);opacity:0.7}
 .arrow-left{left:0;border-radius:0 12px 12px 0}
 .arrow-right{right:0;border-radius:12px 0 0 12px}
+@keyframes arrowPulseL{0%,100%{opacity:0.35;transform:translateX(0)}50%{opacity:0.7;transform:translateX(-4px)}}
+@keyframes arrowPulseR{0%,100%{opacity:0.35;transform:translateX(0)}50%{opacity:0.7;transform:translateX(4px)}}
+.arrow-left.pulsing{animation:arrowPulseL 0.8s ease-in-out 3}
+.arrow-right.pulsing{animation:arrowPulseR 0.8s ease-in-out 3}
 
 /* Vinyl Disc */
 .vinyl-disc{width:210px;height:210px;border-radius:50%;position:relative;cursor:grab;will-change:transform}
@@ -682,10 +688,10 @@ body{
   <!-- Disc Area -->
   <div class="disc-area" id="discArea">
     <button class="arrow-btn arrow-left" id="arrowPrev" aria-label="이전 채널">
-      <svg width="20" height="20" viewBox="0 0 14 14"><path d="M9 3 L5 7 L9 11" stroke="var(--accent)" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+      <svg width="24" height="24" viewBox="0 0 14 14"><path d="M9 3 L5 7 L9 11" stroke="var(--accent)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <button class="arrow-btn arrow-right" id="arrowNext" aria-label="다음 채널">
-      <svg width="20" height="20" viewBox="0 0 14 14"><path d="M5 3 L9 7 L5 11" stroke="var(--accent)" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+      <svg width="24" height="24" viewBox="0 0 14 14"><path d="M5 3 L9 7 L5 11" stroke="var(--accent)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
 
     <div class="vinyl-disc" id="vinylDisc">
@@ -5878,8 +5884,22 @@ async function init() {
   updateSleepUI();
   checkTorchSupportLazy();
 
-  // Auto-hide swipe hint after 6s
+  // Auto-hide swipe hint after 6s + 화살표 펄스 애니메이션
   setTimeout(() => { if (swipeHintEl) swipeHintEl.style.display = 'none'; }, 6500);
+  // 첫 방문 또는 하루 1회: 화살표 펄스로 채널 이동 가능 알림
+  const arrowPulseKey = 'radio-arrow-pulse-' + new Date().toISOString().slice(0, 10);
+  if (!localStorage.getItem(arrowPulseKey)) {
+    localStorage.setItem(arrowPulseKey, '1');
+    setTimeout(() => {
+      const prevBtn = $('arrowPrev'), nextBtn = $('arrowNext');
+      if (prevBtn) prevBtn.classList.add('pulsing');
+      if (nextBtn) nextBtn.classList.add('pulsing');
+      setTimeout(() => {
+        if (prevBtn) prevBtn.classList.remove('pulsing');
+        if (nextBtn) nextBtn.classList.remove('pulsing');
+      }, 2500); // 3회 펄스 (0.8s × 3 ≈ 2.4s)
+    }, 2000); // 앱 로드 2초 후 시작
+  }
 
   // 스플래시가 표시 중이면 채널 진입을 지연 (스플래시 닫힌 후 실행)
   if ($('anniversarySplash')) {
