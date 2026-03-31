@@ -5941,9 +5941,11 @@ async function init() {
   }
   if (!urlParams) urlParams = new URLSearchParams(window.location.search);
   const sharedCh = parseInt(urlParams.get('ch'));
-  if (sharedCh >= 1 && sharedCh <= 6) {
+  const isSharedLink = sharedCh >= 1 && sharedCh <= 6;
+  if (isSharedLink) {
     sharedTrack = urlParams.get('track');
     sharedTrackPos = parseInt(urlParams.get('t')) || 0;
+    appStartup = false; // 공유 링크: 자동 재생
     history.replaceState(null, '', window.location.pathname);
   }
 
@@ -5982,8 +5984,10 @@ async function init() {
   }
 
   // 스플래시가 표시 중이면 채널 진입을 지연 (스플래시 닫힌 후 실행)
-  if ($('anniversarySplash')) {
-    // 스플래시 닫힐 때까지 대기
+  // 공유 링크로 접속 시 스플래시 스킵 → 바로 재생
+  if ($('anniversarySplash') && isSharedLink) {
+    $('anniversarySplash').remove();
+  } else if ($('anniversarySplash')) {
     await new Promise(resolve => {
       const observer = new MutationObserver(() => {
         if (!$('anniversarySplash')) { observer.disconnect(); resolve(); }
