@@ -1927,6 +1927,24 @@ function updatePlayBtn(playing) {
 
 let enterChannelGen = 0; // 채널 전환 세대 카운터 (레이스 컨디션 방지)
 
+// 공중파 스트림 연결 재시도 래퍼 (최대 maxRetries회, delayMs 간격)
+async function withRetry(fn, gen, maxRetries = 2, delayMs = 2000) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (gen !== enterChannelGen) return; // 채널 전환됨 → 중단
+    try {
+      return await fn();
+    } catch (e) {
+      if (attempt < maxRetries && gen === enterChannelGen) {
+        console.warn('[Retry] 시도 ' + (attempt + 1) + '/' + maxRetries + ' 실패, 재연결 중...');
+        showToast('재연결 중... (' + (attempt + 1) + '/' + maxRetries + ')');
+        await new Promise(r => setTimeout(r, delayMs));
+      } else {
+        throw e; // 최종 실패 → catch로 전달
+      }
+    }
+  }
+}
+
 function stopPlayback() {
   // 이전 트랙 재생위치 즉시 저장 (세대 번호 증가 전에!)
   if (currentTrackKey && currentHowl && isPlaying) {
@@ -2367,8 +2385,8 @@ async function playHls(url, useProxy) {
   el.addEventListener('waiting', () => {
     console.warn('[HLS Audio] waiting/buffering');
   });
-  // stale 체크: 다른 채널로 이미 전환되었으면 재생하지 않음
-  if (hlsGen !== enterChannelGen) return;
+  // stale 체크: 다른 채널로 이미 전환되었으면 정리 후 종료
+  if (hlsGen !== enterChannelGen) { hls.destroy(); return; }
   try {
     await el.play();
     isPlaying = true; updatePlayBtn(true);
@@ -2402,8 +2420,8 @@ async function playIcecast(url) {
     el.addEventListener('error', () => reject(new Error('Stream error')), {once:true});
     setTimeout(() => reject(new Error('Stream timeout 20s')), 20000);
   });
-  // stale 체크: 다른 채널로 이미 전환되었으면 재생하지 않음
-  if (iceGen !== enterChannelGen) return;
+  // stale 체크: 다른 채널로 이미 전환되었으면 정리 후 종료
+  if (iceGen !== enterChannelGen) { el.pause(); el.src = ''; return; }
   // Icecast 오디오 요소에 stalled 리스너 추가
   el.addEventListener('stalled', () => {
     console.warn('[Icecast] stalled — 재연결 시도');
@@ -2760,8 +2778,8 @@ async function enterChannel(channel) {
     return;
   }
 
-  if (channel === 1) { await loadKbs(); if (gen !== enterChannelGen) return; }
-  else if (channel === 2) { await loadFebc(); if (gen !== enterChannelGen) return; }
+  if (channel === 1) { await loadKbs(gen); if (gen !== enterChannelGen) return; }
+  else if (channel === 2) { await loadFebc(gen); if (gen !== enterChannelGen) return; }
   else if (channel === 3 || channel === 4) {
     nowPlayingEl.textContent = '트랙 로딩 중...';
     const tracks = await fetchTracks(channel);
@@ -2806,7 +2824,7 @@ async function enterChannel(channel) {
     if (gen !== enterChannelGen) return;
     await startCh5Polling();
   } else if (channel === 6) {
-    await loadRsc(); if (gen !== enterChannelGen) return;
+    await loadRsc(gen); if (gen !== enterChannelGen) return;
   } else if (channel === 7) {
     nowPlayingEl.textContent = '열린 음악방';
     openRoomOpen();
@@ -2849,7 +2867,7 @@ async function refreshLiveNowPlaying() {
 
 // ── KBS ──
 let kbsRefreshTimer = null;
-async function loadKbs() {
+async function loadKbs(gen) {
   clearInterval(kbsRefreshTimer);
   try {
     nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 연결 중...';
@@ -2857,7 +2875,7 @@ async function loadKbs() {
     const { streamUrl: sUrl, programTitle } = await res.json();
     nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + (programTitle || 'KBS 클래식 FM');
     updateMediaSession();
-    await playHls(sUrl, true);
+    await withRetry(() => playHls(sUrl, true), gen);
     kbsRefreshTimer = setInterval(async () => {
       if (currentChannel !== 1 || !isPlaying) return;
       try { const r = await fetch(WORKER_URL + '/api/kbs'); const d = await r.json();
@@ -2870,7 +2888,7 @@ async function loadKbs() {
 // ── FEBC ──
 let febcRefreshTimer = null;
 const FEBC_URL = 'https://mlive2.febc.net/live/seoulfm/playlist.m3u8';
-async function loadFebc() {
+async function loadFebc(gen) {
   clearInterval(febcRefreshTimer);
   try {
     nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 연결 중...';
@@ -2878,7 +2896,7 @@ async function loadFebc() {
     try { const r = await fetch(WORKER_URL + '/api/febc-schedule'); const d = await r.json(); if (d.programTitle) title = d.programTitle; } catch {}
     nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + title;
     updateMediaSession();
-    await playHls(FEBC_URL, true);
+    await withRetry(() => playHls(FEBC_URL, true), gen);
     febcRefreshTimer = setInterval(async () => {
       if (currentChannel !== 2 || !isPlaying) return;
       try { const r = await fetch(WORKER_URL + '/api/febc-schedule'); const d = await r.json();
@@ -2889,7 +2907,7 @@ async function loadFebc() {
 }
 
 // ── Radio Swiss Classic (CH6) ──
-async function loadRsc() {
+async function loadRsc(gen) {
   clearInterval(rscRefreshTimer);
   try {
     nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 연결 중...';
@@ -2902,7 +2920,7 @@ async function loadRsc() {
     nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + npText;
     updateMediaSession();
     const url = RSC_STREAMS[rscFormat];
-    await playIcecast(url);
+    await withRetry(() => playIcecast(url), gen);
     rscRefreshTimer = setInterval(async () => {
       if (currentChannel !== 6 || !isPlaying) return;
       try {
