@@ -2394,7 +2394,7 @@ async function playHls(url, useProxy) {
     startStallWatchdog();
     // Only Music: 공중파 HLS 재생 시작 → 분류기 자동 시작
     if (onlyMusicEnabled) startOnlyMusicDetection();
-  } catch (e) { console.log('Autoplay blocked:', e.message); isPlaying = false; updatePlayBtn(false); }
+  } catch (e) { console.log('Autoplay blocked:', e.message); isPlaying = false; updatePlayBtn(false); showToast('▶ 재생 버튼을 눌러주세요'); }
 }
 
 function stopHls() {
@@ -2589,8 +2589,11 @@ function playTrack(channel, trackIndex, startPosition = 0) {
   });
 
   if (!appStartup) {
-    el.play().catch(() => {});
-    startStallWatchdog();
+    el.play().then(() => { startStallWatchdog(); }).catch(() => {
+      // Autoplay 차단 (PC 등) → 재생 버튼 클릭 유도
+      isPlaying = false; updatePlayBtn(false);
+      showToast('▶ 재생 버튼을 눌러주세요');
+    });
   } else {
     appStartup = false;
     clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
@@ -5419,8 +5422,8 @@ function initInAppBanner() {
 
 async function initPwa() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  if (isStandalone) return; // 이미 설치된 앱으로 실행 중
-  initInAppBanner();
+  if (isStandalone) return false;
+  if (detectInAppBrowser()) { initInAppBanner(); return true; } // 인앱 → 리다이렉트 후 초기화 중단
 
   const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
@@ -5961,7 +5964,8 @@ async function init() {
   initDiscSwipe();
   applyChannelTheme(activeChannels[focusedIndex].num);
   initSpeedBtns();
-  initPwa();
+  const inAppRedirected = await initPwa();
+  if (inAppRedirected) return; // 인앱 브라우저 → Chrome으로 리다이렉트됨, 초기화 중단
   initAutoUpdate();
   updateSleepUI();
   checkTorchSupportLazy();
