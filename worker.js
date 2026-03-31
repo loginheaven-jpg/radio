@@ -38,6 +38,23 @@ export default {
       return new Response(null, { headers: cors });
     }
 
+    // ── 단축 URL 리다이렉트 (/s/:code) ──
+    const shareMatch = path.match(/^\/s\/([A-Za-z0-9]{4,8})$/);
+    if (shareMatch) {
+      const code = shareMatch[1];
+      const raw = await env.RADIO_KV.get('share:' + code);
+      if (!raw) {
+        // 만료/미존재 → 홈으로 리다이렉트
+        return Response.redirect('https://radio.yebom.org/', 302);
+      }
+      const data = JSON.parse(raw);
+      const target = new URL('https://radio.yebom.org/');
+      target.searchParams.set('ch', String(data.ch));
+      if (data.track) target.searchParams.set('track', data.track);
+      if (data.t) target.searchParams.set('t', String(data.t));
+      return Response.redirect(target.toString(), 302);
+    }
+
     try {
 
       // ── 트랙 목록 (_meta.json 기준) ───────────────────────────
@@ -161,6 +178,36 @@ export default {
         };
         await env.RADIO_KV.put('ch5_state', JSON.stringify(state));
         return json({ ok: true }, cors);
+      }
+
+      // ── 단축 URL ─────────────────────────────────────────────
+      if (path === '/api/share' && method === 'POST') {
+        const { ch, track, t } = await request.json();
+        if (!ch) return json({ error: 'ch required' }, cors, 400);
+        // 6자리 영숫자 코드 생성 (충돌 시 재시도)
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+        let code, attempts = 0;
+        do {
+          code = '';
+          for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+          const existing = await env.RADIO_KV.get('share:' + code);
+          if (!existing) break;
+          attempts++;
+        } while (attempts < 5);
+        const data = { ch: Number(ch) };
+        if (track) data.track = track;
+        if (t) data.t = Number(t);
+        data.createdAt = Date.now();
+        await env.RADIO_KV.put('share:' + code, JSON.stringify(data)); // TTL 없음 = 영구
+        return json({ code, url: 'https://radio.yebom.org/s/' + code }, cors);
+      }
+
+      // GET /api/share/:code — 단축 URL 조회
+      const shareGetMatch = path.match(/^\/api\/share\/([A-Za-z0-9]{4,8})$/);
+      if (shareGetMatch && method === 'GET') {
+        const raw = await env.RADIO_KV.get('share:' + shareGetMatch[1]);
+        if (!raw) return json({ error: 'not found' }, cors, 404);
+        return json(JSON.parse(raw), cors);
       }
 
       // ── 파일 업로드 (관리자) ───────────────────────────────────

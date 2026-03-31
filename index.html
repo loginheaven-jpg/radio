@@ -5298,27 +5298,39 @@ $('appFooter').addEventListener('click', () => {
     loginModal.classList.add('open');
   }
 });
-$('shareBtn').addEventListener('click', () => {
-  const url = new URL(window.location.origin);
-  url.searchParams.set('ch', String(currentChannel));
-  if ((currentChannel === 3 || currentChannel === 4 || currentChannel === 5) && currentTrackKey) {
-    url.searchParams.set('track', currentTrackKey);
-    if (currentHowl) {
-      const pos = Math.floor(currentHowl.seek());
-      if (pos > 3) url.searchParams.set('t', String(pos));
-    }
-  }
+$('shareBtn').addEventListener('click', async () => {
   const chName = channelNameEl.textContent || '';
   const trackName = currentTrackName || '';
-  let text = '예봄라디오 - ' + chName;
-  if (trackName) {
-    const pos = currentHowl ? Math.floor(currentHowl.seek()) : 0;
-    text += '\n' + trackName + (pos > 3 ? ' (' + formatTime(pos) + '~)' : '');
+  const pos = currentHowl ? Math.floor(currentHowl.seek()) : 0;
+  // 공유 텍스트 헤더 (URL 제외)
+  let header = '예봄라디오 - ' + chName;
+  if (trackName) header += '\n' + trackName + (pos > 3 ? ' (' + formatTime(pos) + '~)' : '');
+  // 단축 URL 생성
+  const payload = { ch: currentChannel };
+  if ((currentChannel === 3 || currentChannel === 4 || currentChannel === 5) && currentTrackKey) {
+    payload.track = currentTrackKey;
+    if (pos > 3) payload.t = pos;
   }
-  text += '\n' + url.toString();
-  navigator.clipboard.writeText(text)
-    .then(() => showToast('링크가 복사되었습니다'))
-    .catch(() => showToast('링크 복사 실패'));
+  try {
+    const res = await fetch(WORKER_URL + '/api/share', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const { url: shortUrl } = await res.json();
+    const text = header + '\n' + shortUrl;
+    await navigator.clipboard.writeText(text);
+    showToast('링크가 복사되었습니다');
+  } catch {
+    // 단축 URL 실패 시 기존 방식 fallback
+    const url = new URL(window.location.origin);
+    url.searchParams.set('ch', String(currentChannel));
+    if (payload.track) url.searchParams.set('track', payload.track);
+    if (payload.t) url.searchParams.set('t', String(payload.t));
+    const text = header + '\n' + url.toString();
+    navigator.clipboard.writeText(text)
+      .then(() => showToast('링크가 복사되었습니다'))
+      .catch(() => showToast('링크 복사 실패'));
+  }
 });
 $('authSubmit').addEventListener('click', () => { const key = $('authInput').value.trim(); if (key) { adminKey = key; localStorage.setItem('radio-admin-key',key); $('authModal').classList.remove('open'); openAdmin(); } });
 $('authInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('authSubmit').click(); });
@@ -5911,7 +5923,23 @@ async function init() {
   await fetchServerChannelConfig(); // 서버 설정 → localStorage 동기화
   applyChannelConfig(); // activeChannels 설정
 
-  const urlParams = new URLSearchParams(window.location.search);
+  // 단축 URL 처리 (/s/:code → API 조회 → 파라미터 복원)
+  const shareMatch = window.location.pathname.match(/^\/s\/([A-Za-z0-9]{4,8})$/);
+  let urlParams;
+  if (shareMatch) {
+    try {
+      const res = await fetch(WORKER_URL + '/api/share/' + shareMatch[1]);
+      const data = await res.json();
+      if (data.ch) {
+        urlParams = new URLSearchParams();
+        urlParams.set('ch', String(data.ch));
+        if (data.track) urlParams.set('track', data.track);
+        if (data.t) urlParams.set('t', String(data.t));
+      }
+    } catch {}
+    history.replaceState(null, '', '/');
+  }
+  if (!urlParams) urlParams = new URLSearchParams(window.location.search);
   const sharedCh = parseInt(urlParams.get('ch'));
   if (sharedCh >= 1 && sharedCh <= 6) {
     sharedTrack = urlParams.get('track');
