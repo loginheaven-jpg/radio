@@ -1,10 +1,10 @@
-const CACHE_NAME = 'yebom-radio-v10';
+const CACHE_NAME = 'yebom-radio-v11';
 
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.json',
-  '/icon-192.png?v=2',
-  '/icon-512.png?v=2',
+  '/icon-192.png?v=3',
+  '/icon-512.png?v=3',
 ];
 
 const NO_CACHE_PATTERNS = [
