@@ -2864,15 +2864,15 @@ async function refreshLiveNowPlaying() {
   try {
     if (currentChannel === 1) {
       const r = await fetch(WORKER_URL + '/api/kbs'); const d = await r.json();
-      nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + (d.programTitle || 'KBS 클래식 FM');
+      nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + escHtml(d.programTitle || 'KBS 클래식 FM');
     } else if (currentChannel === 2) {
       const r = await fetch(WORKER_URL + '/api/febc-schedule'); const d = await r.json();
-      nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + (d.programTitle || '극동방송');
+      nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + escHtml(d.programTitle || '극동방송');
     } else if (currentChannel === 6) {
       const r = await fetch(WORKER_URL + '/api/rsc-nowplaying'); const d = await r.json();
       if (d.title) {
         const text = (d.composer ? d.composer + ' — ' : '') + d.title;
-        nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + text;
+        nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + escHtml(text);
       }
     }
   } catch {}
@@ -2886,13 +2886,13 @@ async function loadKbs(gen) {
     nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 연결 중...';
     const res = await fetch(WORKER_URL + '/api/kbs');
     const { streamUrl: sUrl, programTitle } = await res.json();
-    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + (programTitle || 'KBS 클래식 FM');
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + escHtml(programTitle || 'KBS 클래식 FM');
     updateMediaSession();
     await withRetry(() => playHls(sUrl, true), gen);
     kbsRefreshTimer = setInterval(async () => {
       if (currentChannel !== 1 || !isPlaying) return;
       try { const r = await fetch(WORKER_URL + '/api/kbs'); const d = await r.json();
-        if (d.programTitle) { nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + d.programTitle; updateMediaSession(); }
+        if (d.programTitle) { nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + escHtml(d.programTitle); updateMediaSession(); }
       } catch {}
     }, 60000);
   } catch (e) { nowPlayingEl.textContent = 'KBS 연결 실패'; showToast('KBS 스트리밍 연결 실패'); clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading'); }
@@ -2907,13 +2907,13 @@ async function loadFebc(gen) {
     nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 연결 중...';
     let title = '극동방송';
     try { const r = await fetch(WORKER_URL + '/api/febc-schedule'); const d = await r.json(); if (d.programTitle) title = d.programTitle; } catch {}
-    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + title;
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + escHtml(title);
     updateMediaSession();
     await withRetry(() => playHls(FEBC_URL, true), gen);
     febcRefreshTimer = setInterval(async () => {
       if (currentChannel !== 2 || !isPlaying) return;
       try { const r = await fetch(WORKER_URL + '/api/febc-schedule'); const d = await r.json();
-        if (d.programTitle) { nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + d.programTitle; updateMediaSession(); }
+        if (d.programTitle) { nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + escHtml(d.programTitle); updateMediaSession(); }
       } catch {}
     }, 60000);
   } catch (e) { nowPlayingEl.textContent = '극동방송 연결 실패'; showToast('극동방송 스트리밍 연결 실패'); clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading'); }
@@ -2941,7 +2941,7 @@ async function loadRsc(gen) {
         const d = await r.json();
         if (d.title) {
           const text = (d.composer ? d.composer + ' — ' : '') + d.title;
-          nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + text;
+          nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + escHtml(text);
           updateMediaSession();
         }
       } catch {}
@@ -2989,7 +2989,7 @@ async function pollCh5State() {
       if (!state.paused && Math.abs(currentHowl.seek() - targetTime) > 3) currentHowl.seek(targetTime);
       return;
     }
-    nowPlayingEl.innerHTML = '<span class="on-air-badge">ON AIR</span> ' + (state.trackName || '');
+    nowPlayingEl.innerHTML = '<span class="on-air-badge">ON AIR</span> ' + escHtml(state.trackName || '');
     updateMediaSession();
     const tracks = channelTracks[5] || [];
     const idx = tracks.findIndex(t => t.key === state.trackKey);
@@ -3250,8 +3250,8 @@ document.addEventListener('visibilitychange', async () => {
     saveResume(currentChannel);
     // CH5 상태 폴링만 중지 (livePollTimer는 라이브 오디오 스트림이므로 유지)
     clearInterval(ch5PollTimer); ch5PollTimer = null;
-    // 등잔 애니메이션 정지 (배터리 절약)
-    if (currentChannel === 3) stopLampAnim();
+    // 시각 요소(애니메이션) 안전하게 일괄 정지 (배터리 절약)
+    stopVis();
   } else {
     // AudioContext가 백그라운드에서 suspended 됐으면 복구 (await로 완료 보장)
     if (audioCtx && audioCtx.state === 'suspended') {
@@ -3284,8 +3284,9 @@ document.addEventListener('visibilitychange', async () => {
       pollCh5State();
       ch5PollTimer = setInterval(pollCh5State, 10000);
     }
-    // 등잔 애니메이션 재개
-    if (currentChannel === 3) startLampAnim();
+    // 시각 요소(애니메이션) 재개
+    if (isPlaying && !userPaused && currentChannel !== 3) startVis();
+    else if (currentChannel === 3) startLampAnim(); // CH3은 정지 시에도 기본 불꽃 유지
     // 수면 타이머가 백그라운드에서 만료됐으면 즉시 실행
     if (sleepTargetTime > 0 && Date.now() >= sleepTargetTime) {
       clearTimeout(sleepTimer); clearInterval(sleepCountdown);
@@ -3550,7 +3551,7 @@ function startLivePlayer(sessionId, chunkDuration, latestChunk) {
 
 function stopLivePlayer() {
   clearInterval(livePollTimer); livePollTimer = null;
-  liveScheduledSources.forEach(s => { try { s.stop(); } catch {} });
+  liveScheduledSources.forEach(s => { try { s.stop(); s.disconnect(); } catch {} });
   liveScheduledSources = [];
   liveMode = false;
   liveLastChunk = -1;
@@ -3711,7 +3712,7 @@ async function fetchAndScheduleReplayChunk(sessionId, index, chunkDuration) {
 
 function stopReplay() {
   clearInterval(replayFeedTimer); replayFeedTimer = null;
-  replayScheduledSources.forEach(s => { try { s.stop(); } catch {} });
+  replayScheduledSources.forEach(s => { try { s.stop(); s.disconnect(); } catch {} });
   replayScheduledSources = [];
   replayPlaying = false;
   replayMode = false;
@@ -3723,13 +3724,14 @@ function stopReplay() {
 
 function pauseReplay() {
   clearInterval(replayFeedTimer); replayFeedTimer = null;
-  replayScheduledSources.forEach(s => { try { s.stop(); } catch {} });
+  replayScheduledSources.forEach(s => { try { s.stop(); s.disconnect(); } catch {} });
   replayScheduledSources = [];
   replayNextTime = 0;
   replayStartCtxTime = 0;
   replayPlaying = false;
   isPlaying = false;
   updatePlayBtn(false);
+  stopSilentAnchor();
 }
 
 function resumeReplay() {
