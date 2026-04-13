@@ -234,8 +234,14 @@ export default {
             try { meta = JSON.parse(await metaObj.text()); } catch {}
           }
           const trackName = (name || '').toString() || file.name.replace(/\.[^/.]+$/, '');
-          const maxOrder  = meta.length > 0 ? Math.max(...meta.map(m => m.order ?? 0)) : -1;
-          meta.push({ key, name: trackName, order: maxOrder + 1 });
+          const posParam = formData.get('position') || 'bottom';
+          if (posParam === 'top') {
+            const minOrder = meta.length > 0 ? Math.min(...meta.map(m => m.order ?? 0)) : 1;
+            meta.unshift({ key, name: trackName, order: minOrder - 1 });
+          } else {
+            const maxOrder = meta.length > 0 ? Math.max(...meta.map(m => m.order ?? 0)) : -1;
+            meta.push({ key, name: trackName, order: maxOrder + 1 });
+          }
           await env.RADIO_BUCKET.put(metaKey, JSON.stringify(meta), {
             httpMetadata: { contentType: 'application/json' },
           });
@@ -270,7 +276,8 @@ export default {
       // ── 멀티파트 업로드: 완료 ─────────────────────────────────
       if (path === '/api/upload/multipart/complete' && method === 'POST') {
         if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
-        const { key, uploadId, parts, channel, name } = await request.json();
+        const body = await request.json();
+        const { key, uploadId, parts, channel, name } = body;
         const mpu = env.RADIO_BUCKET.resumeMultipartUpload(key, uploadId);
         await mpu.complete(parts);
 
@@ -281,8 +288,14 @@ export default {
         let meta = [];
         if (metaObj) { try { meta = JSON.parse(await metaObj.text()); } catch {} }
         const trackName = (name || '').toString() || key.split('/').pop().replace(/\.[^/.]+$/, '');
-        const maxOrder = meta.length > 0 ? Math.max(...meta.map(m => m.order ?? 0)) : -1;
-        meta.push({ key, name: trackName, order: maxOrder + 1 });
+        const posParam = body.position || 'bottom';
+        if (posParam === 'top') {
+          const minOrder = meta.length > 0 ? Math.min(...meta.map(m => m.order ?? 0)) : 1;
+          meta.unshift({ key, name: trackName, order: minOrder - 1 });
+        } else {
+          const maxOrder = meta.length > 0 ? Math.max(...meta.map(m => m.order ?? 0)) : -1;
+          meta.push({ key, name: trackName, order: maxOrder + 1 });
+        }
         await env.RADIO_BUCKET.put(metaKey, JSON.stringify(meta), {
           httpMetadata: { contentType: 'application/json' },
         });

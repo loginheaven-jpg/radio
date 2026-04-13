@@ -961,6 +961,11 @@ body{
   <div class="dropzone" id="dropzone">♫ 파일을 드래그하거나 클릭하여 선택<div class="dropzone-formats">MP3 M4A OGG WAV FLAC AAC</div></div>
   <input type="file" id="fileInput" multiple accept=".mp3,.m4a,.ogg,.wav,.flac,.aac,.opus,.webm" style="display:none">
   <div class="upload-queue" id="uploadQueue"></div>
+  <div id="uploadPosWrap" style="display:none;margin-bottom:8px;display:flex;gap:8px;align-items:center">
+    <span style="font-size:0.78rem;color:var(--text-mute)">추가 위치:</span>
+    <label style="font-size:0.78rem;cursor:pointer"><input type="radio" name="uploadPos" value="top" style="accent-color:var(--amber)"> 맨 앞</label>
+    <label style="font-size:0.78rem;cursor:pointer"><input type="radio" name="uploadPos" value="bottom" checked style="accent-color:var(--amber)"> 맨 뒤</label>
+  </div>
   <button class="upload-all-btn" id="uploadAllBtn" style="display:none">모두 업로드</button>
   <div class="admin-live-panel" id="adminLivePanel" style="display:none">
     <div class="admin-live-status" id="adminLiveStatus">방송 대기 중</div>
@@ -1037,6 +1042,7 @@ body{
     </div>
   </div>
   <div class="admin-section-title"><span>등록된 목록</span><button class="extra-btn" id="adminRefresh" style="font-size:0.75rem">새로고침</button></div>
+  <button class="save-order-btn" id="saveOrderBtnTop">순서 저장</button>
   <ul class="admin-track-list" id="adminTrackList"></ul>
   <button class="save-order-btn" id="saveOrderBtn">순서 저장</button>
 </div>
@@ -4042,6 +4048,7 @@ async function loadAdminTracks(ch) {
   $('uploadQueue').style.display = hideCommon ? 'none' : '';
   $('adminTrackList').style.display = hideCommon ? 'none' : '';
   $('saveOrderBtn').style.display = hideCommon ? 'none' : '';
+  $('saveOrderBtnTop').style.display = hideCommon ? 'none' : '';
   document.querySelector('.admin-section-title').style.display = hideCommon ? 'none' : '';
   if (isCfg) { buildChannelConfigUI(); return; }
   if (isOr) { initOrAdminPanel(); return; }
@@ -4153,7 +4160,9 @@ function handleAdminFiles(fileList) {
 }
 function renderUploadQueue() {
   const container = $('uploadQueue'); container.innerHTML = '';
-  $('uploadAllBtn').style.display = uploadQueue.length > 0 ? '' : 'none';
+  const hasFiles = uploadQueue.length > 0;
+  $('uploadAllBtn').style.display = hasFiles ? '' : 'none';
+  $('uploadPosWrap').style.display = hasFiles ? 'flex' : 'none';
   uploadQueue.forEach((item, i) => {
     const div = document.createElement('div'); div.className = 'upload-item';
     const sizeMB = (item.file.size / 1048576).toFixed(1);
@@ -4183,11 +4192,12 @@ async function uploadAll() {
     const file = item.file;
     const prefix = {list1:'radio/channel-list1/',list2:'radio/channel-list2/',stream:'radio/channel-stream/'}[adminChannel] || 'radio/channel-stream/';
     const r2Key = prefix + file.name;
+    const uploadPos = document.querySelector('input[name="uploadPos"]:checked')?.value || 'bottom';
     try {
       if (file.size <= PART_SIZE) {
         // 소형 파일: 기존 단일 업로드
         await new Promise((resolve, reject) => {
-          const fd = new FormData(); fd.append('files', file); fd.append('channel', adminChannel); fd.append('name', item.name);
+          const fd = new FormData(); fd.append('files', file); fd.append('channel', adminChannel); fd.append('name', item.name); fd.append('position', uploadPos);
           const xhr = new XMLHttpRequest(); xhr.open('POST', WORKER_URL+'/api/upload'); xhr.setRequestHeader('Authorization','Bearer '+adminKey);
           xhr.upload.onprogress = e => { if (e.lengthComputable) {
             const p = Math.round(e.loaded/e.total*100);
@@ -4228,7 +4238,7 @@ async function uploadAll() {
         if (pct) pct.textContent = '마무리...';
         const compRes = await fetch(WORKER_URL+'/api/upload/multipart/complete', {
           method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminKey},
-          body: JSON.stringify({ key: r2Key, uploadId, parts, channel: adminChannel, name: item.name })
+          body: JSON.stringify({ key: r2Key, uploadId, parts, channel: adminChannel, name: item.name, position: uploadPos })
         });
         if (!compRes.ok) { const t = await compRes.text(); throw new Error('완료실패: '+compRes.status+' '+t); }
       }
@@ -5361,6 +5371,7 @@ dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.
 fileInput.addEventListener('change', e => { handleAdminFiles(e.target.files); fileInput.value = ''; });
 $('uploadAllBtn').addEventListener('click', uploadAll);
 $('saveOrderBtn').addEventListener('click', saveAdminOrder);
+$('saveOrderBtnTop').addEventListener('click', saveAdminOrder);
 $('adminRefresh').addEventListener('click', () => loadAdminTracks(adminChannel));
 $('adminPauseBtn').addEventListener('click', toggleCh5Pause);
 $('adminStopBtn').addEventListener('click', () => { if (confirm('방송을 종료하시겠습니까?')) stopCh5Broadcast(); });
