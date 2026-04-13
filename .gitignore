@@ -27,3 +27,4 @@ host/settings.json
 host/*.spec
 host/dist/
 host/build/
+backup/yebom-recorder/AudioRecorder.exe
