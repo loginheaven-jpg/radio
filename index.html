@@ -783,6 +783,9 @@ body{
 
   <!-- Play Controls -->
   <div class="play-controls" id="playControls">
+    <button class="ctrl-btn" id="btnBack10" style="display:none" title="10초 뒤로">
+      <svg width="28" height="20" viewBox="0 0 28 20"><path d="M9 4 L4 10 L9 16" stroke="#ece4d8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 4 L10 10 L15 16" stroke="#ece4d8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="17" y="13" font-size="8" font-weight="700" fill="#ece4d8">10</text></svg>
+    </button>
     <button class="ctrl-btn" id="btnPrev" style="display:none" title="이전">
       <svg width="20" height="20" viewBox="0 0 20 20"><path d="M14 4 L7 10 L14 16" stroke="#ece4d8" stroke-width="2" fill="none" stroke-linecap="round"/><line x1="6" y1="4" x2="6" y2="16" stroke="#ece4d8" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
@@ -794,6 +797,9 @@ body{
     </button>
     <button class="ctrl-btn" id="btnNext" style="display:none" title="다음">
       <svg width="20" height="20" viewBox="0 0 20 20"><path d="M6 4 L13 10 L6 16" stroke="#ece4d8" stroke-width="2" fill="none" stroke-linecap="round"/><line x1="14" y1="4" x2="14" y2="16" stroke="#ece4d8" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button class="ctrl-btn" id="btnFwd10" style="display:none" title="10초 앞으로">
+      <svg width="28" height="20" viewBox="0 0 28 20"><text x="1" y="13" font-size="8" font-weight="700" fill="#ece4d8">10</text><path d="M13 4 L18 10 L13 16" stroke="#ece4d8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 4 L24 10 L19 16" stroke="#ece4d8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <button class="identify-btn" id="btnIdentify">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1v14M4 4v8M12 4v8M1 6v4M15 6v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> 곡명
@@ -1405,6 +1411,8 @@ const mainPlayBtn = $('mainPlayBtn');
 const playIcon = $('playIcon');
 const btnPrev = $('btnPrev');
 const btnNext = $('btnNext');
+const btnBack10 = $('btnBack10');
+const btnFwd10 = $('btnFwd10');
 const btnRecord = $('btnRecord');
 const btnIdentify = $('btnIdentify');
 const btnAlbum = $('btnAlbum');
@@ -2765,6 +2773,8 @@ async function enterChannel(channel) {
   // Controls
   btnPrev.style.display = isPod ? '' : 'none';
   btnNext.style.display = isPod ? '' : 'none';
+  btnBack10.style.display = isPod ? '' : 'none';
+  btnFwd10.style.display = isPod ? '' : 'none';
   const canRecord = isLive;
   btnRecord.classList.toggle('visible', canRecord);
   const canIdentify = channel === 1 || channel === 2;
@@ -5053,6 +5063,17 @@ btnPrev.addEventListener('click', () => {
 btnNext.addEventListener('click', () => {
   if (currentChannel === 3 || currentChannel === 4) playNext(currentChannel);
   else if (currentChannel === 7) orPlayNext();
+});
+btnBack10.addEventListener('click', () => {
+  if (!currentHowl) return;
+  const pos = currentHowl.seek() || 0;
+  currentHowl.seek(Math.max(0, pos - 10));
+});
+btnFwd10.addEventListener('click', () => {
+  if (!currentHowl) return;
+  const pos = currentHowl.seek() || 0;
+  const dur = currentHowl.duration() || 0;
+  currentHowl.seek(Math.min(Math.max(dur - 1, 0), pos + 10));
 });
 mainPlayBtn.addEventListener('click', handlePlayPause);
 btnRecord.addEventListener('click', async () => {
