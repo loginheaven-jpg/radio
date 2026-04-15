@@ -196,7 +196,9 @@ body{
 
 /* Play Controls */
 .play-controls{display:flex;align-items:center;justify-content:center;gap:20px;position:relative;z-index:2;margin-top:4px;margin-bottom:6px}
-.ctrl-btn{background:none;border:none;cursor:pointer;opacity:0.5;padding:8px;display:flex;align-items:center;justify-content:center}
+.ctrl-btn{background:none;border:none;cursor:pointer;opacity:0.5;padding:8px;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.ctrl-btn.seeking{opacity:1;animation:seekPulse 0.3s ease-in-out infinite alternate}
+@keyframes seekPulse{from{transform:scale(1)}to{transform:scale(1.12)}}
 .ctrl-btn:hover{opacity:0.8}
 .main-play-btn{
   width:62px;height:62px;border-radius:50%;border:none;cursor:pointer;
@@ -5064,17 +5066,84 @@ btnNext.addEventListener('click', () => {
   if (currentChannel === 3 || currentChannel === 4) playNext(currentChannel);
   else if (currentChannel === 7) orPlayNext();
 });
-btnBack10.addEventListener('click', () => {
-  if (!currentHowl) return;
-  const pos = currentHowl.seek() || 0;
-  currentHowl.seek(Math.max(0, pos - 10));
-});
-btnFwd10.addEventListener('click', () => {
-  if (!currentHowl) return;
-  const pos = currentHowl.seek() || 0;
-  const dur = currentHowl.duration() || 0;
-  currentHowl.seek(Math.min(Math.max(dur - 1, 0), pos + 10));
-});
+// ── 10초 버튼 long-press 가속 되감기/빨리감기 ──
+// 짧게 클릭: 10초 이동
+// 길게 누르기: 500ms 후 10x 시작 → 1500ms 후 30x 가속
+function setupSeekButton(btn, direction) {
+  let pressStartTs = 0;
+  let holdTimer = null;
+  let seekInterval = null;
+  let speedUpgradeTimer = null;
+  let currentSpeed = 10; // 기본 10x
+  let longPressActive = false;
+
+  function doSeek(seconds) {
+    if (!currentHowl) return;
+    const pos = currentHowl.seek() || 0;
+    const dur = currentHowl.duration() || 0;
+    let newPos = pos + seconds * direction;
+    newPos = Math.max(0, Math.min(Math.max(dur - 1, 0), newPos));
+    currentHowl.seek(newPos);
+    // 진행바 즉시 반영 (시각 피드백)
+    if (dur > 0) seekFill.style.width = (newPos / dur * 100) + '%';
+    timePos.textContent = formatTime(newPos);
+  }
+
+  function startHold() {
+    longPressActive = true;
+    currentSpeed = 10;
+    btn.classList.add('seeking');
+    // 100ms마다 1초씩 이동 (= 10x)
+    seekInterval = setInterval(() => doSeek(currentSpeed / 10), 100);
+    // 1500ms 후 30x로 가속
+    speedUpgradeTimer = setTimeout(() => { currentSpeed = 30; }, 1500);
+  }
+
+  function cleanup() {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    if (seekInterval) { clearInterval(seekInterval); seekInterval = null; }
+    if (speedUpgradeTimer) { clearTimeout(speedUpgradeTimer); speedUpgradeTimer = null; }
+    btn.classList.remove('seeking');
+  }
+
+  function onPressStart(e) {
+    if (!currentHowl) return;
+    // 마우스 우클릭/중클릭 무시
+    if (e.type === 'mousedown' && e.button !== 0) return;
+    e.preventDefault();
+    pressStartTs = Date.now();
+    longPressActive = false;
+    // 500ms 후 long-press 활성화
+    holdTimer = setTimeout(startHold, 500);
+  }
+
+  function onPressEnd(e) {
+    if (pressStartTs === 0) return;
+    const held = Date.now() - pressStartTs;
+    pressStartTs = 0;
+    cleanup();
+    // 500ms 미만 짧은 클릭 → 10초 단일 이동
+    if (held < 500 && !longPressActive) {
+      doSeek(10);
+    }
+  }
+
+  function onPressCancel() {
+    pressStartTs = 0;
+    cleanup();
+  }
+
+  btn.addEventListener('mousedown', onPressStart);
+  btn.addEventListener('mouseup', onPressEnd);
+  btn.addEventListener('mouseleave', onPressCancel);
+  btn.addEventListener('touchstart', onPressStart, { passive: false });
+  btn.addEventListener('touchend', onPressEnd);
+  btn.addEventListener('touchcancel', onPressCancel);
+  // touchend 후 합성 click 이벤트 차단 (이중 호출 방지)
+  btn.addEventListener('click', e => e.preventDefault());
+}
+setupSeekButton(btnBack10, -1);
+setupSeekButton(btnFwd10, +1);
 mainPlayBtn.addEventListener('click', handlePlayPause);
 btnRecord.addEventListener('click', async () => {
   if (isRecording) { stopRecording(); return; }
