@@ -2082,6 +2082,8 @@ function stopStallWatchdog() {
 }
 function checkAudioStall() {
   if (!isPlaying || !audioEl) return;
+  // 녹음 중에는 stall 감시도 중단 (사용자가 화면 앞에 있으므로 수동 대응 가능)
+  if (isRecording) return;
   // HLS 라이브 스트림 또는 R2 트랙 모두 동일하게 감시
   const curTime = audioEl.currentTime;
   if (lastWatchdogTime >= 0 && curTime === lastWatchdogTime && !audioEl.paused && !audioEl.ended) {
@@ -3204,6 +3206,8 @@ function createKeepAliveWorker() {
 let bgLastAudioTime = -1; // 백그라운드 keepalive용 이전 재생 위치
 function bgKeepAliveHandler() {
   if (!isPlaying || userPaused) return;
+  // 녹음 중에는 keep-alive 전체 스킵 (gain/play 개입이 녹음에 클릭/끊김 유발)
+  if (isRecording) return;
   // Howler 노드 복구
   if (currentHowl) {
     const node = currentHowl._sounds[0]?._node;
@@ -3459,6 +3463,9 @@ async function doStartRecording() {
   mediaRecorder.onstop = () => { const seg = recSegmentNum > 0 ? String(recSegmentNum).padStart(3,'0') : ''; saveRecordedBlob(recordedChunks, seg); };
   mediaRecorder.start(5000); // 5초 청크 — 안정성 향상
   isRecording = true; updateRecordBtn(); startRecordTimer();
+  // 녹음 중 개입 방지: keep-alive + stall watchdog 중단
+  stopBgKeepAlive();
+  stopStallWatchdog();
   if (recAutoSplit) startSilenceDetection();
   showToast(recAutoSplit ? '녹음 시작 (자동 분할)' : '녹음 시작 (계속 녹음)');
 }
@@ -3467,6 +3474,8 @@ function stopRecording() {
   isRecording = false; stopSilenceDetection();
   if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
   stopRecordTimer(); updateRecordBtn();
+  // 녹음 종료 → keep-alive + stall watchdog 재가동
+  if (isPlaying) { startBgKeepAlive(); startStallWatchdog(); }
 }
 
 // ── Live Chunk Player (v2 — 순차 fetch + 버퍼 관리) ──
