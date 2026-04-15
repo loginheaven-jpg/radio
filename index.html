@@ -3408,7 +3408,7 @@ function splitRecording() {
     mediaRecorder = new MediaRecorder(recDestination.stream, {mimeType: recMime, audioBitsPerSecond: 192000});
     mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
     mediaRecorder.onstop = () => { saveRecordedBlob(recordedChunks, String(recSegmentNum).padStart(3,'0')); };
-    mediaRecorder.start(5000); // 5초 청크 — 안정성 향상
+    mediaRecorder.start(); // timeslice 없이 연속 녹음
   }, 50);
 }
 async function startRecording() {
@@ -3461,7 +3461,7 @@ async function doStartRecording() {
   mediaRecorder = new MediaRecorder(recDestination.stream, {mimeType: recMime, audioBitsPerSecond: 192000});
   mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
   mediaRecorder.onstop = () => { const seg = recSegmentNum > 0 ? String(recSegmentNum).padStart(3,'0') : ''; saveRecordedBlob(recordedChunks, seg); };
-  mediaRecorder.start(5000); // 5초 청크 — 안정성 향상
+  mediaRecorder.start(); // timeslice 없이 연속 녹음 (stop 시에만 data 이벤트, 글리치 방지)
   isRecording = true; updateRecordBtn(); startRecordTimer();
   // 녹음 중 개입 방지: keep-alive + stall watchdog 중단
   stopBgKeepAlive();
