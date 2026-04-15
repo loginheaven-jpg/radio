@@ -1984,6 +1984,8 @@ function stopPlayback() {
   stopReplay();
   stopOnlyMusicDetection();
   howlSourceNode = null;
+  // 이전 트랙 정보 정리 (채널 전환 시 stale 공유/Media Session 방지)
+  currentTrackKey = ''; currentTrackName = '';
   isPlaying = false;
   updatePlayBtn(false);
   cancelAnimationFrame(seekRaf);
@@ -5415,14 +5417,16 @@ $('appFooter').addEventListener('click', () => {
 });
 $('shareBtn').addEventListener('click', async () => {
   const chName = channelNameEl.textContent || '';
-  const trackName = currentTrackName || '';
   const pos = currentHowl ? Math.floor(currentHowl.seek()) : 0;
+  // 트랙명은 R2 파일 채널(CH3, CH4, CH7)에서만 표시
+  const isTrackChannel = currentChannel === 3 || currentChannel === 4 || currentChannel === 7;
+  const trackName = isTrackChannel ? (currentTrackName || '') : '';
   // 공유 텍스트 헤더 (URL 제외)
   let header = '예봄라디오 - ' + chName;
   if (trackName) header += '\n' + trackName + (pos > 3 ? ' (' + formatTime(pos) + '~)' : '');
   // 단축 URL 생성
   const payload = { ch: currentChannel };
-  if ((currentChannel === 3 || currentChannel === 4 || currentChannel === 5) && currentTrackKey) {
+  if (isTrackChannel && currentTrackKey) {
     payload.track = currentTrackKey;
     if (pos > 3) payload.t = pos;
   }
