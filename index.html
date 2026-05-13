@@ -578,6 +578,58 @@ body{
 @keyframes swipeL{0%,100%{transform:translateX(0)}50%{transform:translateX(-4px)}}
 @keyframes swipeR{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
 @keyframes swipeHintFade{0%{opacity:0}15%{opacity:1}70%{opacity:1}100%{opacity:0}}
+/* ── V2 Tuner Home ── */
+.tuner-home{position:fixed;inset:0;display:flex;flex-direction:column;background:linear-gradient(180deg,#1a150e 0%,#13100a 60%,#0e0b07 100%);color:#e0d0c0;font-family:'Pretendard Variable',sans-serif;z-index:50;overflow-y:auto;display:none}
+.tuner-home.open{display:flex}
+.tuner-header{padding:18px 22px 12px;display:flex;justify-content:space-between;align-items:flex-start}
+.tuner-header-left .th-sub{font-size:10px;color:#706050;letter-spacing:1.2px}
+.tuner-header-left .th-main{font-size:22px;color:#D4A055;font-weight:700;letter-spacing:1.5px;margin-top:2px;font-family:'Space Grotesk',serif}
+.tuner-header-left .th-est{font-size:9px;color:#5a4525;letter-spacing:2px;margin-top:3px;font-family:'Space Grotesk',monospace}
+.tuner-header-right{text-align:right;position:relative}
+.tuner-header-right .th-anniv{font-size:26px;font-weight:700;color:#f0c060;font-family:'Space Grotesk',sans-serif;letter-spacing:0.5px;line-height:1;text-shadow:0 0 12px rgba(240,192,96,0.35)}
+.tuner-header-right .th-anniv-sub{font-size:9px;color:#8B7345;margin-top:4px;letter-spacing:1px}
+.tuner-body{flex:1;display:flex;padding:8px 18px 16px;gap:14px;min-height:0}
+.tuner-channels{flex:1;display:flex;flex-direction:column;gap:4px;overflow-y:auto;padding:6px 0}
+.tuner-section-label{font-size:9px;color:#504030;letter-spacing:2px;margin-bottom:6px;padding-left:6px}
+.tuner-ch-item{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-radius:6px;border:1px solid transparent;transition:all 0.25s;-webkit-tap-highlight-color:transparent}
+.tuner-ch-item:hover{background:rgba(255,255,255,0.03)}
+.tuner-ch-freq{font-size:10px;color:#504030;font-family:'Space Grotesk',monospace;letter-spacing:0.5px;min-width:32px}
+.tuner-ch-dot{width:5px;height:5px;border-radius:50%;background:var(--ch-col);box-shadow:0 0 4px var(--ch-col);transition:all 0.25s;flex-shrink:0}
+.tuner-ch-name{font-size:14px;color:#908070;flex:1;font-weight:400;transition:all 0.25s}
+.tuner-ch-genre{font-size:9px;color:#3D3225;letter-spacing:0.5px;padding:2px 6px;border:1px solid #2D2218;border-radius:3px;flex-shrink:0}
+.tuner-ch-item.selected{border-color:color-mix(in srgb,var(--ch-col) 35%,transparent);background:linear-gradient(90deg,color-mix(in srgb,var(--ch-col) 10%,transparent),transparent);padding:12px 12px;box-shadow:0 0 12px color-mix(in srgb,var(--ch-col) 12%,transparent)}
+.tuner-ch-item.selected .tuner-ch-freq{color:var(--ch-col);font-weight:600}
+.tuner-ch-item.selected .tuner-ch-dot{width:8px;height:8px}
+.tuner-ch-item.selected .tuner-ch-name{font-size:17px;color:#F0E6D2;font-weight:700;text-shadow:0 0 12px color-mix(in srgb,var(--ch-col) 45%,transparent)}
+.tuner-ch-item.playing::after{content:'';display:inline-block;width:10px;height:10px;background:linear-gradient(to top,var(--ch-col) 30%,transparent 30%) 0 0/3px 100%,linear-gradient(to top,var(--ch-col) 60%,transparent 60%) 4px 0/3px 100%,linear-gradient(to top,var(--ch-col) 45%,transparent 45%) 8px 0/3px 100%;background-repeat:no-repeat;animation:eq 0.8s ease-in-out infinite alternate}
+@keyframes eq{from{filter:brightness(0.7)}to{filter:brightness(1.2)}}
+.tuner-slider-panel{width:128px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:6px;position:relative}
+.tuner-bcast-label{font-size:9px;color:#504030;text-align:center;letter-spacing:1.5px;margin-bottom:10px;padding:4px 8px;border:1px solid #3D3225;border-radius:2px;background:#1A150E}
+.tuner-bcast-label .small{font-size:7px;display:block;color:#3D3225;margin-top:2px}
+.tuner-slider-track{position:relative;width:50px;height:280px;background:linear-gradient(180deg,#0a0805 0%,#161108 50%,#0a0805 100%);border-radius:6px;box-shadow:inset 0 0 8px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.05);margin-bottom:18px}
+.tuner-slider-marks{position:absolute;right:-22px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:space-between;padding:6px 0;font-size:8px;color:#3D3225;font-family:'Space Grotesk',monospace}
+.tuner-slider-marks span{line-height:1;transition:color 0.2s}
+.tuner-slider-marks span.active{color:#D4A055;font-weight:700}
+.tuner-slider-handle{position:absolute;left:6px;right:6px;height:24px;background:linear-gradient(180deg,#C4A872 0%,#A08855 15%,#8B7345 30%,#A08855 50%,#8B7345 70%,#A08855 85%,#C4A872 100%);border:1px solid #D4B882;border-radius:3px;box-shadow:2px 3px 8px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.25);cursor:grab;transition:none;touch-action:none}
+.tuner-slider-handle:active{cursor:grabbing}
+.tuner-slider-handle::before{content:'';position:absolute;inset:6px 8px;background:repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(60,40,20,0.4) 2px,rgba(60,40,20,0.4) 3px);border-radius:2px;pointer-events:none}
+.tuner-play-btn{width:60px;height:60px;border-radius:50%;background:linear-gradient(140deg,#C4A872,#8B7345);border:2px solid #D4B882;color:#1A150E;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.3);position:relative;transition:transform 0.1s,filter 0.2s}
+.tuner-play-btn:active{transform:scale(0.95)}
+.tuner-play-btn.playing{filter:brightness(1.15)}
+.tuner-play-btn-label{position:absolute;top:64px;left:50%;transform:translateX(-50%);font-size:8px;color:#8B7345;letter-spacing:2px;font-family:'Space Grotesk',monospace;white-space:nowrap}
+.tuner-play-btn.playing .tuner-play-btn-label{color:#e89060}
+.tuner-tube-section{padding:14px 22px 20px;text-align:center;background:linear-gradient(180deg,transparent,#0a0805);position:relative}
+.tuner-tube-label{font-size:8px;color:#3D3225;letter-spacing:3px;font-family:'Space Grotesk',monospace;margin-bottom:8px}
+.tuner-tube-row{display:flex;justify-content:center;align-items:flex-end;gap:18px;height:50px}
+.tuner-tube{width:14px;height:38px;background:radial-gradient(ellipse at 50% 30%,#3d3018 0%,#1a1208 70%);border-radius:6px 6px 3px 3px;position:relative;box-shadow:0 0 0 1px #2a2014,inset 0 4px 6px rgba(0,0,0,0.5);transition:all 0.6s}
+.tuner-tube::after{content:'';position:absolute;inset:2px 1px;border-radius:5px 5px 2px 2px;background:radial-gradient(ellipse at 50% 25%,rgba(255,180,80,0) 0%,transparent 70%);transition:background 0.6s}
+.tuner-tube-section.playing .tuner-tube::after{background:radial-gradient(ellipse at 50% 25%,rgba(255,180,80,0.4) 0%,rgba(232,144,60,0.15) 50%,transparent 80%)}
+.tuner-tube-section.playing .tuner-tube{box-shadow:0 0 0 1px #2a2014,inset 0 4px 6px rgba(0,0,0,0.5),0 0 12px rgba(232,144,60,0.18)}
+/* LP 화면 우상단 YEBOM Tuner 버튼 */
+.yebom-tuner-btn{display:flex;flex-direction:column;align-items:center;background:linear-gradient(180deg,#2A2218,#1E1A12);border:1px solid #3D3225;border-radius:6px;padding:4px 10px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.yebom-tuner-btn:active{transform:scale(0.96)}
+.yebom-tuner-btn .yt-sub{font-size:8px;color:#706050;letter-spacing:0.5px}
+.yebom-tuner-btn .yt-main{font-size:11px;color:#D4A055;font-family:'Space Grotesk',monospace;letter-spacing:1px;font-weight:700;margin-top:1px}
 @keyframes recDot{0%,100%{opacity:1}50%{opacity:0.3}}
 @keyframes liveBarShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @keyframes livePulse{0%,100%{opacity:1}50%{opacity:0.6}}
@@ -687,6 +739,43 @@ body{
 <div class="ambient-glow" id="ambientGlow"></div>
 <div class="particles-wrap" id="particlesWrap"></div>
 
+<!-- V2 Tuner Home Screen -->
+<div class="tuner-home" id="tunerHome">
+  <div class="tuner-header">
+    <div class="tuner-header-left">
+      <div class="th-sub">예봄라디오</div>
+      <div class="th-main">YEBOM Tuner</div>
+      <div class="th-est">EST. 1986 · INTERNET BAND</div>
+    </div>
+    <div class="tuner-header-right">
+      <div class="th-anniv">예봄 <span id="tunerHomeAnnivYear">40</span>'</div>
+      <div class="th-anniv-sub">하나님의 은혜로</div>
+    </div>
+  </div>
+  <div class="tuner-body">
+    <div class="tuner-channels" id="tunerChannels">
+      <div class="tuner-section-label">CH 1–11 · DIGITAL BAND</div>
+    </div>
+    <div class="tuner-slider-panel">
+      <div class="tuner-bcast-label">BROADCAST<span class="small">SELECTION</span></div>
+      <div class="tuner-slider-track" id="tunerSliderTrack">
+        <div class="tuner-slider-handle" id="tunerSliderHandle"></div>
+        <div class="tuner-slider-marks" id="tunerSliderMarks"></div>
+      </div>
+      <button class="tuner-play-btn" id="tunerPlayBtn" aria-label="재생">▶<span class="tuner-play-btn-label" id="tunerPlayLabel">PLAY</span></button>
+    </div>
+  </div>
+  <div class="tuner-tube-section" id="tunerTubeSection">
+    <div class="tuner-tube-label">VACUUM TUBE AMPLIFIER</div>
+    <div class="tuner-tube-row">
+      <div class="tuner-tube"></div>
+      <div class="tuner-tube"></div>
+      <div class="tuner-tube"></div>
+      <div class="tuner-tube"></div>
+    </div>
+  </div>
+</div>
+
 <div id="app">
   <!-- Header -->
   <div class="header">
@@ -696,6 +785,10 @@ body{
     <div class="header-right">
       <div class="header-logo" id="headerTitle">예봄 <span class="logo-40" id="logoYears"></span></div>
       <div class="header-tagline">Yebom Radio 2.0</div>
+      <button class="yebom-tuner-btn" id="yebomTunerBtn" aria-label="튜너 홈" style="margin-top:6px">
+        <span class="yt-sub">예봄라디오</span>
+        <span class="yt-main">TUNER</span>
+      </button>
     </div>
   </div>
 
@@ -1270,10 +1363,13 @@ const CHANNEL_ICONS = {
   bom: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="13" r="3" stroke="${c}" stroke-width="1.5" fill="none"/><ellipse cx="14" cy="7" rx="2.5" ry="3.5" stroke="${c}" stroke-width="1" fill="${c}" opacity="0.15"/><ellipse cx="19.5" cy="11" rx="2.5" ry="3.5" transform="rotate(60 19.5 11)" stroke="${c}" stroke-width="1" fill="${c}" opacity="0.15"/><ellipse cx="17.5" cy="17.5" rx="2.5" ry="3.5" transform="rotate(120 17.5 17.5)" stroke="${c}" stroke-width="1" fill="${c}" opacity="0.15"/><ellipse cx="10.5" cy="17.5" rx="2.5" ry="3.5" transform="rotate(60 10.5 17.5)" stroke="${c}" stroke-width="1" fill="${c}" opacity="0.15"/><ellipse cx="8.5" cy="11" rx="2.5" ry="3.5" transform="rotate(-60 8.5 11)" stroke="${c}" stroke-width="1" fill="${c}" opacity="0.15"/><line x1="14" y1="16" x2="14" y2="24" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/></svg>`,
   rsc: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="6" y="6" width="16" height="16" rx="2" fill="${c}" opacity="0.18"/><line x1="14" y1="8" x2="14" y2="20" stroke="${c}" stroke-width="3" stroke-linecap="round"/><line x1="8" y1="14" x2="20" y2="14" stroke="${c}" stroke-width="3" stroke-linecap="round"/></svg>`,
   openroom: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="11" r="5" stroke="${c}" stroke-width="1.5" fill="none"/><path d="M9 11 Q14 17 19 11" stroke="${c}" stroke-width="1.2" fill="none" stroke-linecap="round"/><line x1="14" y1="16" x2="14" y2="22" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="22" x2="18" y2="22" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/><circle cx="14" cy="11" r="2" fill="${c}" opacity="0.4"/></svg>`,
+  joy4u: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 22 C14 22 6 17 6 11 C6 7 9 5 11 6.5 C12.5 7.5 14 9.5 14 9.5 C14 9.5 15.5 7.5 17 6.5 C19 5 22 7 22 11 C22 17 14 22 14 22 Z" stroke="${c}" stroke-width="1.5" fill="${c}" fill-opacity="0.2" stroke-linejoin="round"/></svg>`,
+  abiding: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 4 L14 24 M9 10 L14 6 L19 10 M11 14 L14 12 L17 14" stroke="${c}" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="20" r="2" fill="${c}" opacity="0.3"/></svg>`,
+  venice: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M5 22 L23 22" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/><path d="M7 22 L7 12 M11 22 L11 10 M14 22 L14 8 M17 22 L17 10 M21 22 L21 12" stroke="${c}" stroke-width="1.2" stroke-linecap="round"/><path d="M6 8 Q14 4 22 8" stroke="${c}" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.6"/></svg>`,
 };
 
 const CHANNELS = [
-  { num:1, id:'kbs', name:'KBS 클래식FM', freq:'93.1', freqUnit:'MHz', type:'live',
+  { num:1, id:'kbs', name:'KBS 클래식FM', freq:'93.1', freqUnit:'MHz', type:'live', displayCh:7, genre:'클래식',
     accent:'#d4a45c', accentLight:'#f0d490',
     bg1:'#1a150e', bg2:'#1e1410', bg3:'#14100c', discRing:'#c9983f',
     label:'클래식의 향연',
@@ -1284,7 +1380,7 @@ const CHANNELS = [
       {char:'♬',x:71,delay:4.8,size:14,opacity:0.09},{char:'♪',x:85,delay:6.0,size:10,opacity:0.06},
     ],
   },
-  { num:2, id:'febc', name:'극동방송', freq:'106.9', freqUnit:'MHz', type:'live',
+  { num:2, id:'febc', name:'극동방송', freq:'106.9', freqUnit:'MHz', type:'live', displayCh:3, genre:'복음',
     accent:'#c48a6a', accentLight:'#e8b898',
     bg1:'#18100e', bg2:'#1c1214', bg3:'#120e10', discRing:'#b87a58',
     label:'복음의 빛',
@@ -1295,7 +1391,7 @@ const CHANNELS = [
       {char:'✧',x:80,delay:6.0,size:11,opacity:0.05},
     ],
   },
-  { num:3, id:'word', name:'말씀의 전당', freq:'CH.3', freqUnit:'', type:'pod',
+  { num:3, id:'word', name:'말씀의 전당', freq:'CH.3', freqUnit:'', type:'pod', displayCh:1, genre:'말씀',
     accent:'#6a8cb8', accentLight:'#a0c0e0',
     bg1:'#0e1218', bg2:'#10141c', bg3:'#0c0e16', discRing:'#5878a0',
     label:'말씀으로 세워지는 삶',
@@ -1306,7 +1402,7 @@ const CHANNELS = [
       {char:'·',x:82,delay:7.2,size:11,opacity:0.04},
     ],
   },
-  { num:4, id:'praise', name:'찬양의 숲', freq:'CH.4', freqUnit:'', type:'pod',
+  { num:4, id:'praise', name:'찬양의 숲', freq:'CH.4', freqUnit:'', type:'pod', displayCh:2, genre:'찬양',
     accent:'#6aaa60', accentLight:'#a0d898',
     bg1:'#0e1610', bg2:'#101a12', bg3:'#0c120e', discRing:'#5a9850',
     label:'고요한 찬양의 쉼터',
@@ -1318,7 +1414,7 @@ const CHANNELS = [
       {char:'·',x:82,delay:6.6,size:14,opacity:0.04},
     ],
   },
-  { num:5, id:'bom', name:'봄소리방송', freq:'LIVE', freqUnit:'', type:'live',
+  { num:5, id:'bom', name:'봄소리방송', freq:'LIVE', freqUnit:'', type:'live', displayCh:11, genre:'라이브',
     accent:'#c87890', accentLight:'#e8a8b8',
     bg1:'#181014', bg2:'#1c1218', bg3:'#140e12', discRing:'#b06878',
     label:'실시간 · LIVE',
@@ -1329,8 +1425,8 @@ const CHANNELS = [
       {char:'·',x:64,delay:5.2,size:20,opacity:0.06},{char:'🌷',x:77,delay:6.5,size:11,opacity:0.08},
     ],
   },
-  { num:6, id:'rsc', name:'Radio Swiss', freq:'AAC', freqUnit:'', type:'live',
-    accent:'#b0384a', accentLight:'#e06878',
+  { num:6, id:'rsc', name:'Swiss Classic', freq:'AAC', freqUnit:'', type:'live', displayCh:9, genre:'클래식',
+    accent:'#b0384a', accentLight:'#e06878', source:'Radio Swiss Classic',
     bg1:'#180a0e', bg2:'#1e0e14', bg3:'#140810', discRing:'#a03040',
     label:'SRG Klassik Radio',
     color:'#b0384a', dim:'rgba(176,56,74,0.15)', glow:'rgba(176,56,74,0.3)',
@@ -1340,7 +1436,7 @@ const CHANNELS = [
       {char:'𝄞',x:70,delay:5.6,size:16,opacity:0.10},{char:'♪',x:84,delay:7.0,size:10,opacity:0.06},
     ],
   },
-  { num:7, id:'openroom', name:'열린 음악방', freq:'CH.7', freqUnit:'', type:'openroom',
+  { num:7, id:'openroom', name:'열린 음악방', freq:'CH.7', freqUnit:'', type:'openroom', displayCh:10, genre:'음악',
     accent:'#7a9e6e', accentLight:'#a8c89a',
     bg1:'#0d1410', bg2:'#111812', bg3:'#0b1009', discRing:'#6a8a5c',
     label:'함께 나누는 음악',
@@ -1349,6 +1445,55 @@ const CHANNELS = [
       {char:'🎵',x:12,delay:0,size:8,opacity:0.05},{char:'♪',x:25,delay:1.2,size:12,opacity:0.07},
       {char:'🎶',x:38,delay:2.4,size:10,opacity:0.05},{char:'♫',x:52,delay:3.6,size:14,opacity:0.08},
       {char:'🎵',x:66,delay:4.8,size:8,opacity:0.05},{char:'♪',x:80,delay:6.0,size:12,opacity:0.07},
+    ],
+  },
+  // ─── V2 신규 채널 4개 ───
+  { num:8, id:'joy4u', name:'CBS JOY4U', freq:'CCM', freqUnit:'', type:'live', displayCh:4, genre:'찬양',
+    accent:'#e89a60', accentLight:'#f5c098',
+    bg1:'#1a1108', bg2:'#1e1410', bg3:'#160e0a', discRing:'#d88850',
+    label:'찬송과 경배의 시간',
+    color:'#e89a60', dim:'rgba(232,154,96,0.15)', glow:'rgba(232,154,96,0.3)',
+    source:'CBS 기독교방송',
+    particles:[
+      {char:'♪',x:15,delay:0,size:10,opacity:0.06},{char:'✝',x:32,delay:1.5,size:12,opacity:0.05},
+      {char:'♫',x:50,delay:3.0,size:14,opacity:0.08},{char:'✦',x:68,delay:4.5,size:8,opacity:0.06},
+      {char:'♪',x:85,delay:6.0,size:10,opacity:0.06},
+    ],
+  },
+  { num:9, id:'abiding_hymn', name:'Abiding (Hymn)', freq:'Sacred', freqUnit:'', type:'live', displayCh:5, genre:'찬양',
+    accent:'#8b6fb0', accentLight:'#b89dd0',
+    bg1:'#10101c', bg2:'#141420', bg3:'#0e0e18', discRing:'#7858a0',
+    label:'Sacred Hymns',
+    color:'#8b6fb0', dim:'rgba(139,111,176,0.15)', glow:'rgba(139,111,176,0.3)',
+    source:'Abiding Radio',
+    particles:[
+      {char:'✝',x:14,delay:0,size:10,opacity:0.05},{char:'♪',x:30,delay:1.2,size:12,opacity:0.06},
+      {char:'·',x:48,delay:2.4,size:14,opacity:0.04},{char:'✦',x:66,delay:3.6,size:8,opacity:0.05},
+      {char:'♫',x:82,delay:4.8,size:14,opacity:0.07},
+    ],
+  },
+  { num:10, id:'abiding_inst', name:'Abiding (기악)', freq:'Instrumental', freqUnit:'', type:'live', displayCh:6, genre:'찬양',
+    accent:'#6b8e7b', accentLight:'#a0c0b0',
+    bg1:'#0e1612', bg2:'#101a14', bg3:'#0a120e', discRing:'#5a7c68',
+    label:'Instrumental Praise',
+    color:'#6b8e7b', dim:'rgba(107,142,123,0.15)', glow:'rgba(107,142,123,0.3)',
+    source:'Abiding Radio',
+    particles:[
+      {char:'♪',x:14,delay:0,size:10,opacity:0.06},{char:'🌿',x:30,delay:1.2,size:11,opacity:0.04},
+      {char:'·',x:48,delay:2.4,size:14,opacity:0.08},{char:'🎼',x:66,delay:3.6,size:12,opacity:0.05},
+      {char:'♫',x:82,delay:4.8,size:14,opacity:0.07},
+    ],
+  },
+  { num:11, id:'venice', name:'Venice Classic', freq:'128', freqUnit:'kbps', type:'live', displayCh:8, genre:'클래식',
+    accent:'#c4956a', accentLight:'#e0b890',
+    bg1:'#1a140e', bg2:'#1e1810', bg3:'#16100a', discRing:'#b88458',
+    label:'Italian Classical',
+    color:'#c4956a', dim:'rgba(196,149,106,0.15)', glow:'rgba(196,149,106,0.3)',
+    source:'Venice Classic Radio',
+    particles:[
+      {char:'𝄞',x:16,delay:0,size:16,opacity:0.10},{char:'♪',x:32,delay:1.4,size:10,opacity:0.06},
+      {char:'♫',x:50,delay:2.8,size:14,opacity:0.08},{char:'✦',x:68,delay:4.2,size:8,opacity:0.06},
+      {char:'♬',x:84,delay:5.6,size:14,opacity:0.09},
     ],
   },
 ];
@@ -1378,13 +1523,17 @@ async function fetchServerChannelConfig() {
 }
 function applyChannelConfig() {
   const cfg = getChannelConfig();
-  const savedOrder = cfg.order || CHANNELS.map(c => c.num);
+  // V2: 기본 정렬은 displayCh 오름차순 (튜너 홈 순서와 일치)
+  const defaultOrder = [...CHANNELS].sort((a,b) => (a.displayCh||99) - (b.displayCh||99)).map(c => c.num);
+  const savedOrder = cfg.order || defaultOrder;
   const ordered = savedOrder.map(num => CHANNELS.find(c => c.num === num)).filter(Boolean);
-  // 새로 추가된 채널(savedOrder에 없는 것)을 끝에 추가
+  // 새로 추가된 채널(savedOrder에 없는 것)을 displayCh 기준으로 끼워 넣기
   CHANNELS.forEach(c => { if (!savedOrder.includes(c.num)) ordered.push(c); });
+  // 신규 채널 추가된 경우 다시 displayCh 정렬
+  if (ordered.length > savedOrder.length) ordered.sort((a,b) => (a.displayCh||99) - (b.displayCh||99));
   const hiddenSet = new Set(cfg.hidden || []);
   activeChannels = ordered.filter(c => !hiddenSet.has(c.num));
-  if (activeChannels.length === 0) activeChannels = [...CHANNELS];
+  if (activeChannels.length === 0) activeChannels = [...CHANNELS].sort((a,b) => (a.displayCh||99) - (b.displayCh||99));
 }
 
 // ── DOM refs ──
@@ -1476,7 +1625,9 @@ function applyChannelTheme(ch) {
   $('lampCanvas').style.display = isLamp ? '' : 'none';
   if (isLamp) { stopDiscRotation(); startLampAnim(); } else { stopLampAnim(); }
 
-  discIcon.innerHTML = (CHANNEL_ICONS[def.id] || CHANNEL_ICONS.rsc)(def.accent);
+  // abiding_hymn, abiding_inst → 공통 'abiding' 아이콘 사용
+  const iconKey = def.id.startsWith('abiding') ? 'abiding' : def.id;
+  discIcon.innerHTML = (CHANNEL_ICONS[iconKey] || CHANNEL_ICONS.rsc)(def.accent);
   discFreq.textContent = def.freq ? (def.freq + (def.freqUnit ? ' ' + def.freqUnit : '')) : 'CH.' + def.num;
   discFreq.style.color = def.accentLight;
   discCenter.style.background = `linear-gradient(145deg, ${def.accent}35, ${def.accent}10)`;
@@ -1780,7 +1931,7 @@ function switchToChannel(idx) {
   applyChannelTheme(ch.num);
   // 빠른 스와이프 디바운스: 150ms 이내 연속 전환 시 마지막만 실행
   clearTimeout(switchDebounce);
-  switchDebounce = setTimeout(() => enterChannel(ch.num), 150);
+  switchDebounce = setTimeout(() => enterChannel(ch.num), 200);
   if (swipeHintEl) swipeHintEl.style.display = 'none';
 }
 
@@ -1948,6 +2099,15 @@ function updatePlayBtn(playing) {
   }
   if ('mediaSession' in navigator) {
     navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+  }
+  // V2: 튜너 홈 Play 버튼/진공관 동기화
+  if (typeof tunerHomeOpen !== 'undefined' && tunerHomeOpen) {
+    try {
+      updateTunerPlayBtn();
+      const tube = document.getElementById('tunerTubeSection');
+      if (tube) tube.classList.toggle('playing', playing);
+      renderTunerChannels();
+    } catch {}
   }
 }
 
@@ -2759,9 +2919,10 @@ async function enterChannel(channel) {
   const isR2 = channel === 3 || channel === 4;
   const isCh5 = channel === 5;
   const isOpenRoom = channel === 7;
-  const isLive = channel === 1 || channel === 2 || isCh5 || channel === 6;
+  // 신규 채널: 8=JOY4U(HLS), 9=Abiding Hymn, 10=Abiding Inst, 11=Venice (모두 라이브)
+  const isLive = channel === 1 || channel === 2 || isCh5 || channel === 6 || channel === 8 || channel === 9 || channel === 10 || channel === 11;
   const isPod = isR2 || isOpenRoom;
-  const isLiveBroadcast = channel === 1 || channel === 2 || channel === 6;
+  const isLiveBroadcast = channel === 1 || channel === 2 || channel === 6 || channel === 8 || channel === 9 || channel === 10 || channel === 11;
 
   // Only Music: 공중파 채널만 배지 표시, 비공중파 진입 시 분류기 중지
   const omBadge = $('onlyMusicBadge');
@@ -2807,18 +2968,26 @@ async function enterChannel(channel) {
   timeDur.textContent = '0:00';
 
   // 앱 최초 로드 시: 라이브 채널은 스트림 연결 없이 채널명만 표시
-  if (appStartup && (channel === 1 || channel === 2 || channel === 5 || channel === 6)) {
+  if (appStartup && (channel === 1 || channel === 2 || channel === 5 || channel === 6 || channel === 8 || channel === 9 || channel === 10 || channel === 11)) {
     appStartup = false;
     clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
     if (channel === 1) nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> KBS 클래식 FM';
     else if (channel === 2) nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 극동방송';
     else if (channel === 5) nowPlayingEl.textContent = '재생 버튼을 눌러 시작하세요';
     else if (channel === 6) nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> Radio Swiss Classic';
+    else if (channel === 8) nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> CBS JOY4U';
+    else if (channel === 9) nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> Abiding Radio (Hymn)';
+    else if (channel === 10) nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> Abiding Radio (기악)';
+    else if (channel === 11) nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> Venice Classic Radio';
     return;
   }
 
   if (channel === 1) { await loadKbs(gen); if (gen !== enterChannelGen) return; }
   else if (channel === 2) { await loadFebc(gen); if (gen !== enterChannelGen) return; }
+  else if (channel === 8) { await loadJoy4u(gen); if (gen !== enterChannelGen) return; }
+  else if (channel === 9) { await loadAbiding(gen, 'sacred'); if (gen !== enterChannelGen) return; }
+  else if (channel === 10) { await loadAbiding(gen, 'instrumental'); if (gen !== enterChannelGen) return; }
+  else if (channel === 11) { await loadVenice(gen); if (gen !== enterChannelGen) return; }
   else if (channel === 3 || channel === 4) {
     nowPlayingEl.textContent = '트랙 로딩 중...';
     const tracks = await fetchTracks(channel);
@@ -2975,6 +3144,111 @@ async function loadRsc(gen) {
   } catch (e) {
     nowPlayingEl.textContent = 'Radio Swiss Classic 연결 실패';
     showToast('Radio Swiss Classic 연결 실패');
+    clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
+  }
+}
+
+// ── CBS JOY4U (CH8) ──
+let joy4uRefreshTimer = null;
+const JOY4U_URL_PRIMARY = 'https://aac.cbs.co.kr/cbscmc/_definst_/cbscmc_96k.stream/playlist.m3u8';
+const JOY4U_URL_BACKUP  = 'https://m-aac.cbs.co.kr/mweb_cbscmc/_definst_/cbscmc.stream/playlist.m3u8';
+async function loadJoy4u(gen) {
+  clearInterval(joy4uRefreshTimer);
+  try {
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 연결 중...';
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> CBS JOY4U';
+    updateMediaSession();
+    // 주 URL 시도 후 실패 시 백업 URL로 fallback
+    try {
+      await withRetry(() => playHls(JOY4U_URL_PRIMARY, true), gen, 1, 1500);
+    } catch {
+      if (gen !== enterChannelGen) return;
+      await withRetry(() => playHls(JOY4U_URL_BACKUP, true), gen);
+    }
+    // Now Playing 폴링 (60초 간격, Worker에서 HTML 파싱 시도)
+    joy4uRefreshTimer = setInterval(async () => {
+      if (currentChannel !== 8 || !isPlaying) return;
+      try {
+        const r = await fetch(WORKER_URL + '/api/np/joy4u');
+        const d = await r.json();
+        if (d.title) {
+          nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + d.title;
+          updateMediaSession();
+        }
+      } catch {}
+    }, 60000);
+  } catch (e) {
+    nowPlayingEl.textContent = 'CBS JOY4U 연결 실패';
+    showToast('CBS JOY4U 연결 실패');
+    clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
+  }
+}
+
+// ── Abiding Radio (CH9 Hymn, CH10 Instrumental) ──
+let abidingRefreshTimer = null;
+const ABIDING_URLS = {
+  sacred:       'https://www.abidingradio.org/radio/sacred',
+  instrumental: 'https://www.abidingradio.org/radio/instrumental',
+};
+async function loadAbiding(gen, ch /* 'sacred' | 'instrumental' */) {
+  clearInterval(abidingRefreshTimer);
+  try {
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 연결 중...';
+    const labelDefault = ch === 'sacred' ? 'Abiding Radio (Hymn)' : 'Abiding Radio (기악)';
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + labelDefault;
+    updateMediaSession();
+    const url = ABIDING_URLS[ch];
+    await withRetry(() => playIcecast(url), gen);
+    // Now Playing 폴링 (AzuraCast API, 30초 간격)
+    const fetchNp = async () => {
+      if ((currentChannel !== 9 && currentChannel !== 10) || !isPlaying) return;
+      try {
+        const r = await fetch(WORKER_URL + '/api/np/abiding?ch=' + ch);
+        const d = await r.json();
+        if (d.title) {
+          const text = (d.artist ? d.artist + ' — ' : '') + d.title;
+          nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + text;
+          updateMediaSession();
+        }
+      } catch {}
+    };
+    fetchNp(); // 즉시 1회
+    abidingRefreshTimer = setInterval(fetchNp, 30000);
+  } catch (e) {
+    nowPlayingEl.textContent = 'Abiding Radio 연결 실패';
+    showToast('Abiding Radio 연결 실패');
+    clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
+  }
+}
+
+// ── Venice Classic Radio (CH11) ──
+let veniceRefreshTimer = null;
+const VENICE_URL = 'https://uk2.streamingpulse.com/ssl/vcr2';
+async function loadVenice(gen) {
+  clearInterval(veniceRefreshTimer);
+  try {
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 연결 중...';
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> Venice Classic Radio';
+    updateMediaSession();
+    await withRetry(() => playIcecast(VENICE_URL), gen);
+    // Now Playing 폴링 (ICY 메타데이터, 30초 간격)
+    const fetchNp = async () => {
+      if (currentChannel !== 11 || !isPlaying) return;
+      try {
+        const r = await fetch(WORKER_URL + '/api/np/venice');
+        const d = await r.json();
+        if (d.title) {
+          const text = (d.composer ? d.composer + ' — ' : '') + d.title;
+          nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + text;
+          updateMediaSession();
+        }
+      } catch {}
+    };
+    fetchNp();
+    veniceRefreshTimer = setInterval(fetchNp, 30000);
+  } catch (e) {
+    nowPlayingEl.textContent = 'Venice Classic 연결 실패';
+    showToast('Venice Classic 연결 실패');
     clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
   }
 }
@@ -6124,20 +6398,176 @@ async function init() {
     }, 2000); // 앱 로드 2초 후 시작
   }
 
-  // 스플래시가 표시 중이면 채널 진입을 지연 (스플래시 닫힌 후 실행)
-  // 공유 링크로 접속 시 스플래시 스킵 → 바로 재생
-  if ($('anniversarySplash') && isSharedLink) {
-    $('anniversarySplash').remove();
-  } else if ($('anniversarySplash')) {
-    await new Promise(resolve => {
-      const observer = new MutationObserver(() => {
-        if (!$('anniversarySplash')) { observer.disconnect(); resolve(); }
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-    });
+  // V2 스플래시 OFF (2027 창립일까지) → 즉시 제거
+  const splashEl = $('anniversarySplash');
+  if (splashEl) splashEl.remove();
+
+  // V2 라우팅: 공유링크/재방문자 → LP 직행, 첫 사용자 → 튜너 홈
+  const isFirstVisit = !isSharedLink && lastChannel === 0; // 마지막 채널 기록 없음
+  if (isFirstVisit) {
+    // 튜너 홈을 먼저 보여줌. 채널 데이터만 준비하고 재생은 안 함.
+    tunerSelectedIdx = focusedIndex >= 0 ? focusedIndex : 0;
+    tunerOpen();
+    // 채널 테마 미리 적용 (LP 화면 백그라운드)
+    applyChannelTheme(activeChannels[focusedIndex].num);
+  } else {
+    // 재방문자 또는 공유 링크 → LP 직행
+    await enterChannel(activeChannels[focusedIndex].num);
   }
-  await enterChannel(activeChannels[focusedIndex].num);
 }
+
+// ─── V2 Tuner Home ───────────────────────────────────────────
+let tunerSelectedIdx = 0;
+let tunerSliderDebounce = null;
+let tunerHomeOpen = false;
+
+function tunerOpen() {
+  // 현재 재생 채널을 슬라이더에 동기화
+  const curIdx = activeChannels.findIndex(c => c.num === currentChannel);
+  if (curIdx >= 0) tunerSelectedIdx = curIdx;
+  $('tunerHome').classList.add('open');
+  tunerHomeOpen = true;
+  renderTunerChannels();
+  renderTunerSlider();
+  updateTunerPlayBtn();
+  // 진공관 발광 상태 동기화
+  $('tunerTubeSection').classList.toggle('playing', isPlaying);
+  // 헤더 연도 동기화
+  const yEl = $('tunerHomeAnnivYear');
+  if (yEl) yEl.textContent = (typeof YEBOM_YEARS !== 'undefined' ? YEBOM_YEARS : 40);
+}
+function tunerClose() {
+  $('tunerHome').classList.remove('open');
+  tunerHomeOpen = false;
+}
+function renderTunerChannels() {
+  const wrap = $('tunerChannels');
+  // section label 유지하고 채널 항목만 다시 그림
+  const label = wrap.querySelector('.tuner-section-label');
+  wrap.innerHTML = '';
+  if (label) wrap.appendChild(label);
+  activeChannels.forEach((ch, idx) => {
+    const item = document.createElement('div');
+    item.className = 'tuner-ch-item';
+    if (idx === tunerSelectedIdx) item.classList.add('selected');
+    if (isPlaying && currentChannel === ch.num) item.classList.add('playing');
+    item.style.setProperty('--ch-col', ch.accent);
+    const dn = ch.displayCh ? ('ch ' + String(ch.displayCh).padStart(2, ' ').trim()) : ('ch ' + ch.num);
+    item.innerHTML = `<span class="tuner-ch-freq">${dn}</span>
+      <span class="tuner-ch-dot"></span>
+      <span class="tuner-ch-name">${ch.name}</span>
+      <span class="tuner-ch-genre">${ch.genre || ''}</span>`;
+    item.addEventListener('click', () => {
+      tunerSelectedIdx = idx;
+      tunerClose();
+      focusedIndex = idx;
+      applyChannelTheme(ch.num);
+      enterChannel(ch.num);
+    });
+    wrap.appendChild(item);
+  });
+}
+function renderTunerSlider() {
+  const track = $('tunerSliderTrack');
+  const handle = $('tunerSliderHandle');
+  const marks = $('tunerSliderMarks');
+  if (!track || !handle || !marks) return;
+  marks.innerHTML = '';
+  activeChannels.forEach((ch, idx) => {
+    const m = document.createElement('span');
+    m.textContent = String(ch.displayCh || (idx + 1));
+    if (idx === tunerSelectedIdx) m.classList.add('active');
+    marks.appendChild(m);
+  });
+  // 핸들 위치
+  const trackH = track.clientHeight;
+  const handleH = handle.offsetHeight || 24;
+  const ratio = activeChannels.length > 1 ? tunerSelectedIdx / (activeChannels.length - 1) : 0;
+  const top = Math.round(ratio * (trackH - handleH));
+  handle.style.top = top + 'px';
+}
+function updateTunerPlayBtn() {
+  const btn = $('tunerPlayBtn');
+  if (!btn) return;
+  if (isPlaying) {
+    btn.innerHTML = '■<span class="tuner-play-btn-label">ON AIR</span>';
+    btn.classList.add('playing');
+  } else {
+    btn.innerHTML = '▶<span class="tuner-play-btn-label">PLAY</span>';
+    btn.classList.remove('playing');
+  }
+}
+// 슬라이더 드래그
+(function initTunerSliderDrag() {
+  const handle = () => $('tunerSliderHandle');
+  const track = () => $('tunerSliderTrack');
+  let dragging = false;
+  function onMove(clientY) {
+    const t = track(); if (!t) return;
+    const rect = t.getBoundingClientRect();
+    const h = handle().offsetHeight || 24;
+    let y = clientY - rect.top - h / 2;
+    y = Math.max(0, Math.min(rect.height - h, y));
+    const ratio = (rect.height - h) > 0 ? y / (rect.height - h) : 0;
+    const newIdx = Math.round(ratio * (activeChannels.length - 1));
+    if (newIdx !== tunerSelectedIdx) {
+      tunerSelectedIdx = newIdx;
+      renderTunerChannels();
+    }
+    handle().style.top = y + 'px';
+    // 재생 중이면 200ms 디바운스 후 자동 채널 전환
+    if (isPlaying) {
+      clearTimeout(tunerSliderDebounce);
+      tunerSliderDebounce = setTimeout(() => {
+        const ch = activeChannels[tunerSelectedIdx];
+        if (ch && ch.num !== currentChannel) {
+          focusedIndex = tunerSelectedIdx;
+          applyChannelTheme(ch.num);
+          enterChannel(ch.num);
+        }
+      }, 200);
+    }
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const h = handle();
+    if (!h) return;
+    h.addEventListener('mousedown', e => { dragging = true; e.preventDefault(); });
+    document.addEventListener('mousemove', e => { if (dragging) onMove(e.clientY); });
+    document.addEventListener('mouseup', () => { dragging = false; });
+    h.addEventListener('touchstart', e => { dragging = true; e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchmove', e => { if (dragging && e.touches[0]) onMove(e.touches[0].clientY); }, { passive: true });
+    document.addEventListener('touchend', () => { dragging = false; });
+    // 트랙 클릭 시 점프
+    const tr = track();
+    if (tr) tr.addEventListener('click', e => {
+      if (e.target === h) return;
+      onMove(e.clientY);
+    });
+  });
+})();
+
+// Play 버튼: 정지 중 → 슬라이더 채널 재생 시작 + LP 화면, 재생 중 → 정지
+document.addEventListener('DOMContentLoaded', () => {
+  const pb = $('tunerPlayBtn');
+  if (pb) pb.addEventListener('click', () => {
+    if (isPlaying) {
+      handlePlayPause();
+      updateTunerPlayBtn();
+      $('tunerTubeSection').classList.remove('playing');
+    } else {
+      const ch = activeChannels[tunerSelectedIdx];
+      if (ch) {
+        tunerClose();
+        focusedIndex = tunerSelectedIdx;
+        applyChannelTheme(ch.num);
+        enterChannel(ch.num);
+      }
+    }
+  });
+  // YEBOM Tuner 버튼 (LP → 홈)
+  const ytBtn = $('yebomTunerBtn');
+  if (ytBtn) ytBtn.addEventListener('click', tunerOpen);
+});
 
 window.addEventListener('DOMContentLoaded', init);
 </script>

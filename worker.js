@@ -405,6 +405,21 @@ export default {
         return json(data, cors);
       }
 
+      // ── V2 신규 채널 Now Playing ──
+      if (path === '/api/np/abiding' && method === 'GET') {
+        const ch = url.searchParams.get('ch') === 'sacred' ? 'sacred' : 'instrumental';
+        const data = await getAbidingNowPlaying(ch);
+        return json(data, cors);
+      }
+      if (path === '/api/np/venice' && method === 'GET') {
+        const data = await getVeniceNowPlaying();
+        return json(data, cors);
+      }
+      if (path === '/api/np/joy4u' && method === 'GET') {
+        const data = await getJoy4uNowPlaying();
+        return json(data, cors);
+      }
+
       // ── HLS 프록시 (CORS 우회) ─────────────────────────────────
       if (path === '/api/hls-proxy' && method === 'GET') {
         const target = url.searchParams.get('url');
@@ -413,7 +428,8 @@ export default {
         let parsed;
         try { parsed = new URL(target); } catch { return new Response('Invalid url', { status: 400, headers: cors }); }
 
-        const allowed = ['gscdn.kbs.co.kr', 'kbs.co.kr', 'febc.net', 'mlive2.febc.net', 'stream.srg-ssr.ch'];
+        const allowed = ['gscdn.kbs.co.kr', 'kbs.co.kr', 'febc.net', 'mlive2.febc.net', 'stream.srg-ssr.ch',
+          'aac.cbs.co.kr', 'm-aac.cbs.co.kr', 'abidingradio.org', 'abidingradio.com', 'streamingpulse.com'];
         if (!allowed.some(d => parsed.hostname.endsWith(d))) {
           return new Response('Domain not allowed', { status: 403, headers: cors });
         }
@@ -969,6 +985,92 @@ async function getRscNowPlaying() {
   } catch {
     return { title: null, composer: null, coverUrl: null };
   }
+}
+
+// ── V2 신규 채널 Now Playing ────────────────────────────────────
+// Abiding Radio (AzuraCast API)
+let abidingCache = { sacred: { data: null, ts: 0 }, instrumental: { data: null, ts: 0 } };
+async function getAbidingNowPlaying(ch /* 'sacred' | 'instrumental' */) {
+  const cache = abidingCache[ch];
+  if (cache.data && Date.now() - cache.ts < 15000) return cache.data;
+  try {
+    const station = ch === 'sacred' ? 'abiding_radio_-_sacred' : 'abiding_radio_-_instrumental';
+    const res = await fetch(`https://streams.abidingradio.com/api/nowplaying/${station}`, {
+      headers: { 'User-Agent': 'YebomRadio/2.0' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const np = data.now_playing?.song || {};
+    const result = {
+      title: np.title || '',
+      artist: np.artist || '',
+      art: np.art || '',
+      elapsed: data.now_playing?.elapsed || 0,
+      duration: data.now_playing?.duration || 0,
+    };
+    cache.data = result; cache.ts = Date.now();
+    return result;
+  } catch {
+    return { title: '', artist: '', art: '', elapsed: 0, duration: 0 };
+  }
+}
+
+// Venice Classic Radio (Icecast ICY 메타데이터)
+let veniceCache = { data: null, ts: 0 };
+async function getVeniceNowPlaying() {
+  if (veniceCache.data && Date.now() - veniceCache.ts < 30000) return veniceCache.data;
+  try {
+    const res = await fetch('https://uk2.streamingpulse.com/ssl/vcr2', {
+      headers: { 'Icy-MetaData': '1', 'User-Agent': 'YebomRadio/2.0' },
+      signal: AbortSignal.timeout(8000),
+    });
+    const metaInt = parseInt(res.headers.get('icy-metaint'));
+    if (!metaInt || !res.body) throw new Error('no metaint');
+    const reader = res.body.getReader();
+    let received = 0, metaBlock = null;
+    // 첫 메타 블록까지 읽기
+    while (received < metaInt + 4096) {
+      const { value, done } = await reader.read();
+      if (done || !value) break;
+      received += value.length;
+      if (received >= metaInt) {
+        // 메타 블록 위치 = metaInt 직후
+        const offset = value.length - (received - metaInt);
+        if (offset < value.length) {
+          const lenByte = value[offset];
+          const metaLen = lenByte * 16;
+          if (metaLen > 0 && offset + 1 + metaLen <= value.length) {
+            metaBlock = new TextDecoder('utf-8').decode(value.slice(offset + 1, offset + 1 + metaLen));
+            break;
+          }
+        }
+      }
+    }
+    reader.cancel();
+    if (!metaBlock) throw new Error('no meta');
+    const m = metaBlock.match(/StreamTitle='([^']*)'/);
+    const raw = m ? m[1] : '';
+    // "Composer - Title" 형태 분리
+    const parts = raw.split(' - ');
+    const result = parts.length >= 2
+      ? { composer: parts[0].trim(), title: parts.slice(1).join(' - ').trim() }
+      : { composer: '', title: raw };
+    veniceCache.data = result; veniceCache.ts = Date.now();
+    return result;
+  } catch {
+    return { composer: '', title: '' };
+  }
+}
+
+// CBS JOY4U (HTML 파싱 fallback)
+let joy4uCache = { data: null, ts: 0 };
+async function getJoy4uNowPlaying() {
+  if (joy4uCache.data && Date.now() - joy4uCache.ts < 60000) return joy4uCache.data;
+  // 공식 API가 없으므로 현재는 고정 라벨 반환 (향후 HTML 스크래핑 추가 가능)
+  const result = { title: '', programTitle: 'CBS JOY4U' };
+  joy4uCache.data = result; joy4uCache.ts = Date.now();
+  return result;
 }
 
 // ── 곡명 인식 (ACRCloud) ────────────────────────────────────────
