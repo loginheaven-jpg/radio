@@ -416,7 +416,7 @@ export default {
         return json(data, cors);
       }
       if (path === '/api/np/joy4u' && method === 'GET') {
-        const data = await getJoy4uNowPlaying();
+        const data = await getJoy4uNowPlaying(env);
         return json(data, cors);
       }
 
@@ -1016,46 +1016,42 @@ async function getAbidingNowPlaying(ch /* 'sacred' | 'instrumental' */) {
   }
 }
 
-// Venice Classic Radio (Icecast ICY 메타데이터)
+// Venice Classic Radio (공식 사이트 HTML 스크래핑)
 let veniceCache = { data: null, ts: 0 };
 async function getVeniceNowPlaying() {
   if (veniceCache.data && Date.now() - veniceCache.ts < 30000) return veniceCache.data;
   try {
-    const res = await fetch('https://uk2.streamingpulse.com/ssl/vcr2', {
-      headers: { 'Icy-MetaData': '1', 'User-Agent': 'YebomRadio/2.0' },
+    const res = await fetch('https://www.veniceclassicradio.eu/en/index.php', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
       signal: AbortSignal.timeout(8000),
     });
-    const metaInt = parseInt(res.headers.get('icy-metaint'));
-    if (!metaInt || !res.body) throw new Error('no metaint');
-    const reader = res.body.getReader();
-    let received = 0, metaBlock = null;
-    // 첫 메타 블록까지 읽기
-    while (received < metaInt + 4096) {
-      const { value, done } = await reader.read();
-      if (done || !value) break;
-      received += value.length;
-      if (received >= metaInt) {
-        // 메타 블록 위치 = metaInt 직후
-        const offset = value.length - (received - metaInt);
-        if (offset < value.length) {
-          const lenByte = value[offset];
-          const metaLen = lenByte * 16;
-          if (metaLen > 0 && offset + 1 + metaLen <= value.length) {
-            metaBlock = new TextDecoder('utf-8').decode(value.slice(offset + 1, offset + 1 + metaLen));
-            break;
-          }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const html = await res.text();
+    // VCR Auditorium 채널 (첫 번째 트랙)
+    // 패턴 1: "Latest tracks" 다음 첫 트랙
+    // 패턴 2: <div class="track-title"> 또는 유사 셀렉터
+    // 가장 신뢰할 만한 방식: title|composer가 함께 등장하는 라인
+    // "곡명 | 작곡가 (생몰) | 연주자" 형태
+    let title = '', composer = '';
+    // 패턴 매칭: 최초로 ' | '가 2개 이상 있는 라인을 찾음 (Auditorium 첫 곡)
+    const lines = html.split(/\n+/).map(l => l.replace(/<[^>]+>/g, '').trim()).filter(Boolean);
+    for (const line of lines) {
+      const parts = line.split(' | ');
+      if (parts.length >= 2 && parts[0].length > 5 && parts[0].length < 200) {
+        // 첫 파트가 곡명, 두 번째가 작곡가일 가능성
+        const composerCandidate = parts[1].replace(/\s*\([^)]*\)\s*$/, '').trim();
+        if (composerCandidate.length < 80) {
+          title = parts[0].trim();
+          composer = composerCandidate;
+          break;
         }
       }
     }
-    reader.cancel();
-    if (!metaBlock) throw new Error('no meta');
-    const m = metaBlock.match(/StreamTitle='([^']*)'/);
-    const raw = m ? m[1] : '';
-    // "Composer - Title" 형태 분리
-    const parts = raw.split(' - ');
-    const result = parts.length >= 2
-      ? { composer: parts[0].trim(), title: parts.slice(1).join(' - ').trim() }
-      : { composer: '', title: raw };
+    const result = { composer, title };
     veniceCache.data = result; veniceCache.ts = Date.now();
     return result;
   } catch {
@@ -1063,22 +1059,42 @@ async function getVeniceNowPlaying() {
   }
 }
 
-// CBS JOY4U (HTML 파싱 fallback)
+// CBS JOY4U (ACRCloud 인식)
 let joy4uCache = { data: null, ts: 0 };
-async function getJoy4uNowPlaying() {
+async function getJoy4uNowPlaying(env) {
   if (joy4uCache.data && Date.now() - joy4uCache.ts < 60000) return joy4uCache.data;
-  // 공식 API가 없으므로 현재는 고정 라벨 반환 (향후 HTML 스크래핑 추가 가능)
-  const result = { title: '', programTitle: 'CBS JOY4U' };
-  joy4uCache.data = result; joy4uCache.ts = Date.now();
-  return result;
+  try {
+    const m3u8Url = 'https://aac.cbs.co.kr/cbscmc/_definst_/cbscmc_96k.stream/playlist.m3u8';
+    const ua = { 'User-Agent': 'Mozilla/5.0 (compatible; YebomRadio/2.0)' };
+    const segUrls = await resolveSegmentUrls(m3u8Url, ua, 3);
+    if (!segUrls || segUrls.length === 0) throw new Error('no segments');
+    const buffers = [];
+    for (const sUrl of segUrls) {
+      const segRes = await fetch(sUrl, { headers: ua });
+      if (segRes.ok) buffers.push(await segRes.arrayBuffer());
+    }
+    const totalSize = buffers.reduce((s, b) => s + b.byteLength, 0);
+    if (totalSize < 1000) throw new Error('too short');
+    const merged = new Uint8Array(totalSize);
+    let offset = 0;
+    for (const buf of buffers) { merged.set(new Uint8Array(buf), offset); offset += buf.byteLength; }
+    const acr = await callACRCloud(env, merged.buffer);
+    const result = acr.found
+      ? { title: acr.title || '', artist: acr.artist || '', programTitle: 'CBS JOY4U' }
+      : { title: '', programTitle: 'CBS JOY4U' };
+    joy4uCache.data = result; joy4uCache.ts = Date.now();
+    return result;
+  } catch {
+    return { title: '', programTitle: 'CBS JOY4U' };
+  }
 }
 
 // ── 곡명 인식 (ACRCloud) ────────────────────────────────────────
 async function handleIdentify(request, env, cors) {
   try {
     const { channel } = await request.json();
-    if (channel !== 1 && channel !== 2) {
-      return json({ error: '라이브 채널(1, 2)만 지원합니다' }, cors, 400);
+    if (channel !== 1 && channel !== 2 && channel !== 8) {
+      return json({ error: '라이브 채널(KBS/극동/JOY4U)만 지원합니다' }, cors, 400);
     }
 
     // 1) m3u8 URL 결정
@@ -1086,8 +1102,10 @@ async function handleIdentify(request, env, cors) {
     if (channel === 1) {
       try { m3u8Url = (await getKbsInfo()).streamUrl; } catch {}
       if (!m3u8Url) m3u8Url = 'https://1fm.gscdn.kbs.co.kr/1fm_192_2.m3u8';
-    } else {
+    } else if (channel === 2) {
       m3u8Url = 'https://mlive2.febc.net/live/seoulfm/playlist.m3u8';
+    } else if (channel === 8) {
+      m3u8Url = 'https://aac.cbs.co.kr/cbscmc/_definst_/cbscmc_96k.stream/playlist.m3u8';
     }
 
     // 2) m3u8 fetch + 세그먼트 URL 추출 (마지막 3개, ~12초)

@@ -579,52 +579,52 @@ body{
 @keyframes swipeR{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
 @keyframes swipeHintFade{0%{opacity:0}15%{opacity:1}70%{opacity:1}100%{opacity:0}}
 /* ── V2 Tuner Home ── */
-.tuner-home{position:fixed;inset:0;display:flex;flex-direction:column;background:linear-gradient(180deg,#1a150e 0%,#13100a 60%,#0e0b07 100%);color:#e0d0c0;font-family:'Pretendard Variable',sans-serif;z-index:50;overflow-y:auto;display:none}
+.tuner-home{position:fixed;inset:0;flex-direction:column;background:linear-gradient(180deg,#1a150e 0%,#13100a 55%,#0a0805 100%);color:#e0d0c0;font-family:'Pretendard Variable',sans-serif;z-index:50;overflow-y:auto;display:none}
 .tuner-home.open{display:flex}
-.tuner-header{padding:18px 22px 12px;display:flex;justify-content:space-between;align-items:flex-start}
-.tuner-header-left .th-sub{font-size:10px;color:#706050;letter-spacing:1.2px}
-.tuner-header-left .th-main{font-size:22px;color:#D4A055;font-weight:700;letter-spacing:1.5px;margin-top:2px;font-family:'Space Grotesk',serif}
-.tuner-header-left .th-est{font-size:9px;color:#5a4525;letter-spacing:2px;margin-top:3px;font-family:'Space Grotesk',monospace}
-.tuner-header-right{text-align:right;position:relative}
-.tuner-header-right .th-anniv{font-size:26px;font-weight:700;color:#f0c060;font-family:'Space Grotesk',sans-serif;letter-spacing:0.5px;line-height:1;text-shadow:0 0 12px rgba(240,192,96,0.35)}
-.tuner-header-right .th-anniv-sub{font-size:9px;color:#8B7345;margin-top:4px;letter-spacing:1px}
-.tuner-body{flex:1;display:flex;padding:8px 18px 16px;gap:14px;min-height:0}
-.tuner-channels{flex:1;display:flex;flex-direction:column;gap:4px;overflow-y:auto;padding:6px 0}
-.tuner-section-label{font-size:9px;color:#504030;letter-spacing:2px;margin-bottom:6px;padding-left:6px}
-.tuner-ch-item{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-radius:6px;border:1px solid transparent;transition:all 0.25s;-webkit-tap-highlight-color:transparent}
-.tuner-ch-item:hover{background:rgba(255,255,255,0.03)}
-.tuner-ch-freq{font-size:10px;color:#504030;font-family:'Space Grotesk',monospace;letter-spacing:0.5px;min-width:32px}
-.tuner-ch-dot{width:5px;height:5px;border-radius:50%;background:var(--ch-col);box-shadow:0 0 4px var(--ch-col);transition:all 0.25s;flex-shrink:0}
-.tuner-ch-name{font-size:14px;color:#908070;flex:1;font-weight:400;transition:all 0.25s}
-.tuner-ch-genre{font-size:9px;color:#3D3225;letter-spacing:0.5px;padding:2px 6px;border:1px solid #2D2218;border-radius:3px;flex-shrink:0}
-.tuner-ch-item.selected{border-color:color-mix(in srgb,var(--ch-col) 35%,transparent);background:linear-gradient(90deg,color-mix(in srgb,var(--ch-col) 10%,transparent),transparent);padding:12px 12px;box-shadow:0 0 12px color-mix(in srgb,var(--ch-col) 12%,transparent)}
-.tuner-ch-item.selected .tuner-ch-freq{color:var(--ch-col);font-weight:600}
-.tuner-ch-item.selected .tuner-ch-dot{width:8px;height:8px}
-.tuner-ch-item.selected .tuner-ch-name{font-size:17px;color:#F0E6D2;font-weight:700;text-shadow:0 0 12px color-mix(in srgb,var(--ch-col) 45%,transparent)}
-.tuner-ch-item.playing::after{content:'';display:inline-block;width:10px;height:10px;background:linear-gradient(to top,var(--ch-col) 30%,transparent 30%) 0 0/3px 100%,linear-gradient(to top,var(--ch-col) 60%,transparent 60%) 4px 0/3px 100%,linear-gradient(to top,var(--ch-col) 45%,transparent 45%) 8px 0/3px 100%;background-repeat:no-repeat;animation:eq 0.8s ease-in-out infinite alternate}
-@keyframes eq{from{filter:brightness(0.7)}to{filter:brightness(1.2)}}
-.tuner-slider-panel{width:128px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:6px;position:relative}
-.tuner-bcast-label{font-size:9px;color:#504030;text-align:center;letter-spacing:1.5px;margin-bottom:10px;padding:4px 8px;border:1px solid #3D3225;border-radius:2px;background:#1A150E}
-.tuner-bcast-label .small{font-size:7px;display:block;color:#3D3225;margin-top:2px}
-.tuner-slider-track{position:relative;width:50px;height:280px;background:linear-gradient(180deg,#0a0805 0%,#161108 50%,#0a0805 100%);border-radius:6px;box-shadow:inset 0 0 8px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.05);margin-bottom:18px}
-.tuner-slider-marks{position:absolute;right:-22px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:space-between;padding:6px 0;font-size:8px;color:#3D3225;font-family:'Space Grotesk',monospace}
-.tuner-slider-marks span{line-height:1;transition:color 0.2s}
-.tuner-slider-marks span.active{color:#D4A055;font-weight:700}
-.tuner-slider-handle{position:absolute;left:6px;right:6px;height:24px;background:linear-gradient(180deg,#C4A872 0%,#A08855 15%,#8B7345 30%,#A08855 50%,#8B7345 70%,#A08855 85%,#C4A872 100%);border:1px solid #D4B882;border-radius:3px;box-shadow:2px 3px 8px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.25);cursor:grab;transition:none;touch-action:none}
+.tuner-header{padding:18px 20px 14px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid rgba(212,160,85,0.08)}
+.tuner-header-left .th-sub{font-size:10px;color:#706050;letter-spacing:1.5px}
+.tuner-header-left .th-main{font-size:24px;color:#D4A055;font-weight:700;letter-spacing:2px;margin-top:1px;font-family:'Space Grotesk',serif;text-shadow:0 0 10px rgba(212,160,85,0.2)}
+.tuner-header-left .th-est{font-size:9px;color:#5a4525;letter-spacing:2.5px;margin-top:4px;font-family:'Space Grotesk',monospace}
+.tuner-header-right{text-align:right;position:relative;display:flex;flex-direction:column;align-items:flex-end}
+.tuner-header-right .th-anniv-sub{font-size:9px;color:#a08555;margin-bottom:3px;letter-spacing:1.2px;font-weight:500}
+.tuner-header-right .th-anniv{display:flex;align-items:baseline;line-height:1;gap:0}
+.th-anniv-yebom{font-size:12px;color:#a08555;font-weight:700;letter-spacing:1.5px;align-self:flex-end;margin-bottom:5px}
+.th-anniv-years{font-size:42px;color:#f0c060;font-weight:800;font-family:'Space Grotesk',sans-serif;letter-spacing:-1px;text-shadow:0 0 16px rgba(240,192,96,0.4),0 0 30px rgba(240,192,96,0.15);line-height:0.9;margin-left:3px}
+.th-anniv-tick{font-size:24px;color:#f0c060;font-weight:600;align-self:flex-end;margin-bottom:8px;margin-left:1px}
+.tuner-body{flex:1;display:flex;padding:14px 20px 18px;gap:14px;min-height:0}
+.tuner-channels{flex:1;display:flex;flex-direction:column;gap:5px;overflow-y:auto;padding:6px 0;min-width:0}
+.tuner-section-label{font-size:9px;color:#504030;letter-spacing:2.5px;margin-bottom:8px;padding-left:6px;font-family:'Space Grotesk',monospace}
+.tuner-ch-item{display:flex;align-items:center;gap:11px;padding:9px 12px;cursor:pointer;border-radius:7px;border:1px solid transparent;transition:all 0.25s;-webkit-tap-highlight-color:transparent;white-space:nowrap;min-width:0}
+.tuner-ch-item:hover{background:rgba(255,255,255,0.025)}
+.tuner-ch-freq{font-size:12px;color:#605040;font-family:'Space Grotesk',monospace;letter-spacing:0.3px;flex-shrink:0;font-weight:500}
+.tuner-ch-dot{width:6px;height:6px;border-radius:50%;background:var(--ch-col);box-shadow:0 0 5px var(--ch-col);transition:all 0.25s;flex-shrink:0}
+.tuner-ch-name{font-size:17px;color:#a89888;flex:1;font-weight:500;transition:all 0.25s;overflow:hidden;text-overflow:ellipsis}
+.tuner-ch-genre{font-size:10px;color:#9d8060;letter-spacing:0.6px;padding:3px 8px;border:1px solid rgba(157,128,96,0.35);border-radius:10px;flex-shrink:0;background:rgba(157,128,96,0.06);font-weight:500}
+.tuner-ch-item.selected{border-color:color-mix(in srgb,var(--ch-col) 40%,transparent);background:linear-gradient(90deg,color-mix(in srgb,var(--ch-col) 12%,transparent),transparent 70%);padding:13px 14px;box-shadow:0 0 14px color-mix(in srgb,var(--ch-col) 14%,transparent)}
+.tuner-ch-item.selected .tuner-ch-freq{color:var(--ch-col);font-weight:700;font-size:13px}
+.tuner-ch-item.selected .tuner-ch-dot{width:9px;height:9px}
+.tuner-ch-item.selected .tuner-ch-name{font-size:21px;color:#F4EAD4;font-weight:700;text-shadow:0 0 16px color-mix(in srgb,var(--ch-col) 55%,transparent);letter-spacing:-0.2px}
+.tuner-ch-item.selected .tuner-ch-genre{border-color:color-mix(in srgb,var(--ch-col) 50%,transparent);background:color-mix(in srgb,var(--ch-col) 12%,transparent);color:color-mix(in srgb,var(--ch-col) 90%,#fff)}
+.tuner-ch-item.playing::after{content:'';display:inline-block;width:12px;height:12px;background:linear-gradient(to top,var(--ch-col) 30%,transparent 30%) 0 0/3px 100%,linear-gradient(to top,var(--ch-col) 70%,transparent 70%) 5px 0/3px 100%,linear-gradient(to top,var(--ch-col) 50%,transparent 50%) 10px 0/3px 100%;background-repeat:no-repeat;animation:eq 0.8s ease-in-out infinite alternate;flex-shrink:0}
+@keyframes eq{from{filter:brightness(0.7)}to{filter:brightness(1.3)}}
+.tuner-slider-panel{width:108px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:4px;padding-right:6px;position:relative}
+.tuner-bcast-label{font-size:9px;color:#605040;text-align:center;letter-spacing:1.5px;margin-bottom:12px;padding:5px 10px;border:1px solid #4d3d2a;border-radius:3px;background:linear-gradient(180deg,#241d10,#1a150c);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);font-family:'Space Grotesk',monospace;font-weight:600}
+.tuner-bcast-label .small{font-size:7px;display:block;color:#4d3d2a;margin-top:2px;letter-spacing:1.5px}
+.tuner-slider-track{position:relative;width:64px;height:300px;background:linear-gradient(180deg,#0a0805 0%,#181208 50%,#0a0805 100%);border-radius:8px;box-shadow:inset 0 0 10px rgba(0,0,0,0.8),inset 0 1px 0 rgba(255,255,255,0.06),0 2px 4px rgba(0,0,0,0.4);margin-bottom:22px;border:1px solid #1a1208}
+.tuner-slider-marks{position:absolute;right:-24px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:space-between;padding:8px 0;font-size:9px;color:#504030;font-family:'Space Grotesk',monospace;font-weight:600}
+.tuner-slider-marks span{line-height:1;transition:all 0.2s}
+.tuner-slider-marks span.active{color:#f0c060;font-weight:700;text-shadow:0 0 6px rgba(240,192,96,0.4)}
+.tuner-slider-handle{position:absolute;left:6px;right:6px;height:28px;background:linear-gradient(180deg,#D4B882 0%,#A08855 15%,#8B7345 30%,#A08855 50%,#8B7345 70%,#A08855 85%,#D4B882 100%);border:1px solid #E4C892;border-radius:4px;box-shadow:2px 4px 10px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.35),inset 0 -1px 0 rgba(0,0,0,0.3);cursor:grab;transition:none;touch-action:none}
 .tuner-slider-handle:active{cursor:grabbing}
-.tuner-slider-handle::before{content:'';position:absolute;inset:6px 8px;background:repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(60,40,20,0.4) 2px,rgba(60,40,20,0.4) 3px);border-radius:2px;pointer-events:none}
-.tuner-play-btn{width:60px;height:60px;border-radius:50%;background:linear-gradient(140deg,#C4A872,#8B7345);border:2px solid #D4B882;color:#1A150E;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.3);position:relative;transition:transform 0.1s,filter 0.2s}
-.tuner-play-btn:active{transform:scale(0.95)}
-.tuner-play-btn.playing{filter:brightness(1.15)}
-.tuner-play-btn-label{position:absolute;top:64px;left:50%;transform:translateX(-50%);font-size:8px;color:#8B7345;letter-spacing:2px;font-family:'Space Grotesk',monospace;white-space:nowrap}
-.tuner-play-btn.playing .tuner-play-btn-label{color:#e89060}
-.tuner-tube-section{padding:14px 22px 20px;text-align:center;background:linear-gradient(180deg,transparent,#0a0805);position:relative}
-.tuner-tube-label{font-size:8px;color:#3D3225;letter-spacing:3px;font-family:'Space Grotesk',monospace;margin-bottom:8px}
-.tuner-tube-row{display:flex;justify-content:center;align-items:flex-end;gap:18px;height:50px}
-.tuner-tube{width:14px;height:38px;background:radial-gradient(ellipse at 50% 30%,#3d3018 0%,#1a1208 70%);border-radius:6px 6px 3px 3px;position:relative;box-shadow:0 0 0 1px #2a2014,inset 0 4px 6px rgba(0,0,0,0.5);transition:all 0.6s}
-.tuner-tube::after{content:'';position:absolute;inset:2px 1px;border-radius:5px 5px 2px 2px;background:radial-gradient(ellipse at 50% 25%,rgba(255,180,80,0) 0%,transparent 70%);transition:background 0.6s}
-.tuner-tube-section.playing .tuner-tube::after{background:radial-gradient(ellipse at 50% 25%,rgba(255,180,80,0.4) 0%,rgba(232,144,60,0.15) 50%,transparent 80%)}
-.tuner-tube-section.playing .tuner-tube{box-shadow:0 0 0 1px #2a2014,inset 0 4px 6px rgba(0,0,0,0.5),0 0 12px rgba(232,144,60,0.18)}
+.tuner-slider-handle::before{content:'';position:absolute;inset:7px 9px;background:repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(60,40,20,0.45) 2px,rgba(60,40,20,0.45) 3px);border-radius:2px;pointer-events:none}
+.tuner-play-btn{width:66px;height:66px;border-radius:50%;background:linear-gradient(140deg,#D4B882,#8B7345 70%,#6a5530);border:2px solid #E4C892;color:#1A150E;font-size:20px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 14px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.35),inset 0 -2px 0 rgba(0,0,0,0.25);position:relative;transition:transform 0.1s,filter 0.3s}
+.tuner-play-btn:active{transform:scale(0.94)}
+.tuner-play-btn.playing{filter:brightness(1.18) drop-shadow(0 0 8px rgba(232,144,60,0.4))}
+.tuner-play-btn-label{position:absolute;top:72px;left:50%;transform:translateX(-50%);font-size:9px;color:#a08555;letter-spacing:2.5px;font-family:'Space Grotesk',monospace;white-space:nowrap;font-weight:700}
+.tuner-play-btn.playing .tuner-play-btn-label{color:#f0a060;text-shadow:0 0 6px rgba(240,160,96,0.4)}
+.tuner-tube-section{height:128px;background-color:#0a0705;background-image:url('/tube-glow.png');background-size:contain;background-position:center bottom;background-repeat:no-repeat;position:relative;filter:brightness(0.42) saturate(0.7);transition:filter 0.6s;margin-top:auto}
+.tuner-tube-section.playing{filter:brightness(1) saturate(1.1) drop-shadow(0 -8px 18px rgba(232,144,60,0.18))}
+.tuner-tube-section.playing::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 85%,rgba(255,144,64,0.08) 0%,transparent 60%);pointer-events:none}
 /* LP 화면 우상단 YEBOM Tuner 버튼 */
 .yebom-tuner-btn{display:flex;flex-direction:column;align-items:center;background:linear-gradient(180deg,#2A2218,#1E1A12);border:1px solid #3D3225;border-radius:6px;padding:4px 10px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .yebom-tuner-btn:active{transform:scale(0.96)}
@@ -748,8 +748,8 @@ body{
       <div class="th-est">EST. 1986 · INTERNET BAND</div>
     </div>
     <div class="tuner-header-right">
-      <div class="th-anniv">예봄 <span id="tunerHomeAnnivYear">40</span>'</div>
       <div class="th-anniv-sub">하나님의 은혜로</div>
+      <div class="th-anniv"><span class="th-anniv-yebom">예봄</span><span class="th-anniv-years" id="tunerHomeAnnivYear">40</span><span class="th-anniv-tick">'</span></div>
     </div>
   </div>
   <div class="tuner-body">
@@ -765,15 +765,7 @@ body{
       <button class="tuner-play-btn" id="tunerPlayBtn" aria-label="재생">▶<span class="tuner-play-btn-label" id="tunerPlayLabel">PLAY</span></button>
     </div>
   </div>
-  <div class="tuner-tube-section" id="tunerTubeSection">
-    <div class="tuner-tube-label">VACUUM TUBE AMPLIFIER</div>
-    <div class="tuner-tube-row">
-      <div class="tuner-tube"></div>
-      <div class="tuner-tube"></div>
-      <div class="tuner-tube"></div>
-      <div class="tuner-tube"></div>
-    </div>
-  </div>
+  <div class="tuner-tube-section" id="tunerTubeSection"></div>
 </div>
 
 <div id="app">
@@ -783,9 +775,9 @@ body{
       <span class="clock-hm" id="clockHM">00:00</span><span class="clock-ss" id="clockSS">00</span>
     </div>
     <div class="header-right">
-      <div class="header-logo" id="headerTitle">예봄 <span class="logo-40" id="logoYears"></span></div>
-      <div class="header-tagline">Yebom Radio 2.0</div>
-      <button class="yebom-tuner-btn" id="yebomTunerBtn" aria-label="튜너 홈" style="margin-top:6px">
+      <div class="header-logo" id="headerTitle" style="display:none">예봄 <span class="logo-40" id="logoYears"></span></div>
+      <div class="header-tagline" style="display:none">Yebom Radio 2.0</div>
+      <button class="yebom-tuner-btn" id="yebomTunerBtn" aria-label="튜너 홈">
         <span class="yt-sub">예봄라디오</span>
         <span class="yt-main">TUNER</span>
       </button>
@@ -1364,7 +1356,9 @@ const CHANNEL_ICONS = {
   rsc: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="6" y="6" width="16" height="16" rx="2" fill="${c}" opacity="0.18"/><line x1="14" y1="8" x2="14" y2="20" stroke="${c}" stroke-width="3" stroke-linecap="round"/><line x1="8" y1="14" x2="20" y2="14" stroke="${c}" stroke-width="3" stroke-linecap="round"/></svg>`,
   openroom: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="11" r="5" stroke="${c}" stroke-width="1.5" fill="none"/><path d="M9 11 Q14 17 19 11" stroke="${c}" stroke-width="1.2" fill="none" stroke-linecap="round"/><line x1="14" y1="16" x2="14" y2="22" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="22" x2="18" y2="22" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/><circle cx="14" cy="11" r="2" fill="${c}" opacity="0.4"/></svg>`,
   joy4u: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 22 C14 22 6 17 6 11 C6 7 9 5 11 6.5 C12.5 7.5 14 9.5 14 9.5 C14 9.5 15.5 7.5 17 6.5 C19 5 22 7 22 11 C22 17 14 22 14 22 Z" stroke="${c}" stroke-width="1.5" fill="${c}" fill-opacity="0.2" stroke-linejoin="round"/></svg>`,
-  abiding: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 4 L14 24 M9 10 L14 6 L19 10 M11 14 L14 12 L17 14" stroke="${c}" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="20" r="2" fill="${c}" opacity="0.3"/></svg>`,
+  abiding_hymn: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 4 L14 24 M9 10 L14 6 L19 10 M11 14 L14 12 L17 14" stroke="${c}" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="20" r="2" fill="${c}" opacity="0.3"/></svg>`,
+  // 바이올린 아이콘 (Abiding 기악용)
+  abiding_inst: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14.5 4.5 C14.5 3.7 13.9 3 13 3 C12.1 3 11.5 3.7 11.5 4.5 L11.5 8" stroke="${c}" stroke-width="1.3" fill="none" stroke-linecap="round"/><ellipse cx="13" cy="17.5" rx="5" ry="6.5" stroke="${c}" stroke-width="1.5" fill="${c}" fill-opacity="0.12"/><path d="M13 8 L13 24" stroke="${c}" stroke-width="0.6" opacity="0.7"/><path d="M11 13 Q13 12.5 15 13 M11 22 Q13 21.5 15 22" stroke="${c}" stroke-width="0.7" fill="none" opacity="0.6"/><circle cx="13" cy="14.5" r="0.6" fill="${c}"/><circle cx="13" cy="20.5" r="0.6" fill="${c}"/><path d="M19 6 L23 22" stroke="${c}" stroke-width="1" stroke-linecap="round" opacity="0.85"/></svg>`,
   venice: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M5 22 L23 22" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/><path d="M7 22 L7 12 M11 22 L11 10 M14 22 L14 8 M17 22 L17 10 M21 22 L21 12" stroke="${c}" stroke-width="1.2" stroke-linecap="round"/><path d="M6 8 Q14 4 22 8" stroke="${c}" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.6"/></svg>`,
 };
 
@@ -1625,9 +1619,8 @@ function applyChannelTheme(ch) {
   $('lampCanvas').style.display = isLamp ? '' : 'none';
   if (isLamp) { stopDiscRotation(); startLampAnim(); } else { stopLampAnim(); }
 
-  // abiding_hymn, abiding_inst → 공통 'abiding' 아이콘 사용
-  const iconKey = def.id.startsWith('abiding') ? 'abiding' : def.id;
-  discIcon.innerHTML = (CHANNEL_ICONS[iconKey] || CHANNEL_ICONS.rsc)(def.accent);
+  // abiding_hymn/inst, joy4u, venice 등 신규 채널 아이콘 매핑
+  discIcon.innerHTML = (CHANNEL_ICONS[def.id] || CHANNEL_ICONS.rsc)(def.accent);
   discFreq.textContent = def.freq ? (def.freq + (def.freqUnit ? ' ' + def.freqUnit : '')) : 'CH.' + def.num;
   discFreq.style.color = def.accentLight;
   discCenter.style.background = `linear-gradient(145deg, ${def.accent}35, ${def.accent}10)`;
@@ -3165,18 +3158,21 @@ async function loadJoy4u(gen) {
       if (gen !== enterChannelGen) return;
       await withRetry(() => playHls(JOY4U_URL_BACKUP, true), gen);
     }
-    // Now Playing 폴링 (60초 간격, Worker에서 HTML 파싱 시도)
-    joy4uRefreshTimer = setInterval(async () => {
+    // Now Playing 폴링 (ACRCloud, 90초 간격으로 비용 절감)
+    const fetchNp = async () => {
       if (currentChannel !== 8 || !isPlaying) return;
       try {
         const r = await fetch(WORKER_URL + '/api/np/joy4u');
         const d = await r.json();
         if (d.title) {
-          nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + d.title;
+          const text = (d.artist ? d.artist + ' — ' : '') + d.title;
+          nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + text;
           updateMediaSession();
         }
       } catch {}
-    }, 60000);
+    };
+    fetchNp();
+    joy4uRefreshTimer = setInterval(fetchNp, 90000);
   } catch (e) {
     nowPlayingEl.textContent = 'CBS JOY4U 연결 실패';
     showToast('CBS JOY4U 연결 실패');
