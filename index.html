@@ -2941,7 +2941,7 @@ async function enterChannel(channel) {
   btnFwd10.style.display = isPod ? '' : 'none';
   const canRecord = isLive;
   btnRecord.classList.toggle('visible', canRecord);
-  const canIdentify = channel === 1 || channel === 2;
+  const canIdentify = channel === 1 || channel === 2 || channel === 8;
   btnIdentify.classList.toggle('visible', canIdentify);
   btnAlbum.classList.toggle('visible', channel === 6);
   recordTimerRow.classList.remove('visible');
@@ -3141,38 +3141,20 @@ async function loadRsc(gen) {
   }
 }
 
-// ── CBS JOY4U (CH8) ──
-let joy4uRefreshTimer = null;
+// ── CBS JOY4U (CH8) ── 곡명은 KBS처럼 사용자가 곡 인식 버튼 누를 때만 ACRCloud 호출
 const JOY4U_URL_PRIMARY = 'https://aac.cbs.co.kr/cbscmc/_definst_/cbscmc_96k.stream/playlist.m3u8';
 const JOY4U_URL_BACKUP  = 'https://m-aac.cbs.co.kr/mweb_cbscmc/_definst_/cbscmc.stream/playlist.m3u8';
 async function loadJoy4u(gen) {
-  clearInterval(joy4uRefreshTimer);
   try {
     nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 연결 중...';
     nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> CBS JOY4U';
     updateMediaSession();
-    // 주 URL 시도 후 실패 시 백업 URL로 fallback
     try {
       await withRetry(() => playHls(JOY4U_URL_PRIMARY, true), gen, 1, 1500);
     } catch {
       if (gen !== enterChannelGen) return;
       await withRetry(() => playHls(JOY4U_URL_BACKUP, true), gen);
     }
-    // Now Playing 폴링 (ACRCloud, 90초 간격으로 비용 절감)
-    const fetchNp = async () => {
-      if (currentChannel !== 8 || !isPlaying) return;
-      try {
-        const r = await fetch(WORKER_URL + '/api/np/joy4u');
-        const d = await r.json();
-        if (d.title) {
-          const text = (d.artist ? d.artist + ' — ' : '') + d.title;
-          nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + text;
-          updateMediaSession();
-        }
-      } catch {}
-    };
-    fetchNp();
-    joy4uRefreshTimer = setInterval(fetchNp, 90000);
   } catch (e) {
     nowPlayingEl.textContent = 'CBS JOY4U 연결 실패';
     showToast('CBS JOY4U 연결 실패');
@@ -5469,7 +5451,7 @@ btnAlbum.addEventListener('click', async () => {
 btnIdentify.addEventListener('click', async () => {
   if (btnIdentify.classList.contains('loading')) return;
   if (!isPlaying) { showToast('먼저 재생을 시작해주세요'); return; }
-  if (currentChannel !== 1 && currentChannel !== 2) return;
+  if (currentChannel !== 1 && currentChannel !== 2 && currentChannel !== 8) return;
 
   btnIdentify.classList.add('loading');
   const origHTML = btnIdentify.innerHTML;
