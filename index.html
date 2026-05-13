@@ -581,7 +581,7 @@ body{
 /* ── V2 Tuner Home ── */
 .tuner-home{position:fixed;inset:0;flex-direction:column;background:linear-gradient(180deg,#1a150e 0%,#13100a 55%,#0a0805 100%);color:#e0d0c0;font-family:'Pretendard Variable',sans-serif;z-index:50;overflow-y:auto;display:none}
 .tuner-home.open{display:flex}
-.tuner-header{padding:18px 22px 14px 26px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid rgba(212,160,85,0.08)}
+.tuner-header{padding:18px 22px 14px 34px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid rgba(212,160,85,0.08)}
 .tuner-header-left .th-sub{font-size:10px;color:#706050;letter-spacing:1.5px}
 .tuner-header-left .th-main{font-size:24px;color:#D4A055;font-weight:700;letter-spacing:2px;margin-top:1px;font-family:'Space Grotesk',serif;text-shadow:0 0 10px rgba(212,160,85,0.2)}
 .tuner-header-left .th-est{font-size:9px;color:#5a4525;letter-spacing:2.5px;margin-top:4px;font-family:'Space Grotesk',monospace}
@@ -625,10 +625,12 @@ body{
 .tuner-tube-section.playing{filter:brightness(1) saturate(1.1) drop-shadow(0 -8px 18px rgba(232,144,60,0.18))}
 .tuner-tube-section.playing::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 85%,rgba(255,144,64,0.08) 0%,transparent 60%);pointer-events:none}
 /* LP 화면 우상단 YEBOM Tuner 버튼 */
-.yebom-tuner-btn{display:flex;flex-direction:column;align-items:center;background:linear-gradient(180deg,#2A2218,#1E1A12);border:1px solid #3D3225;border-radius:6px;padding:4px 10px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.yebom-tuner-btn:active{transform:scale(0.96)}
-.yebom-tuner-btn .yt-sub{font-size:8px;color:#706050;letter-spacing:0.5px}
-.yebom-tuner-btn .yt-main{font-size:11px;color:#D4A055;font-family:'Space Grotesk',monospace;letter-spacing:1px;font-weight:700;margin-top:1px}
+.yebom-tuner-btn{display:flex;flex-direction:column;align-items:center;gap:3px;background:linear-gradient(180deg,#2A2218,#15110a);border:1px solid #4d3d2a;border-radius:50px;padding:7px 12px 6px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all 0.25s;box-shadow:inset 0 1px 0 rgba(255,255,255,0.05),0 2px 6px rgba(0,0,0,0.4)}
+.yebom-tuner-btn:hover{border-color:#a08555;box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 3px 10px rgba(212,160,85,0.2)}
+.yebom-tuner-btn:active{transform:scale(0.93)}
+.yebom-tuner-btn .yt-dial{transition:transform 0.6s ease}
+.yebom-tuner-btn:hover .yt-dial{transform:rotate(60deg)}
+.yebom-tuner-btn .yt-main{font-size:9px;color:#D4A055;font-family:'Space Grotesk',monospace;letter-spacing:2px;font-weight:700;line-height:1}
 @keyframes recDot{0%,100%{opacity:1}50%{opacity:0.3}}
 @keyframes liveBarShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @keyframes livePulse{0%,100%{opacity:1}50%{opacity:0.6}}
@@ -775,7 +777,36 @@ body{
       <div class="header-logo" id="headerTitle" style="display:none">예봄 <span class="logo-40" id="logoYears"></span></div>
       <div class="header-tagline" style="display:none">Yebom Radio 2.0</div>
       <button class="yebom-tuner-btn" id="yebomTunerBtn" aria-label="튜너 홈">
-        <span class="yt-sub">예봄라디오</span>
+        <svg class="yt-dial" width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+          <!-- 외부 원 (다이얼 베젤) -->
+          <circle cx="11" cy="11" r="9.5" stroke="#D4A055" stroke-width="1.3" fill="url(#dialGrad)"/>
+          <!-- 눈금 12개 (시계 방향) -->
+          <g stroke="#D4A055" stroke-width="0.7" stroke-linecap="round">
+            <line x1="11" y1="2.5" x2="11" y2="4"/>
+            <line x1="15.25" y1="3.65" x2="14.85" y2="4.95" opacity="0.5"/>
+            <line x1="18.35" y1="6.75" x2="17.05" y2="7.15" opacity="0.5"/>
+            <line x1="19.5" y1="11" x2="18" y2="11"/>
+            <line x1="18.35" y1="15.25" x2="17.05" y2="14.85" opacity="0.5"/>
+            <line x1="15.25" y1="18.35" x2="14.85" y2="17.05" opacity="0.5"/>
+            <line x1="11" y1="19.5" x2="11" y2="18"/>
+            <line x1="6.75" y1="18.35" x2="7.15" y2="17.05" opacity="0.5"/>
+            <line x1="3.65" y1="15.25" x2="4.95" y2="14.85" opacity="0.5"/>
+            <line x1="2.5" y1="11" x2="4" y2="11"/>
+            <line x1="3.65" y1="6.75" x2="4.95" y2="7.15" opacity="0.5"/>
+            <line x1="6.75" y1="3.65" x2="7.15" y2="4.95" opacity="0.5"/>
+          </g>
+          <!-- 인디케이터 바늘 (1시 방향) -->
+          <line x1="11" y1="11" x2="15" y2="7.5" stroke="#f0c060" stroke-width="1.5" stroke-linecap="round"/>
+          <!-- 중앙 노브 -->
+          <circle cx="11" cy="11" r="2.2" fill="#D4A055" stroke="#8B6B30" stroke-width="0.6"/>
+          <circle cx="11" cy="11" r="0.9" fill="#5a4220"/>
+          <defs>
+            <radialGradient id="dialGrad" cx="50%" cy="40%">
+              <stop offset="0%" stop-color="#3a2d18"/>
+              <stop offset="100%" stop-color="#1a1108"/>
+            </radialGradient>
+          </defs>
+        </svg>
         <span class="yt-main">TUNER</span>
       </button>
     </div>
