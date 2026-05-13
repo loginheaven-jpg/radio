@@ -1016,12 +1016,12 @@ async function getAbidingNowPlaying(ch /* 'sacred' | 'instrumental' */) {
   }
 }
 
-// Venice Classic Radio (공식 사이트 HTML 스크래핑)
+// Venice Classic Radio — OnlineRadioBox playlist 파싱
 let veniceCache = { data: null, ts: 0 };
 async function getVeniceNowPlaying() {
-  if (veniceCache.data && Date.now() - veniceCache.ts < 30000) return veniceCache.data;
+  if (veniceCache.data && Date.now() - veniceCache.ts < 60000) return veniceCache.data;
   try {
-    const res = await fetch('https://www.veniceclassicradio.eu/en/index.php', {
+    const res = await fetch('https://onlineradiobox.com/it/veniceclassic/playlist/', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml',
@@ -1031,25 +1031,21 @@ async function getVeniceNowPlaying() {
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const html = await res.text();
-    // VCR Auditorium 채널 (첫 번째 트랙)
-    // 패턴 1: "Latest tracks" 다음 첫 트랙
-    // 패턴 2: <div class="track-title"> 또는 유사 셀렉터
-    // 가장 신뢰할 만한 방식: title|composer가 함께 등장하는 라인
-    // "곡명 | 작곡가 (생몰) | 연주자" 형태
-    let title = '', composer = '';
-    // 패턴 매칭: 최초로 ' | '가 2개 이상 있는 라인을 찾음 (Auditorium 첫 곡)
-    const lines = html.split(/\n+/).map(l => l.replace(/<[^>]+>/g, '').trim()).filter(Boolean);
-    for (const line of lines) {
-      const parts = line.split(' | ');
-      if (parts.length >= 2 && parts[0].length > 5 && parts[0].length < 200) {
-        // 첫 파트가 곡명, 두 번째가 작곡가일 가능성
-        const composerCandidate = parts[1].replace(/\s*\([^)]*\)\s*$/, '').trim();
-        if (composerCandidate.length < 80) {
-          title = parts[0].trim();
-          composer = composerCandidate;
-          break;
-        }
-      }
+    // 첫 번째 track_history_item 추출 → "작곡가 (생몰) - 곡명 (연주자) { info: ... }"
+    const m = html.match(/track_history_item[^>]*>([^<]+)</);
+    if (!m) throw new Error('no track');
+    let raw = m[1]
+      .replace(/\{\s*info:[^}]*\}/g, '')   // {info: ...} 제거
+      .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+      .replace(/Ã¶/g, 'ö').replace(/Ã¤/g, 'ä').replace(/Ã¼/g, 'ü').replace(/Ã©/g, 'é').replace(/Ã /g, 'à')
+      .trim();
+    // "작곡가 (1700-1775) - 곡명 (연주자)" 분리
+    // ' - ' 첫 번째를 기준으로 split
+    const dashIdx = raw.indexOf(' - ');
+    let composer = '', title = raw;
+    if (dashIdx > 0) {
+      composer = raw.substring(0, dashIdx).replace(/\s*\([^)]*\)\s*$/, '').trim();
+      title = raw.substring(dashIdx + 3).replace(/\s*\([^)]*\)\s*$/, '').trim();
     }
     const result = { composer, title };
     veniceCache.data = result; veniceCache.ts = Date.now();
