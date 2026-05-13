@@ -6419,6 +6419,8 @@ async function init() {
     applyChannelTheme(activeChannels[focusedIndex].num);
   } else {
     // 재방문자 또는 공유 링크 → LP 직행
+    // 뒤로가기 시 튜너 홈으로 갈 수 있도록 history 진입점 추가
+    history.replaceState({ view: 'lp' }, '');
     await enterChannel(activeChannels[focusedIndex].num);
   }
 }
@@ -6437,16 +6439,32 @@ function tunerOpen() {
   renderTunerChannels();
   renderTunerSlider();
   updateTunerPlayBtn();
-  // 진공관 발광 상태 동기화
   $('tunerTubeSection').classList.toggle('playing', isPlaying);
-  // 헤더 연도 동기화
   const yEl = $('tunerHomeAnnivYear');
   if (yEl) yEl.textContent = (typeof YEBOM_YEARS !== 'undefined' ? YEBOM_YEARS : 40);
+  // 히스토리에 LP 상태 push → 뒤로가기 시 LP로 갈 수 있게
+  // (단, 이미 LP 상태가 있을 때만 push — 중복 방지)
+  if (history.state?.view !== 'lp-from-tuner') {
+    history.pushState({ view: 'tuner' }, '');
+  }
 }
 function tunerClose() {
   $('tunerHome').classList.remove('open');
   tunerHomeOpen = false;
+  // LP 진입 → history 상태 갱신 (뒤로가기 시 튜너 홈으로)
+  if (history.state?.view !== 'lp') {
+    history.replaceState({ view: 'lp' }, '');
+  }
 }
+// 뒤로가기 처리: LP 화면 → 튜너 홈
+window.addEventListener('popstate', e => {
+  // 튜너 홈이 열려있지 않고 history 진입점에서 뒤로가기 → 홈 열기
+  if (!tunerHomeOpen) {
+    tunerOpen();
+    // 한 번 더 push해서 다음 뒤로가기 시 앱 종료되도록 (모바일 표준)
+    history.pushState({ view: 'tuner' }, '');
+  }
+});
 function renderTunerChannels() {
   const wrap = $('tunerChannels');
   wrap.innerHTML = '';
@@ -6518,6 +6536,11 @@ function updateTunerPlayBtn() {
     if (newIdx !== tunerSelectedIdx) {
       tunerSelectedIdx = newIdx;
       renderTunerChannels();
+      // 좌측 마크 active 갱신 (handle 위치는 아래에서 직접 설정)
+      const marks = $('tunerSliderMarks');
+      if (marks) {
+        marks.querySelectorAll('span').forEach((sp, i) => sp.classList.toggle('active', i === newIdx));
+      }
     }
     handle().style.top = y + 'px';
     // 재생 중이면 200ms 디바운스 후 자동 채널 전환
