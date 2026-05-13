@@ -761,7 +761,7 @@ body{
         <div class="tuner-slider-handle" id="tunerSliderHandle"></div>
         <div class="tuner-slider-marks" id="tunerSliderMarks"></div>
       </div>
-      <button class="tuner-play-btn" id="tunerPlayBtn" aria-label="재생">▶<span class="tuner-play-btn-label" id="tunerPlayLabel">PLAY</span></button>
+      <button class="tuner-play-btn" id="tunerPlayBtn" aria-label="재생"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 L13 8 L4 13.5 Z" fill="currentColor"/></svg><span class="tuner-play-btn-label" id="tunerPlayLabel">PLAY</span></button>
     </div>
   </div>
   <div class="tuner-tube-section" id="tunerTubeSection"></div>
@@ -2886,7 +2886,8 @@ function handlePlayPause() {
     if (isPlaying) { userPaused = true; pauseReplay(); } else { userPaused = false; resumeReplay(); }
     return;
   }
-  if (currentChannel === 1 || currentChannel === 2 || currentChannel === 6) {
+  if (currentChannel === 1 || currentChannel === 2 || currentChannel === 6
+      || currentChannel === 8 || currentChannel === 9 || currentChannel === 10 || currentChannel === 11) {
     if (isPlaying) {
       userPaused = true;
       if (audioEl) audioEl.pause();
@@ -6493,10 +6494,11 @@ function updateTunerPlayBtn() {
   const btn = $('tunerPlayBtn');
   if (!btn) return;
   if (isPlaying) {
-    btn.innerHTML = '■<span class="tuner-play-btn-label">ON AIR</span>';
+    // 일시정지 아이콘 (두 막대) + ON AIR 라벨
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="2.5" width="3.5" height="11" rx="0.6" fill="currentColor"/><rect x="9" y="2.5" width="3.5" height="11" rx="0.6" fill="currentColor"/></svg><span class="tuner-play-btn-label">ON AIR</span>';
     btn.classList.add('playing');
   } else {
-    btn.innerHTML = '▶<span class="tuner-play-btn-label">PLAY</span>';
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 L13 8 L4 13.5 Z" fill="currentColor"/></svg><span class="tuner-play-btn-label">PLAY</span>';
     btn.classList.remove('playing');
   }
 }
