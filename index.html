@@ -610,7 +610,7 @@ body{
 .tuner-ch-genre{font-size:10px;color:#9d8060;letter-spacing:0.6px;padding:3px 8px;border:1px solid rgba(157,128,96,0.35);border-radius:10px;flex-shrink:0;background:rgba(157,128,96,0.06);font-weight:500}
 .tuner-ch-item.playing::after{content:'';display:inline-block;width:12px;height:12px;background:linear-gradient(to top,var(--ch-col) 30%,transparent 30%) 0 0/3px 100%,linear-gradient(to top,var(--ch-col) 70%,transparent 70%) 5px 0/3px 100%,linear-gradient(to top,var(--ch-col) 50%,transparent 50%) 10px 0/3px 100%;background-repeat:no-repeat;animation:eq 0.8s ease-in-out infinite alternate;flex-shrink:0}
 @keyframes eq{from{filter:brightness(0.7)}to{filter:brightness(1.3)}}
-.tuner-slider-panel{width:96px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:6px;position:relative;gap:48px}
+.tuner-slider-panel{width:96px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:140px;position:relative;gap:36px}
 .tuner-bcast-label{font-size:9px;color:#605040;text-align:center;letter-spacing:1.5px;margin-bottom:12px;padding:5px 10px;border:1px solid #4d3d2a;border-radius:3px;background:linear-gradient(180deg,#241d10,#1a150c);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);font-family:'Space Grotesk',monospace;font-weight:600}
 .tuner-bcast-label .small{font-size:7px;display:block;color:#4d3d2a;margin-top:2px;letter-spacing:1.5px}
 .tuner-slider-track{position:relative;width:64px;height:200px;background:linear-gradient(180deg,#0a0805 0%,#181208 50%,#0a0805 100%);border-radius:8px;box-shadow:inset 0 0 10px rgba(0,0,0,0.8),inset 0 1px 0 rgba(255,255,255,0.06),0 2px 4px rgba(0,0,0,0.4);margin-left:18px;border:1px solid #1a1208}
@@ -625,7 +625,7 @@ body{
 .tuner-play-btn.playing{filter:brightness(1.18) drop-shadow(0 0 8px rgba(232,144,60,0.4))}
 .tuner-play-btn-label{position:absolute;top:62px;left:50%;transform:translateX(-50%);font-size:9px;color:#a08555;letter-spacing:2.5px;font-family:'Space Grotesk',monospace;white-space:nowrap;font-weight:700}
 .tuner-play-btn.playing .tuner-play-btn-label{color:#f0a060;text-shadow:0 0 6px rgba(240,160,96,0.4)}
-.tuner-tube-section{height:128px;background-color:#0a0705;background-image:url('/tube-glow.png');background-size:contain;background-position:center bottom;background-repeat:no-repeat;position:relative;filter:brightness(0.42) saturate(0.7);transition:filter 0.6s;margin-top:auto}
+.tuner-tube-section{height:155px;background-color:#0a0705;background-image:url('/tube-glow.png');background-size:auto 155px;background-position:center bottom;background-repeat:no-repeat;position:relative;filter:brightness(0.42) saturate(0.7);transition:filter 0.6s;margin-top:-12px}
 .tuner-tube-section.playing{filter:brightness(1) saturate(1.1) drop-shadow(0 -8px 18px rgba(232,144,60,0.18))}
 .tuner-tube-section.playing::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 85%,rgba(255,144,64,0.08) 0%,transparent 60%);pointer-events:none}
 /* LP 화면 우상단 YEBOM Tuner 버튼 */
@@ -752,7 +752,7 @@ body{
       <div class="th-main">YEBOM Tuner</div>
       <div class="th-est">EST. 1986 · INTERNET BAND</div>
     </div>
-    <div class="tuner-header-right">
+    <div class="tuner-header-right" id="tunerHeaderRight" style="cursor:pointer">
       <div class="th-anniv-sub">하나님의 은혜로</div>
       <div class="th-anniv"><span class="th-anniv-yebom">예봄</span><span class="th-anniv-years" id="tunerHomeAnnivYear">40</span><span class="th-anniv-tick">'</span></div>
     </div>
@@ -6619,15 +6619,18 @@ document.addEventListener('DOMContentLoaded', () => {
       updateTunerPlayBtn();
       $('tunerTubeSection').classList.remove('playing');
     } else {
+      // 튜너 홈에 머문 채로 재생 시작 (LP로 이동하지 않음)
       const ch = activeChannels[tunerSelectedIdx];
       if (ch) {
-        tunerClose();
         focusedIndex = tunerSelectedIdx;
         applyChannelTheme(ch.num);
         enterChannel(ch.num);
       }
     }
   });
+  // 튜너 홈 예봄40' 헤더 → 1탭: 축하메시지, 3탭: 관리자
+  const tunerHeaderRight = $('tunerHeaderRight');
+  if (tunerHeaderRight) tunerHeaderRight.addEventListener('click', handleHeaderTap);
   // YEBOM Tuner 버튼 (LP → 홈)
   const ytBtn = $('yebomTunerBtn');
   if (ytBtn) ytBtn.addEventListener('click', tunerOpen);
