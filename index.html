@@ -611,8 +611,8 @@ body{
 .tuner-ch-item.playing::after{content:'';display:inline-block;width:12px;height:12px;background:linear-gradient(to top,var(--ch-col) 30%,transparent 30%) 0 0/3px 100%,linear-gradient(to top,var(--ch-col) 70%,transparent 70%) 5px 0/3px 100%,linear-gradient(to top,var(--ch-col) 50%,transparent 50%) 10px 0/3px 100%;background-repeat:no-repeat;animation:eq 0.8s ease-in-out infinite alternate;flex-shrink:0}
 @keyframes eq{from{filter:brightness(0.7)}to{filter:brightness(1.3)}}
 .tuner-slider-panel{width:96px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:0;position:relative;gap:24px}
-/* 빈티지 볼륨 노브 (60×60) */
-.tuner-vol-knob{position:relative;width:64px;height:64px;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none}
+/* 빈티지 볼륨 노브 (80×80) */
+.tuner-vol-knob{position:relative;width:80px;height:80px;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none}
 .tuner-vol-knob:active{cursor:grabbing}
 .tuner-vol-ring{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 35%,#3a2d1a 0%,#1a1208 70%);box-shadow:inset 0 -2px 4px rgba(0,0,0,0.5),inset 0 2px 3px rgba(255,255,255,0.04)}
 /* SVG arc for volume indicator track */
@@ -628,7 +628,7 @@ body{
   pointer-events:none;transition:--vol-angle 0.1s linear}
 .tuner-vol-body{position:absolute;inset:8px;border-radius:50%;background:linear-gradient(145deg,#C4A872 0%,#A08855 30%,#8B7345 50%,#6a5530 75%,#8B7345 100%);box-shadow:0 3px 6px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.35),inset 0 -2px 4px rgba(0,0,0,0.3);overflow:hidden}
 .tuner-vol-body::before{content:'';position:absolute;inset:0;background:repeating-conic-gradient(from 0deg,transparent 0deg 8deg,rgba(40,28,12,0.18) 8deg 10deg);border-radius:50%}
-.tuner-vol-indicator{position:absolute;top:4px;left:50%;width:2px;height:14px;background:#2a1e10;border-radius:2px;transform-origin:50% 24px;transform:translateX(-50%) rotate(var(--ind-rot,0deg));transition:transform 0.05s linear;box-shadow:0 0 2px rgba(0,0,0,0.5)}
+.tuner-vol-indicator{position:absolute;top:5px;left:50%;width:2.5px;height:17px;background:#2a1e10;border-radius:2px;transform-origin:50% 30px;transform:translateX(-50%) rotate(var(--ind-rot,0deg));transition:transform 0.05s linear;box-shadow:0 0 2px rgba(0,0,0,0.5)}
 .tuner-vol-center{position:absolute;top:50%;left:50%;width:8px;height:8px;border-radius:50%;background:radial-gradient(circle,#3a2a14,#1a1006);transform:translate(-50%,-50%);box-shadow:0 0 0 1px rgba(0,0,0,0.4)}
 .tuner-vol-value{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:11px;font-weight:700;color:#1a1108;font-family:'Space Grotesk',monospace;letter-spacing:0.5px;text-shadow:0 1px 0 rgba(255,255,255,0.2);pointer-events:none;opacity:0;transition:opacity 0.2s}
 .tuner-vol-knob.show-value .tuner-vol-value{opacity:1}
@@ -6460,18 +6460,15 @@ async function init() {
   if (splashEl) splashEl.remove();
 
   // V2 라우팅: 공유링크/재방문자 → LP 직행, 첫 사용자 → 튜너 홈
-  const isFirstVisit = !isSharedLink && lastChannel === 0; // 마지막 채널 기록 없음
-  if (isFirstVisit) {
-    // 튜너 홈을 먼저 보여줌. 채널 데이터만 준비하고 재생은 안 함.
-    tunerSelectedIdx = focusedIndex >= 0 ? focusedIndex : 0;
-    tunerOpen();
-    // 채널 테마 미리 적용 (LP 화면 백그라운드)
-    applyChannelTheme(activeChannels[focusedIndex].num);
-  } else {
-    // 재방문자 또는 공유 링크 → LP 직행
-    // 뒤로가기 시 튜너 홈으로 갈 수 있도록 history 진입점 추가
+  // V2: 공유 링크만 LP 직행, 그 외 모든 사용자(첫 방문/재방문)는 홈에서 시작
+  // 재방문자는 이전 채널이 selected + 이전 볼륨 복원된 상태
+  if (isSharedLink) {
     history.replaceState({ view: 'lp' }, '');
     await enterChannel(activeChannels[focusedIndex].num);
+  } else {
+    tunerSelectedIdx = focusedIndex >= 0 ? focusedIndex : 0;
+    tunerOpen();
+    applyChannelTheme(activeChannels[focusedIndex].num);
   }
 }
 
@@ -6633,36 +6630,61 @@ function updateTunerPlayBtn() {
   window.applyKnobRotation = applyKnobRotation;
 
   let dragging = false;
-  let startY = 0;
-  let startVol = 0;
   let showTimer = null;
 
-  function startDrag(clientY) {
-    dragging = true;
-    startY = clientY;
-    startVol = currentVolume;
-    const knob = $('tunerVolKnob');
-    if (knob) knob.classList.add('show-value');
-    clearTimeout(showTimer);
+  // 각도(rad) → 인디케이터 기준 각도(deg, 12시=0, 시계방향) → 볼륨 매핑
+  // 인디케이터: 7시(-135°) = 0%, 12시(0°) = 75%, 5시(+135°) = 150%
+  // 데드존: 6시 ±45° (즉 +135°~+180° 또는 -135°~-180°)는 이전 값 유지
+  function angleToVolume(angle) {
+    // angle: 12시 기준 deg, -180~180
+    if (angle > 135 || angle < -135) return null; // 데드존
+    // -135 → 0, 135 → 1.5
+    const ratio = (angle + 135) / 270;
+    return clamp(ratio, 0, 1) * 1.5;
   }
-  function moveDrag(clientY) {
-    if (!dragging) return;
-    const dy = startY - clientY; // 위로 = 양수
-    const delta = (dy / 150) * 1.5; // 150px = 0~150% 전체
-    const newVol = clamp(startVol + delta, 0, 1.5);
-    currentVolume = newVol;
-    applyKnobRotation(newVol);
-    applyVolume(newVol);
-    // LP 슬라이더도 동기화
-    if (volSlider) volSlider.value = newVol;
-    if (volNum) {
-      volNum.textContent = Math.round(newVol * 100);
-      volNum.classList.toggle('boost-zone', newVol > 1.0);
+  function pointToAngle(knob, clientX, clientY) {
+    const rect = knob.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    // atan2: 3시=0, 12시=-PI/2, 시계 양의 방향
+    const rad = Math.atan2(clientY - cy, clientX - cx);
+    // 12시 기준으로 변환 (12시 = 0, 시계방향 +)
+    let deg = rad * 180 / Math.PI + 90;
+    if (deg > 180) deg -= 360;
+    return deg;
+  }
+
+  function setVolume(v) {
+    currentVolume = v;
+    applyKnobRotation(v);
+    applyVolume(v);
+    if (volSlider) {
+      volSlider.value = v;
+      volSlider.classList.toggle('boost-zone', v > 1.0);
     }
-    if (volSlider) volSlider.classList.toggle('boost-zone', newVol > 1.0);
-    localStorage.setItem('radio-volume', newVol);
+    if (volNum) {
+      volNum.textContent = Math.round(v * 100);
+      volNum.classList.toggle('boost-zone', v > 1.0);
+    }
+    localStorage.setItem('radio-volume', v);
   }
-  function endDrag() {
+
+  function onDragStart(knob, clientX, clientY) {
+    dragging = true;
+    knob.classList.add('show-value');
+    clearTimeout(showTimer);
+    // 시작 위치의 각도로 즉시 점프
+    const angle = pointToAngle(knob, clientX, clientY);
+    const v = angleToVolume(angle);
+    if (v !== null) setVolume(v);
+  }
+  function onDragMove(knob, clientX, clientY) {
+    if (!dragging) return;
+    const angle = pointToAngle(knob, clientX, clientY);
+    const v = angleToVolume(angle);
+    if (v !== null) setVolume(v); // 데드존이면 이전 값 유지
+  }
+  function onDragEnd() {
     if (!dragging) return;
     dragging = false;
     const knob = $('tunerVolKnob');
@@ -6672,26 +6694,23 @@ function updateTunerPlayBtn() {
   document.addEventListener('DOMContentLoaded', () => {
     const knob = $('tunerVolKnob');
     if (!knob) return;
-    // 초기 회전 적용
     applyKnobRotation(currentVolume);
-    knob.addEventListener('mousedown', e => { startDrag(e.clientY); e.preventDefault(); });
-    document.addEventListener('mousemove', e => moveDrag(e.clientY));
-    document.addEventListener('mouseup', endDrag);
-    knob.addEventListener('touchstart', e => { startDrag(e.touches[0].clientY); e.preventDefault(); }, { passive: false });
-    document.addEventListener('touchmove', e => { if (dragging && e.touches[0]) moveDrag(e.touches[0].clientY); }, { passive: true });
-    document.addEventListener('touchend', endDrag);
-    document.addEventListener('touchcancel', endDrag);
-    // 휠 스크롤 (PC)
+    knob.addEventListener('mousedown', e => { onDragStart(knob, e.clientX, e.clientY); e.preventDefault(); });
+    document.addEventListener('mousemove', e => { if (dragging) onDragMove(knob, e.clientX, e.clientY); });
+    document.addEventListener('mouseup', onDragEnd);
+    knob.addEventListener('touchstart', e => {
+      const t = e.touches[0]; if (t) { onDragStart(knob, t.clientX, t.clientY); e.preventDefault(); }
+    }, { passive: false });
+    document.addEventListener('touchmove', e => {
+      if (dragging && e.touches[0]) onDragMove(knob, e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    document.addEventListener('touchend', onDragEnd);
+    document.addEventListener('touchcancel', onDragEnd);
+    // 휠 (PC): 위로 = 볼륨 ↑
     knob.addEventListener('wheel', e => {
       e.preventDefault();
       const dir = e.deltaY < 0 ? 1 : -1;
-      const newVol = clamp(currentVolume + dir * 0.05, 0, 1.5);
-      currentVolume = newVol;
-      applyKnobRotation(newVol);
-      applyVolume(newVol);
-      if (volSlider) volSlider.value = newVol;
-      if (volNum) volNum.textContent = Math.round(newVol * 100);
-      localStorage.setItem('radio-volume', newVol);
+      setVolume(clamp(currentVolume + dir * 0.05, 0, 1.5));
       knob.classList.add('show-value');
       clearTimeout(showTimer);
       showTimer = setTimeout(() => knob.classList.remove('show-value'), 800);
