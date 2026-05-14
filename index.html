@@ -610,7 +610,32 @@ body{
 .tuner-ch-genre{font-size:10px;color:#9d8060;letter-spacing:0.6px;padding:3px 8px;border:1px solid rgba(157,128,96,0.35);border-radius:10px;flex-shrink:0;background:rgba(157,128,96,0.06);font-weight:500}
 .tuner-ch-item.playing::after{content:'';display:inline-block;width:12px;height:12px;background:linear-gradient(to top,var(--ch-col) 30%,transparent 30%) 0 0/3px 100%,linear-gradient(to top,var(--ch-col) 70%,transparent 70%) 5px 0/3px 100%,linear-gradient(to top,var(--ch-col) 50%,transparent 50%) 10px 0/3px 100%;background-repeat:no-repeat;animation:eq 0.8s ease-in-out infinite alternate;flex-shrink:0}
 @keyframes eq{from{filter:brightness(0.7)}to{filter:brightness(1.3)}}
-.tuner-slider-panel{width:96px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:140px;position:relative;gap:36px}
+.tuner-slider-panel{width:96px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:0;position:relative;gap:24px}
+/* 빈티지 볼륨 노브 (60×60) */
+.tuner-vol-knob{position:relative;width:64px;height:64px;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none}
+.tuner-vol-knob:active{cursor:grabbing}
+.tuner-vol-ring{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 35%,#3a2d1a 0%,#1a1208 70%);box-shadow:inset 0 -2px 4px rgba(0,0,0,0.5),inset 0 2px 3px rgba(255,255,255,0.04)}
+/* SVG arc for volume indicator track */
+.tuner-vol-arc{position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from 225deg,
+    var(--vol-color,#D4A055) 0deg,
+    var(--vol-color,#D4A055) var(--vol-angle,202deg),
+    rgba(60,40,20,0.5) var(--vol-angle,202deg),
+    rgba(60,40,20,0.5) 270deg,
+    transparent 270deg);
+  -webkit-mask:radial-gradient(circle,transparent 60%,#000 60.5%,#000 95%,transparent 95.5%);
+  mask:radial-gradient(circle,transparent 60%,#000 60.5%,#000 95%,transparent 95.5%);
+  pointer-events:none;transition:--vol-angle 0.1s linear}
+.tuner-vol-body{position:absolute;inset:8px;border-radius:50%;background:linear-gradient(145deg,#C4A872 0%,#A08855 30%,#8B7345 50%,#6a5530 75%,#8B7345 100%);box-shadow:0 3px 6px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.35),inset 0 -2px 4px rgba(0,0,0,0.3);overflow:hidden}
+.tuner-vol-body::before{content:'';position:absolute;inset:0;background:repeating-conic-gradient(from 0deg,transparent 0deg 8deg,rgba(40,28,12,0.18) 8deg 10deg);border-radius:50%}
+.tuner-vol-indicator{position:absolute;top:4px;left:50%;width:2px;height:14px;background:#2a1e10;border-radius:2px;transform-origin:50% 24px;transform:translateX(-50%) rotate(var(--ind-rot,0deg));transition:transform 0.05s linear;box-shadow:0 0 2px rgba(0,0,0,0.5)}
+.tuner-vol-center{position:absolute;top:50%;left:50%;width:8px;height:8px;border-radius:50%;background:radial-gradient(circle,#3a2a14,#1a1006);transform:translate(-50%,-50%);box-shadow:0 0 0 1px rgba(0,0,0,0.4)}
+.tuner-vol-value{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:11px;font-weight:700;color:#1a1108;font-family:'Space Grotesk',monospace;letter-spacing:0.5px;text-shadow:0 1px 0 rgba(255,255,255,0.2);pointer-events:none;opacity:0;transition:opacity 0.2s}
+.tuner-vol-knob.show-value .tuner-vol-value{opacity:1}
+.tuner-vol-knob.show-value .tuner-vol-indicator,.tuner-vol-knob.show-value .tuner-vol-center{opacity:0.15}
+.tuner-vol-label{position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);font-size:9px;color:#605040;letter-spacing:2px;font-family:'Space Grotesk',monospace;font-weight:700}
+.tuner-vol-knob.boost{--vol-color:#e89060}
+.tuner-vol-knob.boost .tuner-vol-arc{filter:drop-shadow(0 0 6px rgba(232,144,96,0.4))}
 .tuner-bcast-label{font-size:9px;color:#605040;text-align:center;letter-spacing:1.5px;margin-bottom:12px;padding:5px 10px;border:1px solid #4d3d2a;border-radius:3px;background:linear-gradient(180deg,#241d10,#1a150c);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);font-family:'Space Grotesk',monospace;font-weight:600}
 .tuner-bcast-label .small{font-size:7px;display:block;color:#4d3d2a;margin-top:2px;letter-spacing:1.5px}
 .tuner-slider-track{position:relative;width:64px;height:200px;background:linear-gradient(180deg,#0a0805 0%,#181208 50%,#0a0805 100%);border-radius:8px;box-shadow:inset 0 0 10px rgba(0,0,0,0.8),inset 0 1px 0 rgba(255,255,255,0.06),0 2px 4px rgba(0,0,0,0.4);margin-left:18px;border:1px solid #1a1208}
@@ -765,6 +790,17 @@ body{
         <div class="tuner-channels" id="tunerChannels"></div>
       </div>
       <div class="tuner-slider-panel">
+        <!-- 빈티지 볼륨 노브 (0~150) -->
+        <div class="tuner-vol-knob" id="tunerVolKnob" role="slider" aria-label="볼륨" tabindex="0">
+          <div class="tuner-vol-ring"></div>
+          <div class="tuner-vol-arc" id="tunerVolArc"></div>
+          <div class="tuner-vol-body">
+            <div class="tuner-vol-indicator" id="tunerVolIndicator"></div>
+            <div class="tuner-vol-center"></div>
+          </div>
+          <div class="tuner-vol-value" id="tunerVolValue">80</div>
+          <div class="tuner-vol-label">VOL</div>
+        </div>
         <button class="tuner-play-btn" id="tunerPlayBtn" aria-label="재생"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 L13 8 L4 13.5 Z" fill="currentColor"/></svg><span class="tuner-play-btn-label" id="tunerPlayLabel">PLAY</span></button>
         <div class="tuner-slider-track" id="tunerSliderTrack">
           <div class="tuner-slider-handle" id="tunerSliderHandle"></div>
@@ -5598,6 +5634,8 @@ volSlider.addEventListener('input', e => {
   const isBoosted = v > 1.0;
   volSlider.classList.toggle('boost-zone', isBoosted);
   volNum.classList.toggle('boost-zone', isBoosted);
+  // 튜너 홈 노브 동기화
+  if (typeof window.applyKnobRotation === 'function') window.applyKnobRotation(v);
 });
 
 // Seek bar drag (mouse + touch)
@@ -6441,6 +6479,17 @@ async function init() {
 let tunerSelectedIdx = 0;
 let tunerSliderDebounce = null;
 let tunerHomeOpen = false;
+let tunerAutoNavTimer = null; // 홈에서 재생 시 3분 후 LP 자동 이동
+const TUNER_AUTO_NAV_MS = 3 * 60 * 1000;
+function tunerArmAutoNav() {
+  clearTimeout(tunerAutoNavTimer);
+  if (tunerHomeOpen && isPlaying) {
+    tunerAutoNavTimer = setTimeout(() => {
+      if (tunerHomeOpen && isPlaying) tunerClose();
+    }, TUNER_AUTO_NAV_MS);
+  }
+}
+function tunerCancelAutoNav() { clearTimeout(tunerAutoNavTimer); tunerAutoNavTimer = null; }
 
 function tunerOpen() {
   // 현재 재생 채널을 슬라이더에 동기화
@@ -6463,7 +6512,7 @@ function tunerOpen() {
 function tunerClose() {
   $('tunerHome').classList.remove('open');
   tunerHomeOpen = false;
-  // LP 진입 → history 상태 갱신 (뒤로가기 시 튜너 홈으로)
+  tunerCancelAutoNav();
   if (history.state?.view !== 'lp') {
     history.replaceState({ view: 'lp' }, '');
   }
@@ -6561,6 +6610,94 @@ function updateTunerPlayBtn() {
   }
 }
 // 슬라이더 드래그
+// 볼륨 노브 인터랙션
+(function initVolKnob() {
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  // 볼륨 0~1.5 → 노브 회전 0~270deg (7시 → 5시 방향)
+  function applyKnobRotation(v) {
+    const knob = $('tunerVolKnob');
+    if (!knob) return;
+    const ratio = clamp(v / 1.5, 0, 1);
+    const angle = ratio * 270; // 0~270도
+    // 인디케이터 회전: 7시 방향(-135deg) → 5시 방향(+135deg)
+    const indRot = -135 + ratio * 270;
+    knob.style.setProperty('--ind-rot', indRot + 'deg');
+    knob.style.setProperty('--vol-angle', angle + 'deg');
+    // 부스트 영역 (100% 이상) 시각 강조
+    knob.classList.toggle('boost', v > 1.0);
+    // 숫자 표시
+    const valEl = $('tunerVolValue');
+    if (valEl) valEl.textContent = Math.round(v * 100);
+  }
+  // 외부에서 호출 가능하도록
+  window.applyKnobRotation = applyKnobRotation;
+
+  let dragging = false;
+  let startY = 0;
+  let startVol = 0;
+  let showTimer = null;
+
+  function startDrag(clientY) {
+    dragging = true;
+    startY = clientY;
+    startVol = currentVolume;
+    const knob = $('tunerVolKnob');
+    if (knob) knob.classList.add('show-value');
+    clearTimeout(showTimer);
+  }
+  function moveDrag(clientY) {
+    if (!dragging) return;
+    const dy = startY - clientY; // 위로 = 양수
+    const delta = (dy / 150) * 1.5; // 150px = 0~150% 전체
+    const newVol = clamp(startVol + delta, 0, 1.5);
+    currentVolume = newVol;
+    applyKnobRotation(newVol);
+    applyVolume(newVol);
+    // LP 슬라이더도 동기화
+    if (volSlider) volSlider.value = newVol;
+    if (volNum) {
+      volNum.textContent = Math.round(newVol * 100);
+      volNum.classList.toggle('boost-zone', newVol > 1.0);
+    }
+    if (volSlider) volSlider.classList.toggle('boost-zone', newVol > 1.0);
+    localStorage.setItem('radio-volume', newVol);
+  }
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    const knob = $('tunerVolKnob');
+    showTimer = setTimeout(() => { if (knob) knob.classList.remove('show-value'); }, 800);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const knob = $('tunerVolKnob');
+    if (!knob) return;
+    // 초기 회전 적용
+    applyKnobRotation(currentVolume);
+    knob.addEventListener('mousedown', e => { startDrag(e.clientY); e.preventDefault(); });
+    document.addEventListener('mousemove', e => moveDrag(e.clientY));
+    document.addEventListener('mouseup', endDrag);
+    knob.addEventListener('touchstart', e => { startDrag(e.touches[0].clientY); e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchmove', e => { if (dragging && e.touches[0]) moveDrag(e.touches[0].clientY); }, { passive: true });
+    document.addEventListener('touchend', endDrag);
+    document.addEventListener('touchcancel', endDrag);
+    // 휠 스크롤 (PC)
+    knob.addEventListener('wheel', e => {
+      e.preventDefault();
+      const dir = e.deltaY < 0 ? 1 : -1;
+      const newVol = clamp(currentVolume + dir * 0.05, 0, 1.5);
+      currentVolume = newVol;
+      applyKnobRotation(newVol);
+      applyVolume(newVol);
+      if (volSlider) volSlider.value = newVol;
+      if (volNum) volNum.textContent = Math.round(newVol * 100);
+      localStorage.setItem('radio-volume', newVol);
+      knob.classList.add('show-value');
+      clearTimeout(showTimer);
+      showTimer = setTimeout(() => knob.classList.remove('show-value'), 800);
+    }, { passive: false });
+  });
+})();
 (function initTunerSliderDrag() {
   const handle = () => $('tunerSliderHandle');
   const track = () => $('tunerSliderTrack');
@@ -6589,7 +6726,6 @@ function updateTunerPlayBtn() {
   }
 
   function commitChannelChange() {
-    // 손 뗀 시점 — 재생 중이고 채널이 실제로 바뀌었으면 enterChannel 호출
     if (!didChangeIdx) return;
     didChangeIdx = false;
     if (!isPlaying) return;
@@ -6598,6 +6734,7 @@ function updateTunerPlayBtn() {
       focusedIndex = tunerSelectedIdx;
       applyChannelTheme(ch.num);
       enterChannel(ch.num);
+      tunerArmAutoNav(); // 채널 바뀌면 타이머 리셋
     }
   }
 
@@ -6630,6 +6767,7 @@ document.addEventListener('DOMContentLoaded', () => {
       handlePlayPause();
       updateTunerPlayBtn();
       $('tunerTubeSection').classList.remove('playing');
+      tunerCancelAutoNav();
     } else {
       // 튜너 홈에 머문 채로 재생 시작 (LP로 이동하지 않음)
       const ch = activeChannels[tunerSelectedIdx];
@@ -6637,6 +6775,7 @@ document.addEventListener('DOMContentLoaded', () => {
         focusedIndex = tunerSelectedIdx;
         applyChannelTheme(ch.num);
         enterChannel(ch.num);
+        tunerArmAutoNav(); // 3분 타이머 시작
       }
     }
   });
