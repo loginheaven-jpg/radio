@@ -1959,10 +1959,13 @@ function switchToChannel(idx) {
   focusedIndex = idx;
   const ch = activeChannels[idx];
   applyChannelTheme(ch.num);
-  // 빠른 스와이프 디바운스: 150ms 이내 연속 전환 시 마지막만 실행
-  clearTimeout(switchDebounce);
-  switchDebounce = setTimeout(() => enterChannel(ch.num), 200);
   if (swipeHintEl) swipeHintEl.style.display = 'none';
+  // 종료 시점 즉시 호출 — 디바운스 제거 (이미 종료 액션이므로)
+  // 현재 채널과 다를 때만 enterChannel (불필요한 재진입 방지)
+  if (ch.num !== currentChannel) {
+    clearTimeout(switchDebounce);
+    enterChannel(ch.num);
+  }
 }
 
 // Swipe on disc area
@@ -6562,6 +6565,8 @@ function updateTunerPlayBtn() {
   const handle = () => $('tunerSliderHandle');
   const track = () => $('tunerSliderTrack');
   let dragging = false;
+  let didChangeIdx = false; // 드래그 중 selected가 실제 변경됐는지
+
   function onMove(clientY) {
     const t = track(); if (!t) return;
     const rect = t.getBoundingClientRect();
@@ -6572,6 +6577,7 @@ function updateTunerPlayBtn() {
     const newIdx = Math.round(ratio * (activeChannels.length - 1));
     if (newIdx !== tunerSelectedIdx) {
       tunerSelectedIdx = newIdx;
+      didChangeIdx = true;
       renderTunerChannels(); // selected card + rotational list 즉시 갱신
       const marks = $('tunerSliderMarks');
       if (marks) {
@@ -6579,33 +6585,39 @@ function updateTunerPlayBtn() {
       }
     }
     handle().style.top = y + 'px';
-    // 재생 중이면 200ms 디바운스 후 자동 채널 전환
-    if (isPlaying) {
-      clearTimeout(tunerSliderDebounce);
-      tunerSliderDebounce = setTimeout(() => {
-        const ch = activeChannels[tunerSelectedIdx];
-        if (ch && ch.num !== currentChannel) {
-          focusedIndex = tunerSelectedIdx;
-          applyChannelTheme(ch.num);
-          enterChannel(ch.num);
-        }
-      }, 200);
+    // 종료 시점 방식: 드래그 중에는 enterChannel 호출하지 않음
+  }
+
+  function commitChannelChange() {
+    // 손 뗀 시점 — 재생 중이고 채널이 실제로 바뀌었으면 enterChannel 호출
+    if (!didChangeIdx) return;
+    didChangeIdx = false;
+    if (!isPlaying) return;
+    const ch = activeChannels[tunerSelectedIdx];
+    if (ch && ch.num !== currentChannel) {
+      focusedIndex = tunerSelectedIdx;
+      applyChannelTheme(ch.num);
+      enterChannel(ch.num);
     }
   }
+
   document.addEventListener('DOMContentLoaded', () => {
     const h = handle();
     if (!h) return;
-    h.addEventListener('mousedown', e => { dragging = true; e.preventDefault(); });
+    h.addEventListener('mousedown', e => { dragging = true; didChangeIdx = false; e.preventDefault(); });
     document.addEventListener('mousemove', e => { if (dragging) onMove(e.clientY); });
-    document.addEventListener('mouseup', () => { dragging = false; });
-    h.addEventListener('touchstart', e => { dragging = true; e.preventDefault(); }, { passive: false });
+    document.addEventListener('mouseup', () => { if (dragging) { dragging = false; commitChannelChange(); } });
+    h.addEventListener('touchstart', e => { dragging = true; didChangeIdx = false; e.preventDefault(); }, { passive: false });
     document.addEventListener('touchmove', e => { if (dragging && e.touches[0]) onMove(e.touches[0].clientY); }, { passive: true });
-    document.addEventListener('touchend', () => { dragging = false; });
-    // 트랙 클릭 시 점프
+    document.addEventListener('touchend', () => { if (dragging) { dragging = false; commitChannelChange(); } });
+    document.addEventListener('touchcancel', () => { if (dragging) { dragging = false; commitChannelChange(); } });
+    // 트랙 클릭 시 점프 — 클릭은 단일 동작이므로 즉시 커밋
     const tr = track();
     if (tr) tr.addEventListener('click', e => {
       if (e.target === h) return;
+      didChangeIdx = false;
       onMove(e.clientY);
+      commitChannelChange();
     });
   });
 })();
