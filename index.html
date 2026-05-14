@@ -611,31 +611,12 @@ body{
 .tuner-ch-item.playing::after{content:'';display:inline-block;width:12px;height:12px;background:linear-gradient(to top,var(--ch-col) 30%,transparent 30%) 0 0/3px 100%,linear-gradient(to top,var(--ch-col) 70%,transparent 70%) 5px 0/3px 100%,linear-gradient(to top,var(--ch-col) 50%,transparent 50%) 10px 0/3px 100%;background-repeat:no-repeat;animation:eq 0.8s ease-in-out infinite alternate;flex-shrink:0}
 @keyframes eq{from{filter:brightness(0.7)}to{filter:brightness(1.3)}}
 .tuner-slider-panel{width:96px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:0;position:relative;gap:24px}
-/* 빈티지 볼륨 노브 (80×80) */
-.tuner-vol-knob{position:relative;width:80px;height:80px;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none}
-.tuner-vol-knob:active{cursor:grabbing}
-.tuner-vol-ring{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 35%,#3a2d1a 0%,#1a1208 70%);box-shadow:inset 0 -2px 4px rgba(0,0,0,0.5),inset 0 2px 3px rgba(255,255,255,0.04)}
-/* SVG arc for volume indicator track */
-.tuner-vol-arc{position:absolute;inset:0;border-radius:50%;
-  background:conic-gradient(from 225deg,
-    var(--vol-color,#D4A055) 0deg,
-    var(--vol-color,#D4A055) var(--vol-angle,202deg),
-    rgba(60,40,20,0.5) var(--vol-angle,202deg),
-    rgba(60,40,20,0.5) 270deg,
-    transparent 270deg);
-  -webkit-mask:radial-gradient(circle,transparent 60%,#000 60.5%,#000 95%,transparent 95.5%);
-  mask:radial-gradient(circle,transparent 60%,#000 60.5%,#000 95%,transparent 95.5%);
-  pointer-events:none;transition:--vol-angle 0.1s linear}
-.tuner-vol-body{position:absolute;inset:8px;border-radius:50%;background:linear-gradient(145deg,#C4A872 0%,#A08855 30%,#8B7345 50%,#6a5530 75%,#8B7345 100%);box-shadow:0 3px 6px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.35),inset 0 -2px 4px rgba(0,0,0,0.3);overflow:hidden}
-.tuner-vol-body::before{content:'';position:absolute;inset:0;background:repeating-conic-gradient(from 0deg,transparent 0deg 8deg,rgba(40,28,12,0.18) 8deg 10deg);border-radius:50%}
-.tuner-vol-indicator{position:absolute;top:5px;left:50%;width:2.5px;height:17px;background:#2a1e10;border-radius:2px;transform-origin:50% 30px;transform:translateX(-50%) rotate(var(--ind-rot,0deg));transition:transform 0.05s linear;box-shadow:0 0 2px rgba(0,0,0,0.5)}
-.tuner-vol-center{position:absolute;top:50%;left:50%;width:8px;height:8px;border-radius:50%;background:radial-gradient(circle,#3a2a14,#1a1006);transform:translate(-50%,-50%);box-shadow:0 0 0 1px rgba(0,0,0,0.4)}
-.tuner-vol-value{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:11px;font-weight:700;color:#1a1108;font-family:'Space Grotesk',monospace;letter-spacing:0.5px;text-shadow:0 1px 0 rgba(255,255,255,0.2);pointer-events:none;opacity:0;transition:opacity 0.2s}
-.tuner-vol-knob.show-value .tuner-vol-value{opacity:1}
-.tuner-vol-knob.show-value .tuner-vol-indicator,.tuner-vol-knob.show-value .tuner-vol-center{opacity:0.15}
-.tuner-vol-label{position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);font-size:9px;color:#605040;letter-spacing:2px;font-family:'Space Grotesk',monospace;font-weight:700}
-.tuner-vol-knob.boost{--vol-color:#e89060}
-.tuner-vol-knob.boost .tuner-vol-arc{filter:drop-shadow(0 0 6px rgba(232,144,96,0.4))}
+/* 빈티지 VU 미터 (반원) */
+.tuner-vu-meter{position:relative;width:80px;height:50px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))}
+.tuner-vu-meter:active{cursor:grabbing}
+.tuner-vu-meter svg{display:block;width:100%;height:100%}
+.tuner-vol-value{position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#a08555;font-family:'Space Grotesk',monospace;letter-spacing:1px;pointer-events:none;opacity:0;transition:opacity 0.2s}
+.tuner-vu-meter.show-value .tuner-vol-value{opacity:1}
 .tuner-bcast-label{font-size:9px;color:#605040;text-align:center;letter-spacing:1.5px;margin-bottom:12px;padding:5px 10px;border:1px solid #4d3d2a;border-radius:3px;background:linear-gradient(180deg,#241d10,#1a150c);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);font-family:'Space Grotesk',monospace;font-weight:600}
 .tuner-bcast-label .small{font-size:7px;display:block;color:#4d3d2a;margin-top:2px;letter-spacing:1.5px}
 .tuner-slider-track{position:relative;width:64px;height:200px;background:linear-gradient(180deg,#0a0805 0%,#181208 50%,#0a0805 100%);border-radius:8px;box-shadow:inset 0 0 10px rgba(0,0,0,0.8),inset 0 1px 0 rgba(255,255,255,0.06),0 2px 4px rgba(0,0,0,0.4);margin-left:18px;border:1px solid #1a1208}
@@ -790,16 +771,65 @@ body{
         <div class="tuner-channels" id="tunerChannels"></div>
       </div>
       <div class="tuner-slider-panel">
-        <!-- 빈티지 볼륨 노브 (0~150) -->
-        <div class="tuner-vol-knob" id="tunerVolKnob" role="slider" aria-label="볼륨" tabindex="0">
-          <div class="tuner-vol-ring"></div>
-          <div class="tuner-vol-arc" id="tunerVolArc"></div>
-          <div class="tuner-vol-body">
-            <div class="tuner-vol-indicator" id="tunerVolIndicator"></div>
-            <div class="tuner-vol-center"></div>
-          </div>
+        <!-- 빈티지 VU 미터 (반원형 볼륨) -->
+        <div class="tuner-vu-meter" id="tunerVolKnob" role="slider" aria-label="볼륨" tabindex="0">
+          <svg viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <linearGradient id="vuBg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#f0e0c0"/>
+                <stop offset="100%" stop-color="#d8c098"/>
+              </linearGradient>
+              <linearGradient id="vuBezel" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#E4C892"/>
+                <stop offset="60%" stop-color="#8B7345"/>
+                <stop offset="100%" stop-color="#6a5530"/>
+              </linearGradient>
+            </defs>
+            <!-- 외곽 반원 베젤 -->
+            <path d="M 3 58 A 47 47 0 0 1 97 58 L 90 58 A 40 40 0 0 0 10 58 Z" fill="url(#vuBezel)" stroke="#6a5530" stroke-width="0.5"/>
+            <!-- 내부 다이얼 배경 -->
+            <path d="M 10 58 A 40 40 0 0 1 90 58 Z" fill="url(#vuBg)" stroke="#8B7345" stroke-width="0.4"/>
+            <!-- 호 모양 미세 눈금 라인 -->
+            <path d="M 17 58 A 33 33 0 0 1 83 58" fill="none" stroke="#3a2a14" stroke-width="0.4" opacity="0.5"/>
+            <!-- 주요 눈금 (0, 30, 60, 90, 120, 150) -->
+            <g class="vu-ticks" stroke="#1a1108" stroke-width="0.6" stroke-linecap="round">
+              <line x1="14" y1="58" x2="17" y2="58" transform="rotate(-90 50 58)"/>
+              <line x1="14" y1="58" x2="17" y2="58" transform="rotate(-54 50 58)"/>
+              <line x1="14" y1="58" x2="17" y2="58" transform="rotate(-18 50 58)"/>
+              <line x1="14" y1="58" x2="17" y2="58" transform="rotate(18 50 58)"/>
+              <line x1="14" y1="58" x2="17" y2="58" transform="rotate(54 50 58)"/>
+              <line x1="14" y1="58" x2="17" y2="58" transform="rotate(90 50 58)"/>
+            </g>
+            <!-- 미세 눈금 (중간) -->
+            <g class="vu-ticks-fine" stroke="#3a2a14" stroke-width="0.3" stroke-linecap="round" opacity="0.55">
+              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(-78 50 58)"/>
+              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(-66 50 58)"/>
+              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(-42 50 58)"/>
+              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(-30 50 58)"/>
+              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(-6 50 58)"/>
+              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(6 50 58)"/>
+              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(30 50 58)"/>
+              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(42 50 58)"/>
+              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(66 50 58)"/>
+              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(78 50 58)"/>
+            </g>
+            <!-- 100% 표시 (부스트 시작점) 빨간색 -->
+            <line x1="14" y1="58" x2="17" y2="58" transform="rotate(30 50 58)" stroke="#c44030" stroke-width="0.7" stroke-linecap="round"/>
+            <!-- 부스트 영역 (100~150) 빨간 호 -->
+            <path d="M 75.5 38 A 33 33 0 0 1 83 58" fill="none" stroke="#c44030" stroke-width="1.2" opacity="0.7"/>
+            <!-- VOLUME 라벨 -->
+            <text x="50" y="32" text-anchor="middle" font-family="Georgia, serif" font-size="6.5" fill="#3a2a14" font-style="italic">VOLUME</text>
+            <!-- 숫자 라벨 -->
+            <text x="13" y="48" text-anchor="middle" font-family="Georgia, serif" font-size="3.6" fill="#3a2a14">0</text>
+            <text x="50" y="20" text-anchor="middle" font-family="Georgia, serif" font-size="3.6" fill="#3a2a14">75</text>
+            <text x="87" y="48" text-anchor="middle" font-family="Georgia, serif" font-size="3.6" fill="#c44030">150</text>
+            <!-- 바늘 (회전) -->
+            <line id="vuNeedle" x1="50" y1="58" x2="50" y2="20" stroke="#c44030" stroke-width="1.4" stroke-linecap="round" transform="rotate(-90 50 58)" style="transform-origin:50px 58px;transition:transform 0.15s cubic-bezier(0.34,1.56,0.64,1)"/>
+            <!-- 회전축 -->
+            <circle cx="50" cy="58" r="3" fill="#5a4520" stroke="#3a2a14" stroke-width="0.5"/>
+            <circle cx="50" cy="58" r="1" fill="#1a1108"/>
+          </svg>
           <div class="tuner-vol-value" id="tunerVolValue">80</div>
-          <div class="tuner-vol-label">VOL</div>
         </div>
         <button class="tuner-play-btn" id="tunerPlayBtn" aria-label="재생"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 L13 8 L4 13.5 Z" fill="currentColor"/></svg><span class="tuner-play-btn-label" id="tunerPlayLabel">PLAY</span></button>
         <div class="tuner-slider-track" id="tunerSliderTrack">
@@ -6607,51 +6637,28 @@ function updateTunerPlayBtn() {
   }
 }
 // 슬라이더 드래그
-// 볼륨 노브 인터랙션
+// 볼륨 VU 미터 인터랙션 — 가로 슬라이드 (반원 위 X좌표 → 바늘 각도)
 (function initVolKnob() {
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-  // 볼륨 0~1.5 → 노브 회전 0~270deg (7시 → 5시 방향)
+  // 볼륨 0~1.5 → 바늘 각도 -90° ~ +90°
   function applyKnobRotation(v) {
-    const knob = $('tunerVolKnob');
-    if (!knob) return;
     const ratio = clamp(v / 1.5, 0, 1);
-    const angle = ratio * 270; // 0~270도
-    // 인디케이터 회전: 7시 방향(-135deg) → 5시 방향(+135deg)
-    const indRot = -135 + ratio * 270;
-    knob.style.setProperty('--ind-rot', indRot + 'deg');
-    knob.style.setProperty('--vol-angle', angle + 'deg');
-    // 부스트 영역 (100% 이상) 시각 강조
-    knob.classList.toggle('boost', v > 1.0);
-    // 숫자 표시
+    const angle = -90 + ratio * 180; // -90 ~ +90
+    const needle = document.getElementById('vuNeedle');
+    if (needle) needle.setAttribute('transform', `rotate(${angle} 50 58)`);
     const valEl = $('tunerVolValue');
     if (valEl) valEl.textContent = Math.round(v * 100);
   }
-  // 외부에서 호출 가능하도록
   window.applyKnobRotation = applyKnobRotation;
 
   let dragging = false;
   let showTimer = null;
 
-  // 각도(rad) → 인디케이터 기준 각도(deg, 12시=0, 시계방향) → 볼륨 매핑
-  // 인디케이터: 7시(-135°) = 0%, 12시(0°) = 75%, 5시(+135°) = 150%
-  // 데드존: 6시 ±45° (즉 +135°~+180° 또는 -135°~-180°)는 이전 값 유지
-  function angleToVolume(angle) {
-    // angle: 12시 기준 deg, -180~180
-    if (angle > 135 || angle < -135) return null; // 데드존
-    // -135 → 0, 135 → 1.5
-    const ratio = (angle + 135) / 270;
-    return clamp(ratio, 0, 1) * 1.5;
-  }
-  function pointToAngle(knob, clientX, clientY) {
-    const rect = knob.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    // atan2: 3시=0, 12시=-PI/2, 시계 양의 방향
-    const rad = Math.atan2(clientY - cy, clientX - cx);
-    // 12시 기준으로 변환 (12시 = 0, 시계방향 +)
-    let deg = rad * 180 / Math.PI + 90;
-    if (deg > 180) deg -= 360;
-    return deg;
+  // X 좌표 → 볼륨 매핑 (가로 슬라이드)
+  function xToVolume(meter, clientX) {
+    const rect = meter.getBoundingClientRect();
+    const ratio = clamp((clientX - rect.left) / rect.width, 0, 1);
+    return ratio * 1.5;
   }
 
   function setVolume(v) {
@@ -6669,51 +6676,46 @@ function updateTunerPlayBtn() {
     localStorage.setItem('radio-volume', v);
   }
 
-  function onDragStart(knob, clientX, clientY) {
+  function onDragStart(meter, clientX) {
     dragging = true;
-    knob.classList.add('show-value');
+    meter.classList.add('show-value');
     clearTimeout(showTimer);
-    // 시작 위치의 각도로 즉시 점프
-    const angle = pointToAngle(knob, clientX, clientY);
-    const v = angleToVolume(angle);
-    if (v !== null) setVolume(v);
+    setVolume(xToVolume(meter, clientX));
   }
-  function onDragMove(knob, clientX, clientY) {
+  function onDragMove(meter, clientX) {
     if (!dragging) return;
-    const angle = pointToAngle(knob, clientX, clientY);
-    const v = angleToVolume(angle);
-    if (v !== null) setVolume(v); // 데드존이면 이전 값 유지
+    setVolume(xToVolume(meter, clientX));
   }
   function onDragEnd() {
     if (!dragging) return;
     dragging = false;
-    const knob = $('tunerVolKnob');
-    showTimer = setTimeout(() => { if (knob) knob.classList.remove('show-value'); }, 800);
+    const meter = $('tunerVolKnob');
+    showTimer = setTimeout(() => { if (meter) meter.classList.remove('show-value'); }, 800);
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    const knob = $('tunerVolKnob');
-    if (!knob) return;
+    const meter = $('tunerVolKnob');
+    if (!meter) return;
     applyKnobRotation(currentVolume);
-    knob.addEventListener('mousedown', e => { onDragStart(knob, e.clientX, e.clientY); e.preventDefault(); });
-    document.addEventListener('mousemove', e => { if (dragging) onDragMove(knob, e.clientX, e.clientY); });
+    meter.addEventListener('mousedown', e => { onDragStart(meter, e.clientX); e.preventDefault(); });
+    document.addEventListener('mousemove', e => { if (dragging) onDragMove(meter, e.clientX); });
     document.addEventListener('mouseup', onDragEnd);
-    knob.addEventListener('touchstart', e => {
-      const t = e.touches[0]; if (t) { onDragStart(knob, t.clientX, t.clientY); e.preventDefault(); }
+    meter.addEventListener('touchstart', e => {
+      const t = e.touches[0]; if (t) { onDragStart(meter, t.clientX); e.preventDefault(); }
     }, { passive: false });
     document.addEventListener('touchmove', e => {
-      if (dragging && e.touches[0]) onDragMove(knob, e.touches[0].clientX, e.touches[0].clientY);
+      if (dragging && e.touches[0]) onDragMove(meter, e.touches[0].clientX);
     }, { passive: true });
     document.addEventListener('touchend', onDragEnd);
     document.addEventListener('touchcancel', onDragEnd);
     // 휠 (PC): 위로 = 볼륨 ↑
-    knob.addEventListener('wheel', e => {
+    meter.addEventListener('wheel', e => {
       e.preventDefault();
       const dir = e.deltaY < 0 ? 1 : -1;
       setVolume(clamp(currentVolume + dir * 0.05, 0, 1.5));
-      knob.classList.add('show-value');
+      meter.classList.add('show-value');
       clearTimeout(showTimer);
-      showTimer = setTimeout(() => knob.classList.remove('show-value'), 800);
+      showTimer = setTimeout(() => meter.classList.remove('show-value'), 800);
     }, { passive: false });
   });
 })();
