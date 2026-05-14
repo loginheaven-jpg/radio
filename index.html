@@ -612,11 +612,11 @@ body{
 @keyframes eq{from{filter:brightness(0.7)}to{filter:brightness(1.3)}}
 .tuner-slider-panel{width:96px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:0;position:relative;gap:24px}
 /* 빈티지 VU 미터 (반원) */
-.tuner-vu-meter{position:relative;width:80px;height:50px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))}
+.tuner-vu-meter{position:relative;width:80px;height:50px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));margin-left:18px;margin-bottom:8px}
 .tuner-vu-meter:active{cursor:grabbing}
 .tuner-vu-meter svg{display:block;width:100%;height:100%}
-.tuner-vol-value{position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#a08555;font-family:'Space Grotesk',monospace;letter-spacing:1px;pointer-events:none;opacity:0;transition:opacity 0.2s}
-.tuner-vu-meter.show-value .tuner-vol-value{opacity:1}
+.tuner-vol-value{position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;color:#D4A055;font-family:'Space Grotesk',monospace;letter-spacing:1px;pointer-events:none}
+.tuner-vu-meter.boost .tuner-vol-value{color:#e89060;text-shadow:0 0 6px rgba(232,144,96,0.4)}
 .tuner-bcast-label{font-size:9px;color:#605040;text-align:center;letter-spacing:1.5px;margin-bottom:12px;padding:5px 10px;border:1px solid #4d3d2a;border-radius:3px;background:linear-gradient(180deg,#241d10,#1a150c);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);font-family:'Space Grotesk',monospace;font-weight:600}
 .tuner-bcast-label .small{font-size:7px;display:block;color:#4d3d2a;margin-top:2px;letter-spacing:1.5px}
 .tuner-slider-track{position:relative;width:64px;height:200px;background:linear-gradient(180deg,#0a0805 0%,#181208 50%,#0a0805 100%);border-radius:8px;box-shadow:inset 0 0 10px rgba(0,0,0,0.8),inset 0 1px 0 rgba(255,255,255,0.06),0 2px 4px rgba(0,0,0,0.4);margin-left:18px;border:1px solid #1a1208}
@@ -823,8 +823,8 @@ body{
             <text x="13" y="48" text-anchor="middle" font-family="Georgia, serif" font-size="3.6" fill="#3a2a14">0</text>
             <text x="50" y="20" text-anchor="middle" font-family="Georgia, serif" font-size="3.6" fill="#3a2a14">75</text>
             <text x="87" y="48" text-anchor="middle" font-family="Georgia, serif" font-size="3.6" fill="#c44030">150</text>
-            <!-- 바늘 (회전) -->
-            <line id="vuNeedle" x1="50" y1="58" x2="50" y2="20" stroke="#c44030" stroke-width="1.4" stroke-linecap="round" transform="rotate(-90 50 58)" style="transform-origin:50px 58px;transition:transform 0.15s cubic-bezier(0.34,1.56,0.64,1)"/>
+            <!-- 바늘 (회전) -- transform attribute에 rotate(angle cx cy) 형태로 회전축 명시 -->
+            <line id="vuNeedle" x1="50" y1="58" x2="50" y2="20" stroke="#c44030" stroke-width="1.4" stroke-linecap="round" transform="rotate(-90 50 58)"/>
             <!-- 회전축 -->
             <circle cx="50" cy="58" r="3" fill="#5a4520" stroke="#3a2a14" stroke-width="0.5"/>
             <circle cx="50" cy="58" r="1" fill="#1a1108"/>
@@ -6648,6 +6648,8 @@ function updateTunerPlayBtn() {
     if (needle) needle.setAttribute('transform', `rotate(${angle} 50 58)`);
     const valEl = $('tunerVolValue');
     if (valEl) valEl.textContent = Math.round(v * 100);
+    const meter = $('tunerVolKnob');
+    if (meter) meter.classList.toggle('boost', v > 1.0);
   }
   window.applyKnobRotation = applyKnobRotation;
 
@@ -6665,6 +6667,8 @@ function updateTunerPlayBtn() {
     currentVolume = v;
     applyKnobRotation(v);
     applyVolume(v);
+    const meter = $('tunerVolKnob');
+    if (meter) meter.classList.toggle('boost', v > 1.0);
     if (volSlider) {
       volSlider.value = v;
       volSlider.classList.toggle('boost-zone', v > 1.0);
@@ -6678,8 +6682,6 @@ function updateTunerPlayBtn() {
 
   function onDragStart(meter, clientX) {
     dragging = true;
-    meter.classList.add('show-value');
-    clearTimeout(showTimer);
     setVolume(xToVolume(meter, clientX));
   }
   function onDragMove(meter, clientX) {
@@ -6687,10 +6689,7 @@ function updateTunerPlayBtn() {
     setVolume(xToVolume(meter, clientX));
   }
   function onDragEnd() {
-    if (!dragging) return;
     dragging = false;
-    const meter = $('tunerVolKnob');
-    showTimer = setTimeout(() => { if (meter) meter.classList.remove('show-value'); }, 800);
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -6713,9 +6712,6 @@ function updateTunerPlayBtn() {
       e.preventDefault();
       const dir = e.deltaY < 0 ? 1 : -1;
       setVolume(clamp(currentVolume + dir * 0.05, 0, 1.5));
-      meter.classList.add('show-value');
-      clearTimeout(showTimer);
-      showTimer = setTimeout(() => meter.classList.remove('show-value'), 800);
     }, { passive: false });
   });
 })();
