@@ -629,6 +629,8 @@ body{
 .tuner-play-btn{width:56px;height:56px;border-radius:50%;background:linear-gradient(140deg,#D4B882,#8B7345 70%,#6a5530);border:2px solid #E4C892;color:#1A150E;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 14px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.35),inset 0 -2px 0 rgba(0,0,0,0.25);position:relative;transition:transform 0.1s,filter 0.3s;margin-left:18px;flex-shrink:0}
 .tuner-play-btn:active{transform:scale(0.94)}
 .tuner-play-btn.playing{filter:brightness(1.18) drop-shadow(0 0 8px rgba(232,144,60,0.4))}
+.tuner-play-btn.loading::before{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid transparent;border-top-color:#f0c060;border-right-color:#f0c060;animation:tunerSpin 0.9s linear infinite;pointer-events:none}
+@keyframes tunerSpin{to{transform:rotate(360deg)}}
 .tuner-play-btn-label{position:absolute;top:62px;left:50%;transform:translateX(-50%);font-size:9px;color:#a08555;letter-spacing:2.5px;font-family:'Space Grotesk',monospace;white-space:nowrap;font-weight:700}
 .tuner-play-btn.playing .tuner-play-btn-label{color:#f0a060;text-shadow:0 0 6px rgba(240,160,96,0.4)}
 .tuner-tube-section{height:155px;background-color:#0a0705;background-image:url('/tube-glow.png');background-size:auto 155px;background-position:center bottom;background-repeat:no-repeat;position:relative;filter:brightness(0.42) saturate(0.7);transition:filter 0.6s;margin-top:-12px}
@@ -2345,15 +2347,16 @@ function checkAudioStall() {
   if (isRecording) return;
   // HLS 라이브 스트림 또는 R2 트랙 모두 동일하게 감시
   const curTime = audioEl.currentTime;
-  if (lastWatchdogTime >= 0 && curTime === lastWatchdogTime && !audioEl.paused && !audioEl.ended) {
+  // 스톨 판정: (a) currentTime이 멈춰있거나, (b) readyState가 낮고 (HAVE_FUTURE_DATA 미만) 버퍼링 중
+  const timeStuck = lastWatchdogTime >= 0 && curTime === lastWatchdogTime;
+  const noData = audioEl.readyState < 3; // HAVE_FUTURE_DATA(3) 미만이면 재생 불가
+  const isStalled = !audioEl.paused && !audioEl.ended && (timeStuck || noData);
+  if (isStalled) {
     stallCount++;
-    console.warn('[StallWatchdog] 스톨 감지 #' + stallCount + ' (currentTime=' + curTime + ')');
-    // 녹음 중에는 적극 복구를 스킵 (재시작/재로드가 녹음에 끊김을 유발)
-    // → 브라우저가 자체 버퍼로 복구하게 두고, 심각한 경우에만 개입
+    console.warn('[StallWatchdog] 스톨 감지 #' + stallCount + ' (currentTime=' + curTime + ', readyState=' + audioEl.readyState + ')');
     if (isRecording) {
-      // 녹음 중에는 훨씬 관대하게: 10회 이상 스톨이 지속될 때만 soft 복구
       if (stallCount >= 10 && currentHls) {
-        currentHls.startLoad(); // startLoad는 play 재호출 없이 버퍼 채우기만
+        currentHls.startLoad();
       }
     } else if (stallCount >= MAX_STALL_BEFORE_RELOAD) {
       // 녹음 아닐 때만 채널 전체 재진입
@@ -4284,8 +4287,8 @@ function handleHeaderTap() {
   headerTapCount++;
   clearTimeout(headerTapTimer);
   headerTapTimer = setTimeout(() => {
-    // 1탭: 축하 메시지 팝업 (40주년 기간 중, 스플래시가 없을 때만)
-    if (headerTapCount === 1 && isAnniversaryPeriod() && !$('anniversarySplash')) {
+    // 1탭: 축하 메시지 팝업 (스플래시 없을 때 항상)
+    if (headerTapCount === 1 && !$('anniversarySplash')) {
       openGuestbookPopup();
     }
     headerTapCount = 0;
@@ -6628,9 +6631,9 @@ function updateTunerPlayBtn() {
   const btn = $('tunerPlayBtn');
   if (!btn) return;
   if (isPlaying) {
-    // 일시정지 아이콘 (두 막대) + ON AIR 라벨
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="2.5" width="3.5" height="11" rx="0.6" fill="currentColor"/><rect x="9" y="2.5" width="3.5" height="11" rx="0.6" fill="currentColor"/></svg><span class="tuner-play-btn-label">ON AIR</span>';
     btn.classList.add('playing');
+    btn.classList.remove('loading'); // 재생 시작 → spinner 제거
   } else {
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 L13 8 L4 13.5 Z" fill="currentColor"/></svg><span class="tuner-play-btn-label">PLAY</span>';
     btn.classList.remove('playing');
@@ -6783,16 +6786,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isPlaying) {
       handlePlayPause();
       updateTunerPlayBtn();
+      pb.classList.remove('loading');
       $('tunerTubeSection').classList.remove('playing');
       tunerCancelAutoNav();
     } else {
       // 튜너 홈에 머문 채로 재생 시작 (LP로 이동하지 않음)
       const ch = activeChannels[tunerSelectedIdx];
       if (ch) {
+        pb.classList.add('loading'); // 즉시 로딩 spinner 표시
         focusedIndex = tunerSelectedIdx;
         applyChannelTheme(ch.num);
         enterChannel(ch.num);
-        tunerArmAutoNav(); // 3분 타이머 시작
+        tunerArmAutoNav();
       }
     }
   });

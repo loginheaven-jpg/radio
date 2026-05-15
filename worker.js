@@ -434,9 +434,20 @@ export default {
           return new Response('Domain not allowed', { status: 403, headers: cors });
         }
 
-        const resp = await fetch(target, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; YebomRadio/2.0)' },
-        });
+        // 일부 서버(CBS 등)는 봇 UA 차단 → 실제 브라우저 UA 사용
+        const fetchHeaders = {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': '*/*',
+          'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+          'Referer': parsed.origin + '/',
+        };
+        // 530 발생 시 1회 재시도
+        let resp;
+        for (let i = 0; i < 2; i++) {
+          resp = await fetch(target, { headers: fetchHeaders, redirect: 'follow' });
+          if (resp.status < 500) break;
+          await new Promise(r => setTimeout(r, 200));
+        }
 
         const proxyHeaders = { ...cors };
         const ct = resp.headers.get('content-type');
