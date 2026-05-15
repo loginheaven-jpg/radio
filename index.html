@@ -1051,7 +1051,39 @@ body{
   </div>
 
   <button class="pwa-install-btn" id="pwaInstallBtn">📲 앱으로 설치하기</button>
-  <div class="footer" id="appFooter" style="cursor:pointer">예봄교회 · Yebom Radio 2.0</div>
+  <div class="footer" id="appFooter" style="cursor:pointer">예봄교회 · Yebom Radio 2.0 <span id="bgHelpBtn" style="opacity:0.5;margin-left:6px;font-size:11px;border:1px solid currentColor;border-radius:50%;padding:0 5px;cursor:pointer" title="화면 끔 시 재생 끊김 해결">?</span></div>
+</div>
+
+<!-- 백그라운드 재생 도움말 모달 -->
+<div id="bgHelpModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9998;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:22px;max-width:380px;width:100%;max-height:80vh;overflow-y:auto;color:#e0d0c0">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700;color:#D4A055">화면 꺼짐 시 재생이 멈춘다면</div>
+      <button id="bgHelpClose" style="background:none;border:none;color:#a08080;font-size:20px;cursor:pointer">&times;</button>
+    </div>
+    <div style="font-size:12.5px;line-height:1.7;color:#c8b8a8">
+      <p style="margin:0 0 12px;color:#e8d8c0">Android는 배터리 절약을 위해 백그라운드 앱을 자동으로 종료합니다.<br>아래 3가지 설정을 바꿔주세요.</p>
+      <div style="background:rgba(212,160,85,0.08);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+        <div style="font-weight:700;color:#D4A055;margin-bottom:4px">1. 배터리 최적화 해제</div>
+        <div style="font-size:11.5px;color:#a89888">설정 → 배터리 → 배터리 사용량 최적화 → Chrome → <b style="color:#e8d8c0">최적화 안 함</b></div>
+      </div>
+      <div style="background:rgba(212,160,85,0.08);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+        <div style="font-weight:700;color:#D4A055;margin-bottom:4px">2. 백그라운드 데이터 허용</div>
+        <div style="font-size:11.5px;color:#a89888">설정 → 앱 → Chrome → 모바일 데이터/Wi-Fi → <b style="color:#e8d8c0">백그라운드 데이터 사용 허용</b></div>
+      </div>
+      <div style="background:rgba(212,160,85,0.08);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+        <div style="font-weight:700;color:#D4A055;margin-bottom:4px">3. 절전 모드 해제 (삼성폰)</div>
+        <div style="font-size:11.5px;color:#a89888">설정 → 배터리 → 절전 모드 → <b style="color:#e8d8c0">해제</b><br>또는 설정 → 디바이스 케어 → 배터리 → <b style="color:#e8d8c0">절전 모드 끄기</b></div>
+      </div>
+      <div style="background:rgba(106,170,96,0.1);border:1px solid rgba(106,170,96,0.3);border-radius:8px;padding:10px 12px;margin-top:14px">
+        <div style="font-weight:700;color:#a0d090;margin-bottom:4px">💡 가장 확실한 방법</div>
+        <div style="font-size:11.5px;color:#a8c8a0"><b style="color:#cce8c0">"앱으로 설치하기"</b>로 PWA 설치 후 사용하시면 위 설정 없이도 백그라운드 재생이 더 안정적입니다.</div>
+      </div>
+      <div style="text-align:center;margin-top:10px">
+        <button id="bgHelpOpenSettings" style="background:linear-gradient(135deg,#D4A055,#8B7345);color:#1a150e;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer">⚙️ Android 설정 열기</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- 인앱 브라우저 감지 배너 -->
@@ -6509,15 +6541,15 @@ async function init() {
 let tunerSelectedIdx = 0;
 let tunerSliderDebounce = null;
 let tunerHomeOpen = false;
-let tunerAutoNavTimer = null; // 홈에서 재생 시 1분 후 LP 자동 이동
-const TUNER_AUTO_NAV_MS = 1 * 60 * 1000;
+let tunerAutoNavTimer = null; // 홈에서 재생 시 30초 후 LP 자동 이동
+const TUNER_AUTO_NAV_MS = 30 * 1000;
 function tunerArmAutoNav() {
   clearTimeout(tunerAutoNavTimer);
-  if (tunerHomeOpen && isPlaying) {
-    tunerAutoNavTimer = setTimeout(() => {
-      if (tunerHomeOpen && isPlaying) tunerClose();
-    }, TUNER_AUTO_NAV_MS);
-  }
+  if (!tunerHomeOpen) return; // 홈 닫혀있으면 의미 없음
+  // 발화 시점에 isPlaying을 체크 (호출 시점엔 enterChannel이 아직 비동기 진행 중)
+  tunerAutoNavTimer = setTimeout(() => {
+    if (tunerHomeOpen && isPlaying) tunerClose();
+  }, TUNER_AUTO_NAV_MS);
 }
 function tunerCancelAutoNav() { clearTimeout(tunerAutoNavTimer); tunerAutoNavTimer = null; }
 
@@ -6817,6 +6849,35 @@ document.addEventListener('DOMContentLoaded', () => {
   // YEBOM Tuner 버튼 (LP → 홈)
   const ytBtn = $('yebomTunerBtn');
   if (ytBtn) ytBtn.addEventListener('click', tunerOpen);
+});
+
+// 백그라운드 재생 도움말
+document.addEventListener('DOMContentLoaded', () => {
+  const helpBtn = $('bgHelpBtn');
+  const modal = $('bgHelpModal');
+  const closeBtn = $('bgHelpClose');
+  const openSettingsBtn = $('bgHelpOpenSettings');
+  if (helpBtn && modal) {
+    helpBtn.addEventListener('click', e => { e.stopPropagation(); modal.style.display = 'flex'; });
+  }
+  if (closeBtn) closeBtn.addEventListener('click', () => modal.style.display = 'none');
+  if (modal) modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+  if (openSettingsBtn) {
+    openSettingsBtn.addEventListener('click', () => {
+      // Android intent 스킴으로 Chrome 배터리 최적화 설정 시도
+      // Chrome on Android는 intent:// 처리, 실패 시 일반 설정으로
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      if (isAndroid) {
+        // 배터리 최적화 면제 요청 페이지로 직접 이동 시도
+        window.location.href = 'intent://com.android.settings/.fuelgauge.PowerUsageSummary#Intent;scheme=android-app;end';
+        setTimeout(() => {
+          showToast('설정이 안 열리면 위 안내를 따라 수동으로 변경해주세요');
+        }, 1500);
+      } else {
+        showToast('iOS는 자동 설정 불가 — 안내를 따라 변경해주세요');
+      }
+    });
+  }
 });
 
 window.addEventListener('DOMContentLoaded', init);
