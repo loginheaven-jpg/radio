@@ -594,8 +594,10 @@ body{
 .video-audio-toggle{display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 18px;border:1px solid rgba(160,112,208,0.4);border-radius:20px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;background:rgba(160,112,208,0.1);color:#d0a8e8;-webkit-tap-highlight-color:transparent;transition:all 0.2s}
 .video-audio-toggle:active{transform:scale(0.96)}
 .video-audio-toggle.active{background:rgba(160,112,208,0.25);border-color:#a070d0}
-.video-seek-btn{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 12px;border:1px solid rgba(160,112,208,0.3);border-radius:14px;font:inherit;cursor:pointer;background:rgba(160,112,208,0.06);color:#c0a0e0;-webkit-tap-highlight-color:transparent;transition:all 0.15s;user-select:none}
+.video-seek-btn{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 12px;border:1px solid rgba(160,112,208,0.3);border-radius:14px;font:inherit;cursor:pointer;background:rgba(160,112,208,0.06);color:#c0a0e0;-webkit-tap-highlight-color:transparent;transition:all 0.15s;user-select:none;touch-action:manipulation}
 .video-seek-btn:active{transform:scale(0.92);background:rgba(160,112,208,0.2)}
+.video-seek-btn.seeking{background:rgba(160,112,208,0.3);border-color:#a070d0;color:#e8d0f0;animation:vSeekPulse 0.3s ease-in-out infinite alternate}
+@keyframes vSeekPulse{from{transform:scale(1)}to{transform:scale(1.1)}}
 .video-seek-btn .lbl{font-size:9px;letter-spacing:0.5px;font-weight:600;opacity:0.7}
 .video-library{padding:14px 18px 24px}
 .video-section-label{font-size:10px;color:#605040;letter-spacing:2px;margin-bottom:10px;font-family:'Space Grotesk',monospace;text-transform:uppercase}
@@ -7194,6 +7196,66 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===== VIDEO-CH END =====
 
 // ===== VIDEO-CH BEGIN =====
+// 영상용 ±10초 버튼 (long-press 가속 — 오디오와 동일 패턴)
+function setupVideoSeekButton(btn, direction) {
+  if (!btn) return;
+  let pressStartTs = 0;
+  let holdTimer = null;
+  let seekInterval = null;
+  let speedUpgradeTimer = null;
+  let currentSpeed = 10;
+  let longPressActive = false;
+
+  function doSeek(seconds) {
+    const v = document.getElementById('vPlayer');
+    if (!v) return;
+    const pos = v.currentTime || 0;
+    const dur = v.duration || 0;
+    let newPos = pos + seconds * direction;
+    newPos = Math.max(0, dur > 0 ? Math.min(dur - 0.5, newPos) : newPos);
+    v.currentTime = newPos;
+  }
+  function startHold() {
+    longPressActive = true;
+    currentSpeed = 10;
+    btn.classList.add('seeking');
+    // 100ms마다 1초씩 = 10x
+    seekInterval = setInterval(() => doSeek(currentSpeed / 10), 100);
+    // 1500ms 후 30x로 가속
+    speedUpgradeTimer = setTimeout(() => { currentSpeed = 30; }, 1500);
+  }
+  function cleanup() {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    if (seekInterval) { clearInterval(seekInterval); seekInterval = null; }
+    if (speedUpgradeTimer) { clearTimeout(speedUpgradeTimer); speedUpgradeTimer = null; }
+    btn.classList.remove('seeking');
+  }
+  function onPressStart(e) {
+    const v = document.getElementById('vPlayer');
+    if (!v || !v.src) return;
+    if (e.type === 'mousedown' && e.button !== 0) return;
+    e.preventDefault();
+    pressStartTs = Date.now();
+    longPressActive = false;
+    holdTimer = setTimeout(startHold, 500);
+  }
+  function onPressEnd() {
+    if (pressStartTs === 0) return;
+    const held = Date.now() - pressStartTs;
+    pressStartTs = 0;
+    cleanup();
+    if (held < 500 && !longPressActive) doSeek(10);
+  }
+  function onPressCancel() { pressStartTs = 0; cleanup(); }
+  btn.addEventListener('mousedown', onPressStart);
+  btn.addEventListener('mouseup', onPressEnd);
+  btn.addEventListener('mouseleave', onPressCancel);
+  btn.addEventListener('touchstart', onPressStart, { passive: false });
+  btn.addEventListener('touchend', onPressEnd);
+  btn.addEventListener('touchcancel', onPressCancel);
+  btn.addEventListener('click', e => e.preventDefault()); // 합성 click 차단
+}
+
 // 영상 surface (CH12)
 let videoSurfaceOpen = false;
 let vCurrentMeta = null;
@@ -7338,16 +7400,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (vEngineAudioActive) vExitAudioOnly();
     else vEnterAudioOnly();
   });
-  // ±10초 버튼
-  const b10 = $('vBack10'), f10 = $('vFwd10');
-  if (b10) b10.addEventListener('click', () => {
-    const v = $('vPlayer');
-    if (v) v.currentTime = Math.max(0, v.currentTime - 10);
-  });
-  if (f10) f10.addEventListener('click', () => {
-    const v = $('vPlayer');
-    if (v) v.currentTime = Math.min(v.duration || Infinity, v.currentTime + 10);
-  });
+  // ±10초 버튼 — long-press 가속 (오디오와 동일 패턴)
+  setupVideoSeekButton($('vBack10'), -1);
+  setupVideoSeekButton($('vFwd10'), +1);
   // 풀스크린 진입 시 영상 비율에 맞춰 orientation 자동 잠금 (Android Chrome)
   const video = $('vPlayer');
   if (video) {
