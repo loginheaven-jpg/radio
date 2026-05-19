@@ -180,6 +180,138 @@ export default {
         return json({ ok: true }, cors);
       }
 
+      // ===== VIDEO-CH BEGIN =====
+      // 영상 채널 라우트 (V2 영상 채널)
+      // GET /api/videos — 영상 목록
+      if (path === '/api/videos' && method === 'GET') {
+        const idxRaw = await env.RADIO_KV.get('video:index');
+        const ids = idxRaw ? JSON.parse(idxRaw) : [];
+        const list = [];
+        for (const id of ids) {
+          const m = await env.RADIO_KV.get('video:' + id);
+          if (m) list.push(JSON.parse(m));
+        }
+        return json({ videos: list }, cors);
+      }
+      // GET /api/videos/:id — 단건 메타
+      {
+        const m = /^\/api\/videos\/([^/]+)$/.exec(path);
+        if (m && method === 'GET') {
+          const v = await env.RADIO_KV.get('video:' + decodeURIComponent(m[1]));
+          return v ? json(JSON.parse(v), cors) : json({ error: 'not found' }, cors, 404);
+        }
+      }
+      // GET /v/<id>/<rest> — R2 자산 (Range 지원)
+      {
+        const m = /^\/v\/([^/]+)\/(.+)$/.exec(path);
+        if (m && method === 'GET') {
+          const id = decodeURIComponent(m[1]);
+          const rest = m[2];
+          const key = `video/${id}/${rest}`;
+          // Content-Type 결정
+          let ctype = 'application/octet-stream';
+          if (rest.endsWith('.m3u8')) ctype = 'application/vnd.apple.mpegurl';
+          else if (rest.endsWith('.ts')) ctype = 'video/mp2t';
+          else if (rest.endsWith('.mp4')) ctype = 'video/mp4';
+          else if (rest.endsWith('.m4a') || rest.endsWith('.aac')) ctype = 'audio/mp4';
+          else if (rest.endsWith('.jpg') || rest.endsWith('.jpeg')) ctype = 'image/jpeg';
+          // Range 처리 (mp4/m4a만)
+          const isRangeable = rest.endsWith('.mp4') || rest.endsWith('.m4a');
+          if (isRangeable && request.headers.get('range')) {
+            const rangeHeader = request.headers.get('range');
+            const parsed = parseRange(rangeHeader, 0); // size 모름 → fetch 후 처리
+            const headObj = await env.RADIO_BUCKET.head(key);
+            if (!headObj) return new Response('Not Found', { status: 404, headers: cors });
+            const totalSize = headObj.size;
+            const reparsed = parseRange(rangeHeader, totalSize);
+            if (!reparsed) return new Response('Invalid Range', { status: 416, headers: cors });
+            const { offset, length, end } = reparsed;
+            const obj = await env.RADIO_BUCKET.get(key, { range: { offset, length } });
+            if (!obj) return new Response('Not Found', { status: 404, headers: cors });
+            return new Response(obj.body, {
+              status: 206,
+              headers: {
+                ...cors,
+                'Content-Type': ctype,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': String(length),
+                'Content-Range': `bytes ${offset}-${end}/${totalSize}`,
+                'Cache-Control': 'public, max-age=31536000, immutable',
+              },
+            });
+          }
+          // 일반 GET
+          const obj = await env.RADIO_BUCKET.get(key);
+          if (!obj) return new Response('Not Found', { status: 404, headers: cors });
+          const cacheCtrl = rest.endsWith('.m3u8') ? 'public, max-age=60'
+            : (rest.endsWith('.jpg') || rest.endsWith('.jpeg')) ? 'public, max-age=86400'
+            : 'public, max-age=31536000, immutable';
+          return new Response(obj.body, {
+            headers: {
+              ...cors,
+              'Content-Type': ctype,
+              'Accept-Ranges': 'bytes',
+              'Cache-Control': cacheCtrl,
+            },
+          });
+        }
+      }
+      // GET /vp/:id — 외부 링크 프록시
+      {
+        const m = /^\/vp\/([^/]+)$/.exec(path);
+        if (m && method === 'GET') {
+          const id = decodeURIComponent(m[1]);
+          const raw = await env.RADIO_KV.get('video:' + id);
+          if (!raw) return new Response('Not Found', { status: 404, headers: cors });
+          const meta = JSON.parse(raw);
+          if (meta.type !== 'link' || !meta.source?.url) {
+            return new Response('Not a link channel', { status: 400, headers: cors });
+          }
+          const upstream = await fetch(meta.source.url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 YebomRadio/2.0' },
+          });
+          const proxyHeaders = { ...cors };
+          const ct = upstream.headers.get('content-type');
+          if (ct) proxyHeaders['Content-Type'] = ct;
+          if (meta.source.linkProtocol === 'hls') {
+            proxyHeaders['Content-Type'] = 'application/vnd.apple.mpegurl';
+          }
+          return new Response(upstream.body, { status: upstream.status, headers: proxyHeaders });
+        }
+      }
+      // POST /api/admin/video — 메타 등록 (인제스트/관리자)
+      if (path === '/api/admin/video' && method === 'POST') {
+        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        const body = await request.json();
+        if (!body.id) return json({ error: 'id required' }, cors, 400);
+        body.addedAt = body.addedAt || new Date().toISOString();
+        await env.RADIO_KV.put('video:' + body.id, JSON.stringify(body));
+        const idxRaw = await env.RADIO_KV.get('video:index');
+        const ids = idxRaw ? JSON.parse(idxRaw) : [];
+        const next = [body.id, ...ids.filter(x => x !== body.id)];
+        await env.RADIO_KV.put('video:index', JSON.stringify(next));
+        return json({ ok: true, id: body.id }, cors);
+      }
+      // DELETE /api/admin/video/:id — 영상 삭제
+      {
+        const m = /^\/api\/admin\/video\/([^/]+)$/.exec(path);
+        if (m && method === 'DELETE') {
+          if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+          const id = decodeURIComponent(m[1]);
+          // R2 video/<id>/ prefix 일괄 삭제
+          const list = await env.RADIO_BUCKET.list({ prefix: `video/${id}/`, limit: 100 });
+          for (const obj of list.objects) {
+            await env.RADIO_BUCKET.delete(obj.key);
+          }
+          await env.RADIO_KV.delete('video:' + id);
+          const idxRaw = await env.RADIO_KV.get('video:index');
+          const ids = idxRaw ? JSON.parse(idxRaw) : [];
+          await env.RADIO_KV.put('video:index', JSON.stringify(ids.filter(x => x !== id)));
+          return json({ ok: true }, cors);
+        }
+      }
+      // ===== VIDEO-CH END =====
+
       // ── 단축 URL ─────────────────────────────────────────────
       if (path === '/api/share' && method === 'POST') {
         const { ch, track, t } = await request.json();
@@ -280,6 +412,14 @@ export default {
         const { key, uploadId, parts, channel, name } = body;
         const mpu = env.RADIO_BUCKET.resumeMultipartUpload(key, uploadId);
         await mpu.complete(parts);
+
+        // ===== VIDEO-CH BEGIN =====
+        // 영상 업로드 완료: key가 'video/<id>/file.mp4' 형태면 _meta.json 갱신 스킵
+        // KV 메타 등록은 별도 /api/admin/video POST에서 처리
+        if (key.startsWith('video/')) {
+          return json({ ok: true, key }, cors);
+        }
+        // ===== VIDEO-CH END =====
 
         // _meta.json 업데이트
         const prefix = DIR_MAP[channel] || DIR_MAP.stream;

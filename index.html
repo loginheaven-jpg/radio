@@ -578,6 +578,35 @@ body{
 @keyframes swipeL{0%,100%{transform:translateX(0)}50%{transform:translateX(-4px)}}
 @keyframes swipeR{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
 @keyframes swipeHintFade{0%{opacity:0}15%{opacity:1}70%{opacity:1}100%{opacity:0}}
+/* ===== VIDEO-CH BEGIN ===== */
+/* 영상 surface (CH12) */
+.video-surface{position:fixed;inset:0;flex-direction:column;background:linear-gradient(180deg,#150e1a 0%,#0e0a14 60%,#0a0510 100%);color:#e0d0c0;font-family:'Pretendard Variable',sans-serif;z-index:60;overflow-y:auto;display:none}
+.video-surface.open{display:flex}
+.video-header{padding:14px 20px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(160,112,208,0.12)}
+.video-back{background:none;border:1px solid rgba(160,112,208,0.3);color:#c0a0e0;font-size:13px;padding:6px 12px;border-radius:18px;cursor:pointer;-webkit-tap-highlight-color:transparent;font-weight:500}
+.video-back:active{background:rgba(160,112,208,0.15)}
+.video-title-bar{font-size:15px;font-weight:700;color:#d0a8e8;letter-spacing:0.5px}
+.video-player-wrap{padding:16px 20px 8px}
+.video-screen{background:#000;border-radius:10px;overflow:hidden;box-shadow:inset 0 0 24px rgba(0,0,0,0.6),0 4px 20px rgba(0,0,0,0.5);border:1px solid rgba(160,112,208,0.2)}
+#vPlayer{width:100%;display:block;background:#000;max-height:50vh}
+.video-now-title{margin-top:10px;font-size:14px;font-weight:600;color:#e8d8f0;text-align:center;line-height:1.4}
+.video-audio-toggle{display:flex;align-items:center;justify-content:center;gap:8px;margin:14px auto 0;padding:9px 18px;border:1px solid rgba(160,112,208,0.4);border-radius:20px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;background:rgba(160,112,208,0.1);color:#d0a8e8;-webkit-tap-highlight-color:transparent;transition:all 0.2s}
+.video-audio-toggle:active{transform:scale(0.96)}
+.video-audio-toggle.active{background:rgba(160,112,208,0.25);border-color:#a070d0}
+.video-library{padding:14px 18px 24px}
+.video-section-label{font-size:10px;color:#605040;letter-spacing:2px;margin-bottom:10px;font-family:'Space Grotesk',monospace;text-transform:uppercase}
+.video-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px}
+.v-card{border:1px solid rgba(160,112,208,0.15);background:rgba(160,112,208,0.05);cursor:pointer;text-align:left;padding:0;color:inherit;font:inherit;border-radius:10px;overflow:hidden;-webkit-tap-highlight-color:transparent;transition:all 0.2s}
+.v-card:active{transform:scale(0.97)}
+.v-card.playing{border-color:#a070d0;box-shadow:0 0 16px rgba(160,112,208,0.3)}
+.v-thumb{aspect-ratio:16/9;background:#1a1020 center/cover no-repeat;display:flex;align-items:center;justify-content:center;position:relative}
+.v-thumb::after{content:'▶';color:rgba(208,168,232,0.6);font-size:32px;text-shadow:0 0 12px rgba(160,112,208,0.4)}
+.v-thumb-img{aspect-ratio:16/9;background-size:cover;background-position:center;background-color:#1a1020}
+.v-meta{padding:10px}
+.v-title{font-weight:700;font-size:13px;line-height:1.35;color:#f0e6f5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.v-sub{opacity:0.6;font-size:11px;margin-top:4px;color:#c0a8d0}
+.video-empty{text-align:center;padding:40px 20px;color:#806080;font-size:13px;grid-column:1/-1}
+/* ===== VIDEO-CH END ===== */
 /* ── V2 Tuner Home ── */
 .tuner-home{position:fixed;inset:0;flex-direction:column;background:linear-gradient(180deg,#1a150e 0%,#13100a 55%,#0a0805 100%);color:#e0d0c0;font-family:'Pretendard Variable',sans-serif;z-index:50;overflow-y:auto;display:none}
 .tuner-home.open{display:flex}
@@ -751,6 +780,31 @@ body{
 <div class="time-overlay" id="timeOverlay"></div>
 <div class="ambient-glow" id="ambientGlow"></div>
 <div class="particles-wrap" id="particlesWrap"></div>
+
+<!-- ===== VIDEO-CH BEGIN ===== -->
+<!-- 영상 surface (CH12) -->
+<div class="video-surface" id="videoSurface">
+  <div class="video-header">
+    <button class="video-back" id="videoBackBtn" aria-label="뒤로 가기">‹ 뒤로</button>
+    <div class="video-title-bar">예봄 영상</div>
+    <div style="width:50px"></div>
+  </div>
+  <div class="video-player-wrap" id="videoPlayerWrap" style="display:none">
+    <div class="video-screen">
+      <video id="vPlayer" playsinline controls preload="metadata"></video>
+    </div>
+    <div class="video-now-title" id="videoNowTitle"></div>
+    <button class="video-audio-toggle" id="videoAudioToggle" type="button">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:middle"><path d="M8 1a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zm5 7a5 5 0 0 1-10 0H2a6 6 0 0 0 5 5.91V15h2v-1.09A6 6 0 0 0 14 8h-1z"/></svg>
+      <span class="lbl">화면 끄고 듣기</span>
+    </button>
+  </div>
+  <div class="video-library">
+    <div class="video-section-label" id="videoListLabel">영상 목록</div>
+    <div class="video-grid" id="videoGrid">불러오는 중...</div>
+  </div>
+</div>
+<!-- ===== VIDEO-CH END ===== -->
 
 <!-- V2 Tuner Home Screen -->
 <div class="tuner-home" id="tunerHome">
@@ -1187,6 +1241,7 @@ body{
     <div class="admin-tab" data-ach="rec-settings">녹음 설정</div>
     <div class="admin-tab" data-ach="channel-cfg">채널 관리</div>
     <div class="admin-tab" data-ach="openroom-admin">열린 음악방</div>
+    <div class="admin-tab" data-ach="video-admin">예봄 영상</div>
   </div>
   <div class="dropzone" id="dropzone">♫ 파일을 드래그하거나 클릭하여 선택<div class="dropzone-formats">MP3 M4A OGG WAV FLAC AAC</div></div>
   <input type="file" id="fileInput" multiple accept=".mp3,.m4a,.ogg,.wav,.flac,.aac,.opus,.webm" style="display:none">
@@ -1275,6 +1330,45 @@ body{
   <button class="save-order-btn" id="saveOrderBtnTop">순서 저장</button>
   <ul class="admin-track-list" id="adminTrackList"></ul>
   <button class="save-order-btn" id="saveOrderBtn">순서 저장</button>
+  <!-- ===== VIDEO-CH BEGIN ===== -->
+  <div id="adminVideoPanel" style="display:none;padding:4px 0">
+    <div style="background:var(--bg-surface);border-radius:16px;padding:16px;border:1px solid var(--border-glass);margin-bottom:12px">
+      <div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:10px">영상 업로드 (MP4 H.264)</div>
+      <div style="font-size:0.75rem;color:var(--text-mute);margin-bottom:10px">브라우저 호환 코덱(H.264 + AAC)으로 인코딩된 MP4만 업로드하세요. MKV/HEVC는 로컬 도구로 변환 후 업로드 필요.</div>
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:10px">
+        <input id="videoUploadId" placeholder="영상 ID (예: 20260517-주일설교)" style="padding:8px 12px;background:rgba(255,255,255,0.06);border:1px solid var(--border-glass);border-radius:8px;color:var(--text);font-size:0.85rem">
+        <input id="videoUploadTitle" placeholder="제목 (예: 주일예배 — 광야의 40년)" style="padding:8px 12px;background:rgba(255,255,255,0.06);border:1px solid var(--border-glass);border-radius:8px;color:var(--text);font-size:0.85rem">
+        <input id="videoUploadSeries" placeholder="시리즈 (선택, 예: 신명기 강해)" style="padding:8px 12px;background:rgba(255,255,255,0.06);border:1px solid var(--border-glass);border-radius:8px;color:var(--text);font-size:0.85rem">
+        <input id="videoUploadDate" type="date" style="padding:8px 12px;background:rgba(255,255,255,0.06);border:1px solid var(--border-glass);border-radius:8px;color:var(--text);font-size:0.85rem">
+      </div>
+      <input type="file" id="videoFileInput" accept="video/mp4,.mp4" style="display:none">
+      <button class="extra-btn" id="videoSelectBtn" style="font-size:0.82rem">📹 MP4 파일 선택</button>
+      <span id="videoSelectedName" style="font-size:0.78rem;margin-left:10px;color:var(--text-mute)"></span>
+      <div id="videoUploadProgress" style="display:none;margin-top:10px">
+        <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+          <div id="videoUploadBar" style="height:100%;background:linear-gradient(90deg,#a070d0,#c090e8);width:0%;transition:width 0.2s"></div>
+        </div>
+        <div id="videoUploadPct" style="font-size:0.75rem;color:var(--text-mute);margin-top:4px;text-align:center">0%</div>
+      </div>
+      <button class="upload-all-btn" id="videoUploadBtn" style="display:none;margin-top:10px">업로드 시작</button>
+    </div>
+    <div style="background:var(--bg-surface);border-radius:16px;padding:16px;border:1px solid var(--border-glass);margin-bottom:12px">
+      <div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:10px">외부 스트리밍 링크 등록</div>
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:10px">
+        <input id="videoLinkId" placeholder="영상 ID" style="padding:8px 12px;background:rgba(255,255,255,0.06);border:1px solid var(--border-glass);border-radius:8px;color:var(--text);font-size:0.85rem">
+        <input id="videoLinkTitle" placeholder="제목" style="padding:8px 12px;background:rgba(255,255,255,0.06);border:1px solid var(--border-glass);border-radius:8px;color:var(--text);font-size:0.85rem">
+        <input id="videoLinkUrl" placeholder="외부 URL (HLS .m3u8 또는 직접 MP4)" style="padding:8px 12px;background:rgba(255,255,255,0.06);border:1px solid var(--border-glass);border-radius:8px;color:var(--text);font-size:0.85rem">
+        <select id="videoLinkProto" style="padding:8px 12px;background:rgba(255,255,255,0.06);border:1px solid var(--border-glass);border-radius:8px;color:var(--text);font-size:0.85rem">
+          <option value="hls">HLS (.m3u8)</option>
+          <option value="mp4">MP4</option>
+        </select>
+      </div>
+      <button class="extra-btn" id="videoLinkAddBtn" style="font-size:0.82rem">🔗 링크 등록</button>
+    </div>
+    <div class="admin-section-title"><span>등록된 영상</span><button class="extra-btn" id="videoListRefresh" style="font-size:0.75rem">새로고침</button></div>
+    <ul id="videoAdminList" style="list-style:none;padding:0;margin:0"></ul>
+  </div>
+  <!-- ===== VIDEO-CH END ===== -->
 </div>
 
 <div class="login-modal" id="loginModal"><div class="login-box">
@@ -1497,6 +1591,8 @@ const CHANNEL_ICONS = {
   // 하프 아이콘 (Abiding 기악용)
   abiding_inst: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M6 4 Q22 6 22 24" stroke="${c}" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M6 4 L6 24" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/><path d="M5 24 L23 24" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/><path d="M8 6 L8 23" stroke="${c}" stroke-width="0.7" opacity="0.55"/><path d="M11 7.5 L12 23" stroke="${c}" stroke-width="0.7" opacity="0.55"/><path d="M14 10 L15 23" stroke="${c}" stroke-width="0.7" opacity="0.55"/><path d="M17 13 L18 23" stroke="${c}" stroke-width="0.7" opacity="0.55"/><path d="M19.5 17 L20.5 23" stroke="${c}" stroke-width="0.7" opacity="0.55"/></svg>`,
   venice: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M5 22 L23 22" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/><path d="M7 22 L7 12 M11 22 L11 10 M14 22 L14 8 M17 22 L17 10 M21 22 L21 12" stroke="${c}" stroke-width="1.2" stroke-linecap="round"/><path d="M6 8 Q14 4 22 8" stroke="${c}" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.6"/></svg>`,
+  // 영상 (12번 채널)
+  video: (c) => `<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="3" y="6" width="22" height="16" rx="2" stroke="${c}" stroke-width="1.5" fill="${c}" fill-opacity="0.15"/><path d="M12 11 L18 14 L12 17 Z" fill="${c}"/></svg>`,
 };
 
 const CHANNELS = [
@@ -1627,6 +1723,18 @@ const CHANNELS = [
       {char:'♬',x:84,delay:5.6,size:14,opacity:0.09},
     ],
   },
+  // ===== VIDEO-CH BEGIN =====
+  { num:12, id:'video', name:'예봄 영상', freq:'VOD', freqUnit:'', type:'video', displayCh:12, genre:'영상',
+    accent:'#a070d0', accentLight:'#d0a8e8',
+    bg1:'#150e1a', bg2:'#1a1220', bg3:'#100a16', discRing:'#8050a8',
+    label:'설교·예배 영상',
+    color:'#a070d0', dim:'rgba(160,112,208,0.15)', glow:'rgba(160,112,208,0.3)',
+    particles:[
+      {char:'▶',x:20,delay:0,size:10,opacity:0.06},{char:'✦',x:40,delay:1.5,size:10,opacity:0.05},
+      {char:'■',x:60,delay:3.0,size:8,opacity:0.06},{char:'▶',x:80,delay:4.5,size:10,opacity:0.05},
+    ],
+  },
+  // ===== VIDEO-CH END =====
 ];
 
 const CHANNEL_API_MAP = { 3:'list1', 4:'list2', 5:'stream' };
@@ -3123,6 +3231,14 @@ async function enterChannel(channel) {
   else if (channel === 9) { await loadAbiding(gen, 'sacred'); if (gen !== enterChannelGen) return; }
   else if (channel === 10) { await loadAbiding(gen, 'instrumental'); if (gen !== enterChannelGen) return; }
   else if (channel === 11) { await loadVenice(gen); if (gen !== enterChannelGen) return; }
+  // ===== VIDEO-CH BEGIN =====
+  else if (channel === 12) {
+    // 영상 채널: LP 화면 대신 영상 surface로 전환
+    clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
+    openVideoSurface();
+    return;
+  }
+  // ===== VIDEO-CH END =====
   else if (channel === 3 || channel === 4) {
     nowPlayingEl.textContent = '트랙 로딩 중...';
     const tracks = await fetchTracks(channel);
@@ -4461,11 +4577,14 @@ async function loadAdminTracks(ch) {
   const isRec = ch === 'rec-settings';
   const isCfg = ch === 'channel-cfg';
   const isOr = ch === 'openroom-admin';
-  const hideCommon = isRec || isCfg || isOr;
+  const isVideo = ch === 'video-admin';
+  const hideCommon = isRec || isCfg || isOr || isVideo;
   $('adminLivePanel').style.display = ch === 'stream' ? '' : 'none';
   $('adminRecPanel').style.display = isRec ? '' : 'none';
   $('adminChannelPanel').style.display = isCfg ? '' : 'none';
   $('adminOpenRoomPanel').style.display = isOr ? '' : 'none';
+  const adminVideoP = $('adminVideoPanel');
+  if (adminVideoP) adminVideoP.style.display = isVideo ? '' : 'none';
   $('dropzone').style.display = hideCommon ? 'none' : '';
   $('uploadQueue').style.display = hideCommon ? 'none' : '';
   $('adminTrackList').style.display = hideCommon ? 'none' : '';
@@ -4474,6 +4593,7 @@ async function loadAdminTracks(ch) {
   document.querySelector('.admin-section-title').style.display = hideCommon ? 'none' : '';
   if (isCfg) { buildChannelConfigUI(); return; }
   if (isOr) { initOrAdminPanel(); return; }
+  if (isVideo) { initVideoAdminPanel(); return; }
   if (isRec) {
     $('recThresholdSlider').value = recSilenceThresholdRaw;
     $('recThresholdVal').textContent = recSilenceThresholdRaw;
@@ -6876,6 +6996,343 @@ document.addEventListener('DOMContentLoaded', () => {
   const ytBtn = $('yebomTunerBtn');
   if (ytBtn) ytBtn.addEventListener('click', tunerOpen);
 });
+
+// ===== VIDEO-CH BEGIN =====
+// 영상 관리자 패널
+let videoUploadFile = null;
+async function initVideoAdminPanel() {
+  await loadVideoAdminList();
+}
+async function loadVideoAdminList() {
+  const ul = $('videoAdminList');
+  ul.innerHTML = '<li style="padding:12px;color:var(--text-mute);font-size:0.8rem">불러오는 중...</li>';
+  try {
+    const res = await fetch(WORKER_URL + '/api/videos');
+    const { videos } = await res.json();
+    ul.innerHTML = '';
+    if (!videos || videos.length === 0) {
+      ul.innerHTML = '<li style="padding:12px;color:var(--text-mute);font-size:0.8rem">등록된 영상이 없습니다.</li>';
+      return;
+    }
+    videos.forEach(v => {
+      const li = document.createElement('li');
+      li.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg-surface);border:1px solid var(--border-glass);border-radius:10px;margin-bottom:6px';
+      const typeTag = v.type === 'link' ? '🔗 외부' : v.type === 'progressive' ? '📹 MP4' : '🎬 HLS';
+      li.innerHTML = `
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.85rem;font-weight:600;color:#e8d8c0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(v.title || v.id)}</div>
+          <div style="font-size:0.72rem;color:var(--text-mute);margin-top:2px">${typeTag} · ${escHtml(v.date || '')} ${v.series ? '· ' + escHtml(v.series) : ''}</div>
+        </div>
+        <button class="admin-delete-btn" data-vid="${escHtml(v.id)}" style="flex-shrink:0">🗑</button>`;
+      ul.appendChild(li);
+    });
+    ul.querySelectorAll('[data-vid]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const vid = btn.dataset.vid;
+        if (!confirm(`"${vid}" 영상을 삭제하시겠습니까?`)) return;
+        try {
+          const res = await fetch(WORKER_URL + '/api/admin/video/' + encodeURIComponent(vid), {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + adminKey },
+          });
+          if (res.ok) { showToast('삭제 완료'); loadVideoAdminList(); }
+          else showToast('삭제 실패');
+        } catch { showToast('삭제 실패'); }
+      });
+    });
+  } catch (e) {
+    ul.innerHTML = '<li style="padding:12px;color:var(--text-mute);font-size:0.8rem">목록 로드 실패</li>';
+  }
+}
+
+const VIDEO_PART_SIZE = 5 * 1024 * 1024; // 5MB chunks
+async function uploadVideoFile() {
+  const id = $('videoUploadId').value.trim();
+  const title = $('videoUploadTitle').value.trim();
+  const series = $('videoUploadSeries').value.trim();
+  const date = $('videoUploadDate').value || new Date().toISOString().slice(0, 10);
+  if (!id || !title || !videoUploadFile) {
+    showToast('ID, 제목, 파일을 모두 입력하세요');
+    return;
+  }
+  if (!/^[a-zA-Z0-9가-힣_\-]+$/.test(id)) {
+    showToast('ID는 영문/숫자/한글/_/-만 가능');
+    return;
+  }
+  const r2Key = `video/${id}/file.mp4`;
+  const file = videoUploadFile;
+  $('videoUploadBtn').disabled = true;
+  $('videoUploadBtn').textContent = '업로드 중...';
+  $('videoUploadProgress').style.display = 'block';
+  try {
+    // 1) 멀티파트 시작
+    const createRes = await fetch(WORKER_URL + '/api/upload/multipart/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminKey },
+      body: JSON.stringify({ key: r2Key, contentType: 'video/mp4' }),
+    });
+    if (!createRes.ok) throw new Error('시작 실패: ' + createRes.status);
+    const { uploadId } = await createRes.json();
+    const totalParts = Math.ceil(file.size / VIDEO_PART_SIZE);
+    const parts = [];
+    for (let p = 0; p < totalParts; p++) {
+      const start = p * VIDEO_PART_SIZE;
+      const end = Math.min(start + VIDEO_PART_SIZE, file.size);
+      const blob = file.slice(start, end);
+      const partRes = await fetch(WORKER_URL + '/api/upload/multipart/part', {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer ' + adminKey,
+          'X-Upload-Key': encodeURIComponent(r2Key),
+          'X-Upload-Id': uploadId,
+          'X-Part-Number': String(p + 1),
+        },
+        body: blob,
+      });
+      if (!partRes.ok) throw new Error('파트 ' + (p+1) + ' 실패');
+      const partData = await partRes.json();
+      parts.push({ partNumber: partData.partNumber, etag: partData.etag });
+      const pct = Math.round((p + 1) / totalParts * 100);
+      $('videoUploadBar').style.width = pct + '%';
+      $('videoUploadPct').textContent = pct + '% (' + (p+1) + '/' + totalParts + ')';
+    }
+    // 2) 멀티파트 완료
+    const compRes = await fetch(WORKER_URL + '/api/upload/multipart/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminKey },
+      body: JSON.stringify({ key: r2Key, uploadId, parts }),
+    });
+    if (!compRes.ok) throw new Error('완료 실패');
+    // 3) 메타 등록
+    const meta = {
+      id, title, date, series,
+      type: 'progressive', mode: null, durationSec: 0,
+      posterKey: '',
+      source: { masterKey: null, audioKey: null, fileKey: r2Key, url: null, linkProtocol: null },
+    };
+    const regRes = await fetch(WORKER_URL + '/api/admin/video', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminKey },
+      body: JSON.stringify(meta),
+    });
+    if (!regRes.ok) throw new Error('메타 등록 실패');
+    showToast('영상 업로드 완료: ' + title);
+    // 입력 초기화
+    $('videoUploadId').value = ''; $('videoUploadTitle').value = ''; $('videoUploadSeries').value = '';
+    $('videoSelectedName').textContent = '';
+    videoUploadFile = null;
+    $('videoUploadBtn').style.display = 'none';
+    $('videoUploadProgress').style.display = 'none';
+    loadVideoAdminList();
+  } catch (e) {
+    showToast('업로드 실패: ' + e.message);
+  } finally {
+    $('videoUploadBtn').disabled = false;
+    $('videoUploadBtn').textContent = '업로드 시작';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const selBtn = $('videoSelectBtn');
+  const fileInput = $('videoFileInput');
+  if (selBtn && fileInput) {
+    selBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      videoUploadFile = f;
+      $('videoSelectedName').textContent = f.name + ' (' + (f.size / 1048576).toFixed(1) + ' MB)';
+      $('videoUploadBtn').style.display = 'block';
+      // ID 자동 추천 (파일명 기반)
+      const idEl = $('videoUploadId');
+      if (!idEl.value) idEl.value = f.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9가-힣_\-]/g, '-');
+    });
+  }
+  const upBtn = $('videoUploadBtn');
+  if (upBtn) upBtn.addEventListener('click', uploadVideoFile);
+  const linkBtn = $('videoLinkAddBtn');
+  if (linkBtn) linkBtn.addEventListener('click', async () => {
+    const id = $('videoLinkId').value.trim();
+    const title = $('videoLinkTitle').value.trim();
+    const url = $('videoLinkUrl').value.trim();
+    const proto = $('videoLinkProto').value;
+    if (!id || !title || !url) { showToast('모든 항목 입력 필요'); return; }
+    const meta = {
+      id, title, date: new Date().toISOString().slice(0, 10), series: '',
+      type: 'link', mode: null, durationSec: 0, posterKey: '',
+      source: { masterKey: null, audioKey: null, fileKey: null, url, linkProtocol: proto },
+    };
+    try {
+      const res = await fetch(WORKER_URL + '/api/admin/video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminKey },
+        body: JSON.stringify(meta),
+      });
+      if (!res.ok) throw new Error();
+      showToast('링크 등록 완료');
+      $('videoLinkId').value = ''; $('videoLinkTitle').value = ''; $('videoLinkUrl').value = '';
+      loadVideoAdminList();
+    } catch { showToast('등록 실패'); }
+  });
+  const refresh = $('videoListRefresh');
+  if (refresh) refresh.addEventListener('click', loadVideoAdminList);
+});
+// ===== VIDEO-CH END =====
+
+// ===== VIDEO-CH BEGIN =====
+// 영상 surface (CH12)
+let videoSurfaceOpen = false;
+let vCurrentMeta = null;
+let vEngineAudioActive = false; // "화면 끄고 듣기" 상태
+let vSavedVolume = null;
+
+async function openVideoSurface() {
+  // 다른 채널 재생 중이면 정지 (영상 채널은 별도 surface)
+  if (isPlaying) stopPlayback();
+  $('videoSurface').classList.add('open');
+  videoSurfaceOpen = true;
+  // 영상 목록 로드
+  const grid = $('videoGrid');
+  grid.innerHTML = '<div class="video-empty">불러오는 중...</div>';
+  try {
+    const res = await fetch(WORKER_URL + '/api/videos');
+    const { videos } = await res.json();
+    grid.innerHTML = '';
+    if (!videos || videos.length === 0) {
+      grid.innerHTML = '<div class="video-empty">등록된 영상이 없습니다.<br>관리자 설정에서 영상을 업로드해주세요.</div>';
+      return;
+    }
+    videos.forEach(v => {
+      const card = document.createElement('button');
+      card.className = 'v-card';
+      const posterUrl = v.posterKey
+        ? `${WORKER_URL}/v/${encodeURIComponent(v.id)}/poster.jpg`
+        : '';
+      card.innerHTML = `
+        ${posterUrl ? `<div class="v-thumb v-thumb-img" style="background-image:url('${posterUrl}')"></div>` : `<div class="v-thumb"></div>`}
+        <div class="v-meta">
+          <div class="v-title">${escHtml(v.title || v.id)}</div>
+          <div class="v-sub">${v.series ? escHtml(v.series) + ' · ' : ''}${escHtml(v.date || '')}</div>
+        </div>`;
+      card.addEventListener('click', () => playVideo(v));
+      grid.appendChild(card);
+    });
+  } catch (e) {
+    grid.innerHTML = '<div class="video-empty">영상 목록을 불러올 수 없습니다.</div>';
+  }
+}
+
+function closeVideoSurface() {
+  // 재생 중이면 정지
+  const video = $('vPlayer');
+  if (video) { try { video.pause(); video.src = ''; } catch {} }
+  if (vEngineAudioActive) vExitAudioOnly();
+  if (window._vHls) { try { window._vHls.destroy(); } catch {} window._vHls = null; }
+  $('videoSurface').classList.remove('open');
+  $('videoPlayerWrap').style.display = 'none';
+  videoSurfaceOpen = false;
+  vCurrentMeta = null;
+}
+
+function _videoSrcOf(v) {
+  if (v.type === 'progressive') return { kind: 'mp4', url: `${WORKER_URL}/v/${encodeURIComponent(v.id)}/file.mp4` };
+  if (v.type === 'hls')         return { kind: 'hls', url: `${WORKER_URL}/v/${encodeURIComponent(v.id)}/master.m3u8` };
+  if (v.type === 'link')        return { kind: v.source.linkProtocol === 'hls' ? 'hls' : 'mp4', url: `${WORKER_URL}/vp/${encodeURIComponent(v.id)}` };
+  return null;
+}
+
+async function playVideo(v) {
+  vCurrentMeta = v;
+  $('videoNowTitle').textContent = v.title || v.id;
+  $('videoPlayerWrap').style.display = 'block';
+  // 카드 강조
+  document.querySelectorAll('.v-card').forEach(c => c.classList.remove('playing'));
+  const video = $('vPlayer');
+  const src = _videoSrcOf(v);
+  if (!src) return;
+  // 기존 HLS 인스턴스 정리
+  if (window._vHls) { try { window._vHls.destroy(); } catch {} window._vHls = null; }
+  if (src.kind === 'hls') {
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = src.url; // iOS Safari 네이티브
+    } else {
+      const Hls = await loadHlsJs();
+      if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(src.url);
+        hls.attachMedia(video);
+        window._vHls = hls;
+      } else {
+        video.src = src.url;
+      }
+    }
+  } else {
+    video.src = src.url;
+  }
+  video.play().catch(() => showToast('▶ 화면을 다시 탭하여 재생'));
+  // 스크롤하여 플레이어 보이게
+  $('videoPlayerWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// 화면 끄고 듣기: audioEl로 영상 오디오 트랙 재생
+function vEnterAudioOnly() {
+  if (!vCurrentMeta || vEngineAudioActive) return;
+  const video = $('vPlayer');
+  const src = _videoSrcOf(vCurrentMeta);
+  if (!src || src.kind !== 'mp4') return; // HLS는 audioEl 직접 지원 어려움 (생략)
+  const at = video.currentTime || 0;
+  video.pause();
+  const ae = ensureAudioEl();
+  ae.src = src.url;
+  ae.currentTime = at;
+  ae.play().catch(() => {});
+  isPlaying = true;
+  startSilentAnchor(); // 백그라운드 보호
+  vEngineAudioActive = true;
+  $('videoAudioToggle').classList.add('active');
+  $('videoAudioToggle').querySelector('.lbl').textContent = '화면 켜고 보기';
+}
+
+function vExitAudioOnly() {
+  if (!vEngineAudioActive) return;
+  const ae = audioEl;
+  let at = 0;
+  if (ae) {
+    at = ae.currentTime || 0;
+    try { ae.pause(); ae.src = ''; } catch {}
+  }
+  stopSilentAnchor();
+  isPlaying = false;
+  const video = $('vPlayer');
+  if (video && vCurrentMeta) {
+    if (at > 0) video.currentTime = at;
+    video.play().catch(() => {});
+  }
+  vEngineAudioActive = false;
+  $('videoAudioToggle').classList.remove('active');
+  $('videoAudioToggle').querySelector('.lbl').textContent = '화면 끄고 듣기';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const back = $('videoBackBtn');
+  if (back) back.addEventListener('click', () => {
+    closeVideoSurface();
+    // 튜너 홈으로 복귀
+    tunerOpen();
+  });
+  const toggle = $('videoAudioToggle');
+  if (toggle) toggle.addEventListener('click', () => {
+    if (vEngineAudioActive) vExitAudioOnly();
+    else vEnterAudioOnly();
+  });
+  // visibilitychange: 영상 채널에서 화면 꺼지면 audio-only로 자동 전환
+  document.addEventListener('visibilitychange', () => {
+    if (!videoSurfaceOpen || !vCurrentMeta) return;
+    if (document.hidden && !vEngineAudioActive) vEnterAudioOnly();
+    else if (!document.hidden && vEngineAudioActive) vExitAudioOnly();
+  });
+});
+// ===== VIDEO-CH END =====
 
 // 백그라운드 재생 도움말
 document.addEventListener('DOMContentLoaded', () => {
