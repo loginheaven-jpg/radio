@@ -629,9 +629,9 @@ body{
 .tuner-body{flex:1;display:flex;flex-direction:column;padding:14px 16px 18px 22px;gap:8px;min-height:0}
 .tuner-lower{flex:1;display:flex;gap:10px;min-height:0}
 .tuner-channels-clip{flex:1;overflow:hidden;position:relative;min-width:0}
-.tuner-ch-selected-card{padding:14px 16px;border-radius:10px;border:1px solid color-mix(in srgb,var(--ch-col,#D4A055) 40%,transparent);background:linear-gradient(135deg,color-mix(in srgb,var(--ch-col,#D4A055) 14%,transparent),transparent 80%);box-shadow:0 0 18px color-mix(in srgb,var(--ch-col,#D4A055) 14%,transparent);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all 0.3s;width:100%}
+.tuner-ch-selected-card{padding:9px 14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--ch-col,#D4A055) 40%,transparent);background:linear-gradient(135deg,color-mix(in srgb,var(--ch-col,#D4A055) 14%,transparent),transparent 80%);box-shadow:0 0 18px color-mix(in srgb,var(--ch-col,#D4A055) 14%,transparent);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all 0.3s;width:100%}
 .tuner-ch-selected-card:active{transform:scale(0.98)}
-.tuner-ch-selected-line1{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.tuner-ch-selected-line1{display:flex;align-items:center;gap:10px;margin-bottom:3px}
 .tuner-ch-selected-freq{font-size:12px;color:var(--ch-col,#D4A055);font-family:'Space Grotesk',monospace;font-weight:700;letter-spacing:0.3px;flex-shrink:0}
 .tuner-ch-selected-dot{width:9px;height:9px;border-radius:50%;background:var(--ch-col,#D4A055);box-shadow:0 0 8px var(--ch-col,#D4A055);flex-shrink:0}
 .tuner-ch-selected-name{font-size:19px;color:#F4EAD4;font-weight:700;letter-spacing:-0.2px;text-shadow:0 0 16px color-mix(in srgb,var(--ch-col,#D4A055) 55%,transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
@@ -645,30 +645,44 @@ body{
 .tuner-ch-genre{font-size:10px;color:#9d8060;letter-spacing:0.6px;padding:3px 8px;border:1px solid rgba(157,128,96,0.35);border-radius:10px;flex-shrink:0;background:rgba(157,128,96,0.06);font-weight:500}
 .tuner-ch-item.playing::after{content:'';display:inline-block;width:12px;height:12px;background:linear-gradient(to top,var(--ch-col) 30%,transparent 30%) 0 0/3px 100%,linear-gradient(to top,var(--ch-col) 70%,transparent 70%) 5px 0/3px 100%,linear-gradient(to top,var(--ch-col) 50%,transparent 50%) 10px 0/3px 100%;background-repeat:no-repeat;animation:eq 0.8s ease-in-out infinite alternate;flex-shrink:0}
 @keyframes eq{from{filter:brightness(0.7)}to{filter:brightness(1.3)}}
-.tuner-slider-panel{width:96px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:0;position:relative;gap:24px}
-/* 빈티지 VU 미터 (반원) */
-.tuner-vu-meter{position:relative;width:80px;height:50px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));margin-left:18px;margin-top:16px}
-.tuner-vu-meter:active{cursor:grabbing}
-.tuner-vu-meter svg{display:block;width:100%;height:100%}
-.tuner-vol-value{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;color:#D4A055;font-family:'Space Grotesk',monospace;letter-spacing:1px;pointer-events:none}
-.tuner-vu-meter.boost .tuner-vol-value{color:#e89060;text-shadow:0 0 6px rgba(232,144,96,0.4)}
+.tuner-slider-panel{width:96px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:6px;position:relative;gap:30px}
+/* 공통 컴포넌트 라벨 (다이얼/Play/볼륨 위) */
+.tuner-comp-label{font-size:11px;font-weight:700;color:#D4A055;font-family:'Space Grotesk',monospace;letter-spacing:2px;text-align:center;margin-bottom:6px;line-height:1;text-transform:uppercase}
+.tuner-comp-label.playing{color:#f0a060;text-shadow:0 0 6px rgba(240,160,96,0.4)}
+.tuner-comp-label.boost{color:#e89060;text-shadow:0 0 6px rgba(232,144,96,0.4)}
+/* 채널 튜닝 다이얼 (가로 선형) */
+.tuner-ch-dial-wrap{display:flex;flex-direction:column;align-items:center;margin-left:18px}
+.tuner-ch-dial{width:80px;height:50px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));position:relative;border-radius:8px;background:linear-gradient(180deg,#E4C892 0%,#8B7345 60%,#6a5530 100%);border:2px solid #6a5530;padding:3px}
+.tuner-ch-dial:active{cursor:grabbing}
+.tuner-ch-dial-face{position:relative;width:100%;height:100%;background:linear-gradient(180deg,#f0e0c0 0%,#d8c098 100%);border-radius:5px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.4),inset 0 -2px 4px rgba(0,0,0,0.15);overflow:hidden}
+.tuner-ch-dial-name{position:absolute;top:5px;left:0;right:0;text-align:center;font-family:Georgia,serif;font-style:italic;font-size:7px;color:#3a2a14;font-weight:600;letter-spacing:1px;opacity:0.85}
+.tuner-ch-dial-needle{position:absolute;top:2px;width:2px;height:36px;background:linear-gradient(180deg,#c44030 0%,#8B2018 100%);border-radius:1px;box-shadow:0 0 2px rgba(0,0,0,0.6);transform:translateX(-50%);left:0;transition:left 0.15s cubic-bezier(0.34,1.56,0.64,1)}
+.tuner-ch-dial-needle::before{content:'▼';position:absolute;top:-9px;left:50%;transform:translateX(-50%);color:#c44030;font-size:8px;line-height:1}
+.tuner-ch-dial-ticks{position:absolute;bottom:3px;left:5px;right:5px;height:14px}
+.tuner-ch-dial-ticks .tk{position:absolute;bottom:8px;width:1px;background:#3a2a14;transform:translateX(-50%)}
+.tuner-ch-dial-ticks .tk.major{width:1.5px;height:8px;background:#1a1108}
+.tuner-ch-dial-ticks .tk.minor{height:4px;opacity:0.55}
+.tuner-ch-dial-ticks .lb{position:absolute;bottom:-1px;transform:translateX(-50%);font-size:7px;font-family:'Space Grotesk',monospace;color:#3a2a14;font-weight:700;line-height:1}
+/* Play 버튼 wrap */
+.tuner-play-wrap{display:flex;flex-direction:column;align-items:center;margin-left:18px}
+/* 볼륨 슬라이더 wrap */
+.tuner-vol-wrap{display:flex;flex-direction:column;align-items:center;margin-left:18px}
 .tuner-bcast-label{font-size:9px;color:#605040;text-align:center;letter-spacing:1.5px;margin-bottom:12px;padding:5px 10px;border:1px solid #4d3d2a;border-radius:3px;background:linear-gradient(180deg,#241d10,#1a150c);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);font-family:'Space Grotesk',monospace;font-weight:600}
 .tuner-bcast-label .small{font-size:7px;display:block;color:#4d3d2a;margin-top:2px;letter-spacing:1.5px}
-.tuner-slider-track{position:relative;width:64px;height:200px;background:linear-gradient(180deg,#0a0805 0%,#181208 50%,#0a0805 100%);border-radius:8px;box-shadow:inset 0 0 10px rgba(0,0,0,0.8),inset 0 1px 0 rgba(255,255,255,0.06),0 2px 4px rgba(0,0,0,0.4);margin-left:18px;border:1px solid #1a1208}
-.tuner-slider-marks{position:absolute;left:-22px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:space-between;padding:8px 0;font-size:9px;color:#504030;font-family:'Space Grotesk',monospace;font-weight:600;text-align:right;width:16px}
+.tuner-slider-track{position:relative;width:54px;height:170px;background:linear-gradient(180deg,#0a0805 0%,#181208 50%,#0a0805 100%);border-radius:8px;box-shadow:inset 0 0 10px rgba(0,0,0,0.8),inset 0 1px 0 rgba(255,255,255,0.06),0 2px 4px rgba(0,0,0,0.4);border:1px solid #1a1208}
+.tuner-slider-marks{position:absolute;left:-26px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:space-between;padding:8px 0;font-size:9px;color:#504030;font-family:'Space Grotesk',monospace;font-weight:600;text-align:right;width:20px}
 .tuner-slider-marks span{line-height:1;transition:all 0.2s}
 .tuner-slider-marks span.active{color:#f0c060;font-weight:700;text-shadow:0 0 6px rgba(240,192,96,0.4)}
 .tuner-slider-handle{position:absolute;left:6px;right:6px;height:44px;background:linear-gradient(180deg,#D4B882 0%,#A08855 15%,#8B7345 30%,#A08855 50%,#8B7345 70%,#A08855 85%,#D4B882 100%);border:1px solid #E4C892;border-radius:5px;box-shadow:2px 4px 10px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.35),inset 0 -1px 0 rgba(0,0,0,0.3);cursor:grab;transition:none;touch-action:none}
 .tuner-slider-handle:active{cursor:grabbing}
 .tuner-slider-handle::before{content:'';position:absolute;inset:10px 10px;background:repeating-linear-gradient(0deg,transparent 0,transparent 3px,rgba(60,40,20,0.45) 3px,rgba(60,40,20,0.45) 4px);border-radius:2px;pointer-events:none}
-.tuner-play-btn{width:56px;height:56px;border-radius:50%;background:linear-gradient(140deg,#D4B882,#8B7345 70%,#6a5530);border:2px solid #E4C892;color:#1A150E;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 14px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.35),inset 0 -2px 0 rgba(0,0,0,0.25);position:relative;transition:transform 0.1s,filter 0.3s;margin-left:18px;flex-shrink:0}
+.tuner-play-btn{width:56px;height:56px;border-radius:50%;background:linear-gradient(140deg,#D4B882,#8B7345 70%,#6a5530);border:2px solid #E4C892;color:#1A150E;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 14px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.35),inset 0 -2px 0 rgba(0,0,0,0.25);position:relative;transition:transform 0.1s,filter 0.3s;flex-shrink:0}
 .tuner-play-btn:active{transform:scale(0.94)}
 .tuner-play-btn.playing{filter:brightness(1.18) drop-shadow(0 0 8px rgba(232,144,60,0.4))}
 .tuner-play-btn.loading::before{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid transparent;border-top-color:#f0c060;border-right-color:#f0c060;animation:tunerSpin 0.9s linear infinite;pointer-events:none}
 @keyframes tunerSpin{to{transform:rotate(360deg)}}
-.tuner-play-btn-label{position:absolute;top:62px;left:50%;transform:translateX(-50%);font-size:9px;color:#a08555;letter-spacing:2.5px;font-family:'Space Grotesk',monospace;white-space:nowrap;font-weight:700}
 .tuner-play-btn.playing .tuner-play-btn-label{color:#f0a060;text-shadow:0 0 6px rgba(240,160,96,0.4)}
-.tuner-tube-section{height:155px;background-color:#0a0705;background-image:url('/tube-glow.png');background-size:auto 155px;background-position:center bottom;background-repeat:no-repeat;position:relative;filter:brightness(0.42) saturate(0.7);transition:filter 0.6s;margin-top:-12px}
+.tuner-tube-section{height:120px;background-color:#0a0705;background-image:url('/tube-glow.png');background-size:auto 120px;background-position:center bottom;background-repeat:no-repeat;position:relative;filter:brightness(0.42) saturate(0.7);transition:filter 0.6s;margin-top:-8px}
 .tuner-tube-section.playing{filter:brightness(1) saturate(1.1) drop-shadow(0 -8px 18px rgba(232,144,60,0.18))}
 .tuner-tube-section.playing::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 85%,rgba(255,144,64,0.08) 0%,transparent 60%);pointer-events:none}
 /* LP 화면 우상단 YEBOM Tuner 버튼 */
@@ -843,70 +857,29 @@ body{
         <div class="tuner-channels" id="tunerChannels"></div>
       </div>
       <div class="tuner-slider-panel">
-        <!-- 빈티지 VU 미터 (반원형 볼륨) -->
-        <div class="tuner-vu-meter" id="tunerVolKnob" role="slider" aria-label="볼륨" tabindex="0">
-          <svg viewBox="0 0 100 62" preserveAspectRatio="xMidYMid meet">
-            <defs>
-              <linearGradient id="vuBg" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#f0e0c0"/>
-                <stop offset="100%" stop-color="#d8c098"/>
-              </linearGradient>
-              <linearGradient id="vuBezel" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#E4C892"/>
-                <stop offset="60%" stop-color="#8B7345"/>
-                <stop offset="100%" stop-color="#6a5530"/>
-              </linearGradient>
-            </defs>
-            <!-- 외곽 반원 베젤 -->
-            <path d="M 3 58 A 47 47 0 0 1 97 58 L 90 58 A 40 40 0 0 0 10 58 Z" fill="url(#vuBezel)" stroke="#6a5530" stroke-width="0.5"/>
-            <!-- 내부 다이얼 배경 -->
-            <path d="M 10 58 A 40 40 0 0 1 90 58 Z" fill="url(#vuBg)" stroke="#8B7345" stroke-width="0.4"/>
-            <!-- 호 모양 미세 눈금 라인 -->
-            <path d="M 17 58 A 33 33 0 0 1 83 58" fill="none" stroke="#3a2a14" stroke-width="0.4" opacity="0.5"/>
-            <!-- 주요 눈금 (0, 30, 60, 90, 120, 150) -->
-            <g class="vu-ticks" stroke="#1a1108" stroke-width="0.6" stroke-linecap="round">
-              <line x1="14" y1="58" x2="17" y2="58" transform="rotate(-90 50 58)"/>
-              <line x1="14" y1="58" x2="17" y2="58" transform="rotate(-54 50 58)"/>
-              <line x1="14" y1="58" x2="17" y2="58" transform="rotate(-18 50 58)"/>
-              <line x1="14" y1="58" x2="17" y2="58" transform="rotate(18 50 58)"/>
-              <line x1="14" y1="58" x2="17" y2="58" transform="rotate(54 50 58)"/>
-              <line x1="14" y1="58" x2="17" y2="58" transform="rotate(90 50 58)"/>
-            </g>
-            <!-- 미세 눈금 (중간) -->
-            <g class="vu-ticks-fine" stroke="#3a2a14" stroke-width="0.3" stroke-linecap="round" opacity="0.55">
-              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(-78 50 58)"/>
-              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(-66 50 58)"/>
-              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(-42 50 58)"/>
-              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(-30 50 58)"/>
-              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(-6 50 58)"/>
-              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(6 50 58)"/>
-              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(30 50 58)"/>
-              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(42 50 58)"/>
-              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(66 50 58)"/>
-              <line x1="15" y1="58" x2="17" y2="58" transform="rotate(78 50 58)"/>
-            </g>
-            <!-- 100% 표시 (부스트 시작점) 빨간색 -->
-            <line x1="14" y1="58" x2="17" y2="58" transform="rotate(30 50 58)" stroke="#c44030" stroke-width="0.7" stroke-linecap="round"/>
-            <!-- 부스트 영역 (100~150) 빨간 호 -->
-            <path d="M 75.5 38 A 33 33 0 0 1 83 58" fill="none" stroke="#c44030" stroke-width="1.2" opacity="0.7"/>
-            <!-- VOLUME 라벨 -->
-            <text x="50" y="34" text-anchor="middle" font-family="Georgia, serif" font-size="9" fill="#3a2a14" font-style="italic" font-weight="600">VOLUME</text>
-            <!-- 숫자 라벨 -->
-            <text x="13" y="48" text-anchor="middle" font-family="Georgia, serif" font-size="3.6" fill="#3a2a14">0</text>
-            <text x="50" y="20" text-anchor="middle" font-family="Georgia, serif" font-size="3.6" fill="#3a2a14">75</text>
-            <text x="87" y="48" text-anchor="middle" font-family="Georgia, serif" font-size="3.6" fill="#c44030">150</text>
-            <!-- 바늘 (회전) -- transform attribute에 rotate(angle cx cy) 형태로 회전축 명시 -->
-            <line id="vuNeedle" x1="50" y1="58" x2="50" y2="20" stroke="#c44030" stroke-width="1.4" stroke-linecap="round" transform="rotate(-90 50 58)"/>
-            <!-- 회전축 -->
-            <circle cx="50" cy="58" r="3" fill="#5a4520" stroke="#3a2a14" stroke-width="0.5"/>
-            <circle cx="50" cy="58" r="1" fill="#1a1108"/>
-          </svg>
-          <div class="tuner-vol-value" id="tunerVolValue">80</div>
+        <!-- 채널 튜닝 다이얼 (가로 선형 슬라이더 — 빈티지 라디오 주파수 다이얼) -->
+        <div class="tuner-ch-dial-wrap">
+          <div class="tuner-comp-label" id="tunerChLabel">ch 1</div>
+          <div class="tuner-ch-dial" id="tunerChDial" role="slider" aria-label="채널 선택" tabindex="0">
+            <div class="tuner-ch-dial-face">
+              <div class="tuner-ch-dial-name">CHANNEL</div>
+              <div class="tuner-ch-dial-needle" id="tunerChNeedle"></div>
+              <div class="tuner-ch-dial-ticks" id="tunerChDialTicks"></div>
+            </div>
+          </div>
         </div>
-        <button class="tuner-play-btn" id="tunerPlayBtn" aria-label="재생"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 L13 8 L4 13.5 Z" fill="currentColor"/></svg><span class="tuner-play-btn-label" id="tunerPlayLabel">PLAY</span></button>
-        <div class="tuner-slider-track" id="tunerSliderTrack">
-          <div class="tuner-slider-handle" id="tunerSliderHandle"></div>
-          <div class="tuner-slider-marks" id="tunerSliderMarks"></div>
+        <!-- Play 버튼 -->
+        <div class="tuner-play-wrap">
+          <div class="tuner-comp-label" id="tunerPlayLabel">PLAY</div>
+          <button class="tuner-play-btn" id="tunerPlayBtn" aria-label="재생"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 L13 8 L4 13.5 Z" fill="currentColor"/></svg></button>
+        </div>
+        <!-- 세로 볼륨 슬라이더 (위로 = 볼륨 ↑) -->
+        <div class="tuner-vol-wrap">
+          <div class="tuner-comp-label" id="tunerVolLabel">80</div>
+          <div class="tuner-slider-track" id="tunerSliderTrack">
+            <div class="tuner-slider-handle" id="tunerSliderHandle"></div>
+            <div class="tuner-slider-marks" id="tunerSliderMarks"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -5835,8 +5808,8 @@ volSlider.addEventListener('input', e => {
   const isBoosted = v > 1.0;
   volSlider.classList.toggle('boost-zone', isBoosted);
   volNum.classList.toggle('boost-zone', isBoosted);
-  // 튜너 홈 노브 동기화
-  if (typeof window.applyKnobRotation === 'function') window.applyKnobRotation(v);
+  // 튜너 홈 볼륨 슬라이더 동기화
+  if (typeof window.applyVolHandle === 'function') window.applyVolHandle(v);
 });
 
 // Seek bar drag (mouse + touch)
@@ -6798,144 +6771,102 @@ function renderTunerChannels() {
     wrap.appendChild(item);
   }
 }
+// V2: 다이얼 ticks + 바늘 갱신 + 볼륨 슬라이더 위치 (양쪽 모두)
 function renderTunerSlider() {
-  const track = $('tunerSliderTrack');
-  const handle = $('tunerSliderHandle');
-  const marks = $('tunerSliderMarks');
-  if (!track || !handle || !marks) return;
-  marks.innerHTML = '';
-  activeChannels.forEach((ch, idx) => {
-    const m = document.createElement('span');
-    m.textContent = String(ch.displayCh || (idx + 1));
-    if (idx === tunerSelectedIdx) m.classList.add('active');
-    marks.appendChild(m);
-  });
-  // 핸들 위치
-  const trackH = track.clientHeight;
-  const handleH = handle.offsetHeight || 24;
-  const ratio = activeChannels.length > 1 ? tunerSelectedIdx / (activeChannels.length - 1) : 0;
-  const top = Math.round(ratio * (trackH - handleH));
-  handle.style.top = top + 'px';
+  // 채널 다이얼 ticks/바늘
+  if (typeof window.renderDialTicks === 'function') window.renderDialTicks();
+  if (typeof window.applyDialNeedle === 'function') window.applyDialNeedle(tunerSelectedIdx);
+  // 볼륨 슬라이더 위치
+  if (typeof window.renderVolMarks === 'function') window.renderVolMarks();
+  if (typeof window.applyVolHandle === 'function') window.applyVolHandle(currentVolume);
 }
 function updateTunerPlayBtn() {
   const btn = $('tunerPlayBtn');
   if (!btn) return;
+  const lbl = $('tunerPlayLabel');
   if (isPlaying) {
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="2.5" width="3.5" height="11" rx="0.6" fill="currentColor"/><rect x="9" y="2.5" width="3.5" height="11" rx="0.6" fill="currentColor"/></svg><span class="tuner-play-btn-label">ON AIR</span>';
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="2.5" width="3.5" height="11" rx="0.6" fill="currentColor"/><rect x="9" y="2.5" width="3.5" height="11" rx="0.6" fill="currentColor"/></svg>';
     btn.classList.add('playing');
-    btn.classList.remove('loading'); // 재생 시작 → spinner 제거
+    btn.classList.remove('loading');
+    if (lbl) { lbl.textContent = 'ON AIR'; lbl.classList.add('playing'); }
   } else {
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 L13 8 L4 13.5 Z" fill="currentColor"/></svg><span class="tuner-play-btn-label">PLAY</span>';
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5 L13 8 L4 13.5 Z" fill="currentColor"/></svg>';
     btn.classList.remove('playing');
+    if (lbl) { lbl.textContent = 'PLAY'; lbl.classList.remove('playing'); }
   }
 }
 // 슬라이더 드래그
-// 볼륨 VU 미터 인터랙션 — 가로 슬라이드 (반원 위 X좌표 → 바늘 각도)
-(function initVolKnob() {
+// ===== 채널 튜닝 다이얼 (가로 슬라이드 → 채널 선택) =====
+// 드래그 중: selected card + 바늘 즉시 갱신. 손 뗀 시점에 enterChannel.
+(function initChDial() {
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-  // 볼륨 0~1.5 → 바늘 각도 -90° ~ +90°
-  function applyKnobRotation(v) {
-    const ratio = clamp(v / 1.5, 0, 1);
-    const angle = -90 + ratio * 180; // -90 ~ +90
-    const needle = document.getElementById('vuNeedle');
-    if (needle) needle.setAttribute('transform', `rotate(${angle} 50 58)`);
-    const valEl = $('tunerVolValue');
-    if (valEl) valEl.textContent = Math.round(v * 100);
-    const meter = $('tunerVolKnob');
-    if (meter) meter.classList.toggle('boost', v > 1.0);
+
+  function renderDialTicks() {
+    const ticks = $('tunerChDialTicks');
+    if (!ticks || !activeChannels.length) return;
+    ticks.innerHTML = '';
+    const n = activeChannels.length;
+    activeChannels.forEach((ch, idx) => {
+      const x = n > 1 ? (idx / (n - 1)) * 100 : 50;
+      const t = document.createElement('div');
+      const isMid = idx === Math.floor((n - 1) / 2);
+      t.className = 'tk ' + (idx === 0 || idx === n-1 || isMid ? 'major' : 'minor');
+      t.style.left = x + '%';
+      ticks.appendChild(t);
+      if (idx === 0 || isMid || idx === n-1) {
+        const lb = document.createElement('div');
+        lb.className = 'lb';
+        lb.style.left = x + '%';
+        lb.textContent = String(ch.displayCh || ch.num);
+        ticks.appendChild(lb);
+      }
+    });
   }
-  window.applyKnobRotation = applyKnobRotation;
+
+  function applyDialNeedle(idx) {
+    const needle = $('tunerChNeedle');
+    if (!needle || !activeChannels.length) return;
+    const n = activeChannels.length;
+    const ratio = n > 1 ? idx / (n - 1) : 0.5;
+    // 다이얼 face 폭 ~74px, padding 좌우 5px씩 → 트랙 ~64px
+    const x = 5 + ratio * 64;
+    needle.style.left = x + 'px';
+    const lbl = $('tunerChLabel');
+    const ch = activeChannels[idx];
+    if (lbl && ch) lbl.textContent = 'ch ' + (ch.displayCh || ch.num);
+  }
+  window.applyDialNeedle = applyDialNeedle;
+  window.renderDialTicks = renderDialTicks;
+
+  function xToChIdx(dial, clientX) {
+    const rect = dial.getBoundingClientRect();
+    const ratio = clamp((clientX - rect.left) / rect.width, 0, 1);
+    const n = activeChannels.length;
+    return Math.round(ratio * (n - 1));
+  }
 
   let dragging = false;
-  let showTimer = null;
+  let didChangeIdx = false;
 
-  // X 좌표 → 볼륨 매핑 (가로 슬라이드)
-  function xToVolume(meter, clientX) {
-    const rect = meter.getBoundingClientRect();
-    const ratio = clamp((clientX - rect.left) / rect.width, 0, 1);
-    return ratio * 1.5;
+  function applyIdx(newIdx) {
+    if (newIdx === tunerSelectedIdx) return;
+    tunerSelectedIdx = newIdx;
+    didChangeIdx = true;
+    renderTunerChannels();
+    applyDialNeedle(newIdx);
   }
-
-  function setVolume(v) {
-    currentVolume = v;
-    applyKnobRotation(v);
-    applyVolume(v);
-    const meter = $('tunerVolKnob');
-    if (meter) meter.classList.toggle('boost', v > 1.0);
-    if (volSlider) {
-      volSlider.value = v;
-      volSlider.classList.toggle('boost-zone', v > 1.0);
-    }
-    if (volNum) {
-      volNum.textContent = Math.round(v * 100);
-      volNum.classList.toggle('boost-zone', v > 1.0);
-    }
-    localStorage.setItem('radio-volume', v);
-  }
-
-  function onDragStart(meter, clientX) {
+  function onDragStart(dial, clientX) {
     dragging = true;
-    setVolume(xToVolume(meter, clientX));
+    didChangeIdx = false;
+    applyIdx(xToChIdx(dial, clientX));
   }
-  function onDragMove(meter, clientX) {
+  function onDragMove(dial, clientX) {
     if (!dragging) return;
-    setVolume(xToVolume(meter, clientX));
+    applyIdx(xToChIdx(dial, clientX));
   }
   function onDragEnd() {
+    if (!dragging) return;
     dragging = false;
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    const meter = $('tunerVolKnob');
-    if (!meter) return;
-    applyKnobRotation(currentVolume);
-    meter.addEventListener('mousedown', e => { onDragStart(meter, e.clientX); e.preventDefault(); });
-    document.addEventListener('mousemove', e => { if (dragging) onDragMove(meter, e.clientX); });
-    document.addEventListener('mouseup', onDragEnd);
-    meter.addEventListener('touchstart', e => {
-      const t = e.touches[0]; if (t) { onDragStart(meter, t.clientX); e.preventDefault(); }
-    }, { passive: false });
-    document.addEventListener('touchmove', e => {
-      if (dragging && e.touches[0]) onDragMove(meter, e.touches[0].clientX);
-    }, { passive: true });
-    document.addEventListener('touchend', onDragEnd);
-    document.addEventListener('touchcancel', onDragEnd);
-    // 휠 (PC): 위로 = 볼륨 ↑
-    meter.addEventListener('wheel', e => {
-      e.preventDefault();
-      const dir = e.deltaY < 0 ? 1 : -1;
-      setVolume(clamp(currentVolume + dir * 0.05, 0, 1.5));
-    }, { passive: false });
-  });
-})();
-(function initTunerSliderDrag() {
-  const handle = () => $('tunerSliderHandle');
-  const track = () => $('tunerSliderTrack');
-  let dragging = false;
-  let didChangeIdx = false; // 드래그 중 selected가 실제 변경됐는지
-
-  function onMove(clientY) {
-    const t = track(); if (!t) return;
-    const rect = t.getBoundingClientRect();
-    const h = handle().offsetHeight || 24;
-    let y = clientY - rect.top - h / 2;
-    y = Math.max(0, Math.min(rect.height - h, y));
-    const ratio = (rect.height - h) > 0 ? y / (rect.height - h) : 0;
-    const newIdx = Math.round(ratio * (activeChannels.length - 1));
-    if (newIdx !== tunerSelectedIdx) {
-      tunerSelectedIdx = newIdx;
-      didChangeIdx = true;
-      renderTunerChannels(); // selected card + rotational list 즉시 갱신
-      const marks = $('tunerSliderMarks');
-      if (marks) {
-        marks.querySelectorAll('span').forEach((sp, i) => sp.classList.toggle('active', i === newIdx));
-      }
-    }
-    handle().style.top = y + 'px';
-    // 종료 시점 방식: 드래그 중에는 enterChannel 호출하지 않음
-  }
-
-  function commitChannelChange() {
     if (!didChangeIdx) return;
     didChangeIdx = false;
     if (!isPlaying) return;
@@ -6950,23 +6881,140 @@ function updateTunerPlayBtn() {
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    const h = handle();
-    if (!h) return;
-    h.addEventListener('mousedown', e => { dragging = true; didChangeIdx = false; e.preventDefault(); });
-    document.addEventListener('mousemove', e => { if (dragging) onMove(e.clientY); });
-    document.addEventListener('mouseup', () => { if (dragging) { dragging = false; commitChannelChange(); } });
-    h.addEventListener('touchstart', e => { dragging = true; didChangeIdx = false; e.preventDefault(); }, { passive: false });
-    document.addEventListener('touchmove', e => { if (dragging && e.touches[0]) onMove(e.touches[0].clientY); }, { passive: true });
-    document.addEventListener('touchend', () => { if (dragging) { dragging = false; commitChannelChange(); } });
-    document.addEventListener('touchcancel', () => { if (dragging) { dragging = false; commitChannelChange(); } });
-    // 트랙 클릭 시 점프 — 클릭은 단일 동작이므로 즉시 커밋
-    const tr = track();
-    if (tr) tr.addEventListener('click', e => {
-      if (e.target === h) return;
-      didChangeIdx = false;
-      onMove(e.clientY);
-      commitChannelChange();
+    const dial = $('tunerChDial');
+    if (!dial) return;
+    dial.addEventListener('mousedown', e => { onDragStart(dial, e.clientX); e.preventDefault(); });
+    document.addEventListener('mousemove', e => { if (dragging) onDragMove(dial, e.clientX); });
+    document.addEventListener('mouseup', onDragEnd);
+    dial.addEventListener('touchstart', e => {
+      const t = e.touches[0]; if (t) { onDragStart(dial, t.clientX); e.preventDefault(); }
+    }, { passive: false });
+    document.addEventListener('touchmove', e => {
+      if (dragging && e.touches[0]) onDragMove(dial, e.touches[0].clientX);
+    }, { passive: true });
+    document.addEventListener('touchend', onDragEnd);
+    document.addEventListener('touchcancel', onDragEnd);
+  });
+})();
+
+// ===== 볼륨 슬라이더 (세로 슬라이드 → 볼륨, 위로 = 큼) =====
+// 실시간 적용. LP 가로 슬라이더와 양방향 동기화.
+(function initVolSlider() {
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  const handle = () => $('tunerSliderHandle');
+  const track = () => $('tunerSliderTrack');
+  let dragging = false;
+
+  // 볼륨 0~1.5 → 슬라이더 위치 (위가 1.5, 아래가 0)
+  function applyVolHandle(v) {
+    const t = track(), h = handle();
+    if (!t || !h) return;
+    const trackH = t.clientHeight || t.offsetHeight;
+    const handleH = h.offsetHeight || 28;
+    const ratio = clamp(v / 1.5, 0, 1);
+    const y = (1 - ratio) * (trackH - handleH); // 위=0%, 아래=100%
+    h.style.top = y + 'px';
+    // 마크 active (위에서부터)
+    const marks = $('tunerSliderMarks');
+    if (marks) {
+      const spans = marks.querySelectorAll('span');
+      spans.forEach(s => s.classList.remove('active'));
+      // 가장 가까운 마크에 active
+      const total = spans.length;
+      const valuePct = ratio * 150;
+      const targetIdx = Math.round((150 - valuePct) / (150 / Math.max(1, total - 1)));
+      const idx = clamp(targetIdx, 0, total - 1);
+      if (spans[idx]) spans[idx].classList.add('active');
+    }
+    // 라벨 갱신
+    const lbl = $('tunerVolLabel');
+    if (lbl) {
+      lbl.textContent = Math.round(v * 100);
+      lbl.classList.toggle('boost', v > 1.0);
+    }
+  }
+  window.applyVolHandle = applyVolHandle;
+
+  function setVolume(v) {
+    v = clamp(v, 0, 1.5);
+    currentVolume = v;
+    applyVolHandle(v);
+    applyVolume(v);
+    if (volSlider) {
+      volSlider.value = v;
+      volSlider.classList.toggle('boost-zone', v > 1.0);
+    }
+    if (volNum) {
+      volNum.textContent = Math.round(v * 100);
+      volNum.classList.toggle('boost-zone', v > 1.0);
+    }
+    localStorage.setItem('radio-volume', v);
+  }
+
+  function yToVolume(clientY) {
+    const t = track(), h = handle();
+    if (!t || !h) return currentVolume;
+    const rect = t.getBoundingClientRect();
+    const handleH = h.offsetHeight || 28;
+    let y = clientY - rect.top - handleH / 2;
+    y = clamp(y, 0, rect.height - handleH);
+    const ratio = 1 - y / (rect.height - handleH); // 위=1.0, 아래=0
+    return ratio * 1.5;
+  }
+
+  function onDragStart(clientY) {
+    dragging = true;
+    setVolume(yToVolume(clientY));
+  }
+  function onDragMove(clientY) {
+    if (!dragging) return;
+    setVolume(yToVolume(clientY));
+  }
+  function onDragEnd() { dragging = false; }
+
+  // 초기 마크 생성: 150 / 100 / 50 / 0 (위→아래)
+  function renderVolMarks() {
+    const marks = $('tunerSliderMarks');
+    if (!marks) return;
+    marks.innerHTML = '';
+    [150, 100, 50, 0].forEach(val => {
+      const sp = document.createElement('span');
+      sp.textContent = String(val);
+      marks.appendChild(sp);
     });
+  }
+  window.renderVolMarks = renderVolMarks;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const t = track();
+    const h = handle();
+    if (!t || !h) return;
+    renderVolMarks();
+    // 초기 위치 (currentVolume에 맞춰)
+    setTimeout(() => applyVolHandle(currentVolume), 0);
+    // 핸들 드래그 + 트랙 클릭
+    h.addEventListener('mousedown', e => { onDragStart(e.clientY); e.preventDefault(); });
+    document.addEventListener('mousemove', e => { if (dragging) onDragMove(e.clientY); });
+    document.addEventListener('mouseup', onDragEnd);
+    h.addEventListener('touchstart', e => {
+      const tt = e.touches[0]; if (tt) { onDragStart(tt.clientY); e.preventDefault(); }
+    }, { passive: false });
+    document.addEventListener('touchmove', e => {
+      if (dragging && e.touches[0]) onDragMove(e.touches[0].clientY);
+    }, { passive: true });
+    document.addEventListener('touchend', onDragEnd);
+    document.addEventListener('touchcancel', onDragEnd);
+    // 트랙 클릭 → 점프
+    t.addEventListener('click', e => {
+      if (e.target === h) return;
+      setVolume(yToVolume(e.clientY));
+    });
+    // 휠 (PC): 위로 = 볼륨 ↑
+    t.addEventListener('wheel', e => {
+      e.preventDefault();
+      const dir = e.deltaY < 0 ? 1 : -1;
+      setVolume(currentVolume + dir * 0.05);
+    }, { passive: false });
   });
 })();
 
