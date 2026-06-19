@@ -2351,8 +2351,8 @@ async function withRetry(fn, gen, maxRetries = 2, delayMs = 2000) {
       return await fn();
     } catch (e) {
       if (attempt < maxRetries && gen === enterChannelGen) {
-        console.warn('[Retry] 시도 ' + (attempt + 1) + '/' + maxRetries + ' 실패, 재연결 중...');
-        showToast('재연결 중... (' + (attempt + 1) + '/' + maxRetries + ')');
+        console.warn('[Retry] 시도 ' + (attempt + 1) + '/' + maxRetries + ' 실패, 튜닝중...');
+        showToast('튜닝중... (' + (attempt + 1) + '/' + maxRetries + ')');
         await new Promise(r => setTimeout(r, delayMs));
       } else {
         throw e; // 최종 실패 → catch로 전달
@@ -3330,7 +3330,7 @@ async function loadKbs(gen) {
         if (d.programTitle) { nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + escHtml(d.programTitle); updateMediaSession(); }
       } catch {}
     }, 60000);
-  } catch (e) { nowPlayingEl.textContent = 'KBS 연결 실패'; showToast('KBS 스트리밍 연결 실패'); clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading'); }
+  } catch (e) { nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 튜닝중...'; clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading'); setTimeout(() => { if (currentChannel === 1) enterChannel(1); }, 5000); }
 }
 
 // ── FEBC ──
@@ -3351,7 +3351,7 @@ async function loadFebc(gen) {
         if (d.programTitle) { nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + escHtml(d.programTitle); updateMediaSession(); }
       } catch {}
     }, 60000);
-  } catch (e) { nowPlayingEl.textContent = '극동방송 연결 실패'; showToast('극동방송 스트리밍 연결 실패'); clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading'); }
+  } catch (e) { nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 튜닝중...'; clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading'); setTimeout(() => { if (currentChannel === 2) enterChannel(2); }, 5000); }
 }
 
 // ── Radio Swiss Classic (CH6) ──
@@ -3382,9 +3382,9 @@ async function loadRsc(gen) {
       } catch {}
     }, 30000);
   } catch (e) {
-    nowPlayingEl.textContent = 'Radio Swiss Classic 연결 실패';
-    showToast('Radio Swiss Classic 연결 실패');
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 튜닝중...';
     clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
+    setTimeout(() => { if (currentChannel === 6) enterChannel(6); }, 5000);
   }
 }
 
@@ -3403,9 +3403,9 @@ async function loadJoy4u(gen) {
       await withRetry(() => playHls(JOY4U_URL_BACKUP, true), gen);
     }
   } catch (e) {
-    nowPlayingEl.textContent = 'CBS JOY4U 연결 실패';
-    showToast('CBS JOY4U 연결 실패');
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 튜닝중...';
     clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
+    setTimeout(() => { if (currentChannel === 8) enterChannel(8); }, 5000);
   }
 }
 
@@ -3440,9 +3440,9 @@ async function loadAbiding(gen, ch /* 'sacred' | 'instrumental' */) {
     fetchNp(); // 즉시 1회
     abidingRefreshTimer = setInterval(fetchNp, 30000);
   } catch (e) {
-    nowPlayingEl.textContent = 'Abiding Radio 연결 실패';
-    showToast('Abiding Radio 연결 실패');
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 튜닝중...';
     clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
+    setTimeout(() => { if (currentChannel === 9 || currentChannel === 10) enterChannel(currentChannel); }, 5000);
   }
 }
 
@@ -3472,9 +3472,9 @@ async function loadVenice(gen) {
     fetchNp();
     veniceRefreshTimer = setInterval(fetchNp, 30000);
   } catch (e) {
-    nowPlayingEl.textContent = 'Venice Classic 연결 실패';
-    showToast('Venice Classic 연결 실패');
+    nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 튜닝중...';
     clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
+    setTimeout(() => { if (currentChannel === 11) enterChannel(11); }, 5000);
   }
 }
 
@@ -6565,6 +6565,13 @@ async function init() {
     else { updateClock(); clockTimer = setInterval(updateClock, 1000); }
   });
 
+  // ★ 인앱 브라우저 (카카오톡 등) 감지 시: 단축 URL 처리/history 변경 전에 즉시 Chrome 리다이렉트
+  // 원본 /s/CODE URL을 보존하여 Chrome에서 정상 처리되도록 함
+  if (typeof detectInAppBrowser === 'function' && detectInAppBrowser()) {
+    initInAppBanner();
+    return; // 인앱 → 리다이렉트, 초기화 중단
+  }
+
   await fetchServerChannelConfig(); // 서버 설정 → localStorage 동기화
   applyChannelConfig(); // activeChannels 설정
 
@@ -6586,7 +6593,7 @@ async function init() {
   }
   if (!urlParams) urlParams = new URLSearchParams(window.location.search);
   const sharedCh = parseInt(urlParams.get('ch'));
-  const isSharedLink = sharedCh >= 1 && sharedCh <= 6;
+  const isSharedLink = sharedCh >= 1 && sharedCh <= 12;
   if (isSharedLink) {
     sharedTrack = urlParams.get('track');
     sharedTrackPos = parseInt(urlParams.get('t')) || 0;
@@ -6597,7 +6604,7 @@ async function init() {
   const lastChannel = parseInt(localStorage.getItem('radio-last-channel') ?? '0');
   const initCfg = getChannelConfig();
   const defaultCh = initCfg.defaultChannel;
-  const startChannel = (sharedCh >= 1 && sharedCh <= 6) ? sharedCh : (lastChannel || defaultCh);
+  const startChannel = (sharedCh >= 1 && sharedCh <= 12) ? sharedCh : (lastChannel || defaultCh);
   focusedIndex = activeChannels.findIndex(c => c.num === startChannel);
   if (focusedIndex < 0) focusedIndex = activeChannels.findIndex(c => c.num === defaultCh);
   if (focusedIndex < 0) focusedIndex = 0;
