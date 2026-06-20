@@ -3105,7 +3105,16 @@ function handlePlayPause() {
     } else {
       userPaused = false;
       if (audioEl && (audioEl.src || currentHls)) {
+        const ch = currentChannel;
+        if (currentHls) currentHls.startLoad();
         audioEl.play().then(() => { isPlaying = true; updatePlayBtn(true); refreshLiveNowPlaying(); }).catch(() => {});
+        // 죽은 스트림이면 play()가 거부되거나 조용히 멈춤 → 1.5초 내 재생 안 되면 채널 재진입
+        const t = setTimeout(() => {
+          if (currentChannel === ch && !userPaused && (!isPlaying || audioEl.paused || audioEl.readyState < 3)) {
+            showToast('재연결 중...'); enterChannel(ch);
+          }
+        }, 1500);
+        audioEl.addEventListener('playing', () => clearTimeout(t), { once: true });
       } else { enterChannel(currentChannel); }
     }
   } else if (currentChannel === 3 || currentChannel === 4 || currentChannel === 7) {
@@ -3127,6 +3136,43 @@ function handlePlayPause() {
       else { userPaused = false; currentHowl.play(); userPausedCh5 = false; }
     } else { userPaused = false; enterChannel(5); }
   }
+}
+
+// ── 재생 자동 복구 (죽은 스트림/네트워크 끊김 후 치유) ──
+// 재생 의도가 있는데 실제로 멈춰 있으면 부드럽게 재개하고,
+// 그래도 안 되면 채널 전체를 재진입해 스트림을 새로 연결한다.
+let recoverWatchdog = null;
+function recoverPlaybackIfStuck(reason) {
+  // 사용자가 의도적으로 멈춘 상태이거나 재생 중이 아니면 건드리지 않음
+  if (!isPlaying || userPaused || userPausedCh5) return;
+  const ch = currentChannel;
+
+  // 1) 엔진별 부드러운 재개 시도
+  if (currentHowl) {
+    if (!currentHowl.playing()) currentHowl.play();
+  } else if (audioEl && (audioEl.src || currentHls)) {
+    if (currentHls) currentHls.startLoad();
+    if (audioEl.paused && !audioEl.ended) {
+      audioEl.play().then(() => { isPlaying = true; updatePlayBtn(true); }).catch(() => {});
+    }
+  } else {
+    return; // 재생할 소스 자체가 없음
+  }
+  applyVolume(currentVolume);
+  lastWatchdogTime = -1;
+
+  // 2) 워치독: 짧은 시간 내 실제 재생이 안 되면 채널 재진입
+  clearTimeout(recoverWatchdog);
+  recoverWatchdog = setTimeout(() => {
+    if (currentChannel !== ch) return;        // 그 사이 채널 변경됨
+    if (userPaused || userPausedCh5) return;   // 그 사이 사용자가 정지
+    const howlStuck = currentHowl && !currentHowl.playing();
+    const elStuck = !currentHowl && audioEl && (audioEl.paused || audioEl.readyState < 3);
+    if (howlStuck || elStuck) {
+      console.warn('[복구] 재개 실패 → 채널 재진입 (' + reason + ')');
+      enterChannel(ch);
+    }
+  }, 2000);
 }
 
 // ── Channel Entry ──
@@ -3298,13 +3344,13 @@ async function enterChannel(channel) {
 async function refreshLiveNowPlaying() {
   try {
     if (currentChannel === 1) {
-      const r = await fetch(WORKER_URL + '/api/kbs'); const d = await r.json();
+      const r = await fetch(WORKER_URL + '/api/kbs', { signal: AbortSignal.timeout(10000) }); const d = await r.json();
       nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + escHtml(d.programTitle || 'KBS 클래식 FM');
     } else if (currentChannel === 2) {
-      const r = await fetch(WORKER_URL + '/api/febc-schedule'); const d = await r.json();
+      const r = await fetch(WORKER_URL + '/api/febc-schedule', { signal: AbortSignal.timeout(10000) }); const d = await r.json();
       nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + escHtml(d.programTitle || '극동방송');
     } else if (currentChannel === 6) {
-      const r = await fetch(WORKER_URL + '/api/rsc-nowplaying'); const d = await r.json();
+      const r = await fetch(WORKER_URL + '/api/rsc-nowplaying', { signal: AbortSignal.timeout(10000) }); const d = await r.json();
       if (d.title) {
         const text = (d.composer ? d.composer + ' — ' : '') + d.title;
         nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> ' + escHtml(text);
@@ -3361,7 +3407,7 @@ async function loadRsc(gen) {
     nowPlayingEl.innerHTML = '<span class="live-badge">LIVE</span> 연결 중...';
     let npText = 'Radio Swiss Classic';
     try {
-      const r = await fetch(WORKER_URL + '/api/rsc-nowplaying');
+      const r = await fetch(WORKER_URL + '/api/rsc-nowplaying', { signal: AbortSignal.timeout(10000) });
       const d = await r.json();
       if (d.title) npText = (d.composer ? d.composer + ' — ' : '') + d.title;
     } catch {}
@@ -3372,7 +3418,7 @@ async function loadRsc(gen) {
     rscRefreshTimer = setInterval(async () => {
       if (currentChannel !== 6 || !isPlaying) return;
       try {
-        const r = await fetch(WORKER_URL + '/api/rsc-nowplaying');
+        const r = await fetch(WORKER_URL + '/api/rsc-nowplaying', { signal: AbortSignal.timeout(10000) });
         const d = await r.json();
         if (d.title) {
           const text = (d.composer ? d.composer + ' — ' : '') + d.title;
@@ -3428,7 +3474,7 @@ async function loadAbiding(gen, ch /* 'sacred' | 'instrumental' */) {
     const fetchNp = async () => {
       if ((currentChannel !== 9 && currentChannel !== 10) || !isPlaying) return;
       try {
-        const r = await fetch(WORKER_URL + '/api/np/abiding?ch=' + ch);
+        const r = await fetch(WORKER_URL + '/api/np/abiding?ch=' + ch, { signal: AbortSignal.timeout(10000) });
         const d = await r.json();
         if (d.title) {
           const text = (d.artist ? d.artist + ' — ' : '') + d.title;
@@ -3460,7 +3506,7 @@ async function loadVenice(gen) {
     const fetchNp = async () => {
       if (currentChannel !== 11 || !isPlaying) return;
       try {
-        const r = await fetch(WORKER_URL + '/api/np/venice');
+        const r = await fetch(WORKER_URL + '/api/np/venice', { signal: AbortSignal.timeout(10000) });
         const d = await r.json();
         if (d.title) {
           const text = (d.composer ? d.composer + ' — ' : '') + d.title;
@@ -3787,21 +3833,8 @@ document.addEventListener('visibilitychange', async () => {
     }
     // Wake Lock 재획득
     if (isPlaying) requestWakeLock();
-    // HLS/Icecast (<audio> 요소): 재생 상태인데 멈춰 있으면 재시작 (사용자 pause 제외)
-    if (isPlaying && !userPaused && audioEl) {
-      if (audioEl.paused && !audioEl.ended) {
-        audioEl.play().catch(() => {});
-      }
-      applyVolume(currentVolume);
-      lastWatchdogTime = -1;
-    }
-    // Howler: 내부 상태와 실제 재생 불일치 복구 (사용자 pause 제외)
-    if (isPlaying && !userPaused && currentHowl) {
-      if (!currentHowl.playing()) {
-        currentHowl.play();
-      }
-      applyVolume(currentVolume);
-    }
+    // HLS/Icecast/Howler: 백그라운드에서 죽었으면 부드럽게 재개, 안 되면 채널 재진입
+    recoverPlaybackIfStuck('visibility');
     // 라이브 폴링 재개
     if (liveMode && liveSessionId && !livePollTimer) {
       livePollAndPlay();
@@ -3824,6 +3857,9 @@ document.addEventListener('visibilitychange', async () => {
     }
   }
 });
+
+// 네트워크 복귀 시 즉시 재생 복구 (모바일 신호 끊김/Wi-Fi 핸드오버 대응)
+window.addEventListener('online', () => { recoverPlaybackIfStuck('online'); });
 
 // ── Recording ──
 function connectHowlToAudioCtx() {
