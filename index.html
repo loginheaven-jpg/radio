@@ -1751,16 +1751,12 @@ async function fetchServerChannelConfig() {
 }
 function applyChannelConfig() {
   const cfg = getChannelConfig();
-  // V2: 기본 정렬은 displayCh 오름차순 (튜너 홈 순서와 일치)
-  const defaultOrder = [...CHANNELS].sort((a,b) => (a.displayCh||99) - (b.displayCh||99)).map(c => c.num);
-  const savedOrder = cfg.order || defaultOrder;
-  const ordered = savedOrder.map(num => CHANNELS.find(c => c.num === num)).filter(Boolean);
-  // 새로 추가된 채널(savedOrder에 없는 것)을 displayCh 기준으로 끼워 넣기
-  CHANNELS.forEach(c => { if (!savedOrder.includes(c.num)) ordered.push(c); });
-  // 신규 채널 추가된 경우 다시 displayCh 정렬
-  if (ordered.length > savedOrder.length) ordered.sort((a,b) => (a.displayCh||99) - (b.displayCh||99));
+  // V2: activeChannels는 항상 displayCh 오름차순 (튜너 다이얼/슬라이더 일관성)
+  // cfg.order는 관리자 채널 순서 변경 기능에서만 사용 (현재 사용 안 함)
   const hiddenSet = new Set(cfg.hidden || []);
-  activeChannels = ordered.filter(c => !hiddenSet.has(c.num));
+  activeChannels = [...CHANNELS]
+    .filter(c => !hiddenSet.has(c.num))
+    .sort((a,b) => (a.displayCh||99) - (b.displayCh||99));
   if (activeChannels.length === 0) activeChannels = [...CHANNELS].sort((a,b) => (a.displayCh||99) - (b.displayCh||99));
 }
 
