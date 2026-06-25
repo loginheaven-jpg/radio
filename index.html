@@ -3456,10 +3456,12 @@ async function loadJoy4u(gen) {
 }
 
 // ── Abiding Radio (CH9 Hymn, CH10 Instrumental) ──
+// 실제 스트림 URL은 streams.abidingradio.com:7820/7800 (AzuraCast Icecast 마운트)
+// abidingradio.org/radio/* 경로는 임베드 HTML 페이지이므로 직접 재생 불가
 let abidingRefreshTimer = null;
 const ABIDING_URLS = {
-  sacred:       'https://www.abidingradio.org/radio/sacred',
-  instrumental: 'https://www.abidingradio.org/radio/instrumental',
+  sacred:       'https://streams.abidingradio.com:7820/sacred',
+  instrumental: 'https://streams.abidingradio.com:7800/instrumental',
 };
 async function loadAbiding(gen, ch /* 'sacred' | 'instrumental' */) {
   clearInterval(abidingRefreshTimer);
