@@ -7129,9 +7129,47 @@ async function uploadSubtitleFile(videoId, subFile) {
     headers: { 'Authorization': 'Bearer ' + adminKey },
     body: subFile,
   });
+  if (res.status === 404) throw new Error('자막 라우트 미배포 — npx wrangler deploy 필요');
   if (!res.ok) throw new Error('자막 업로드 실패: ' + res.status);
   const data = await res.json();
   return { key: data.key, rest: data.rest, format: ext };
+}
+
+// 이미 등록된 영상에 자막만 사후 부착 (재업로드 불필요)
+async function attachSubtitleToExisting(videoId) {
+  // 파일 선택 다이얼로그
+  const picker = document.createElement('input');
+  picker.type = 'file';
+  picker.accept = '.srt,.vtt';
+  picker.style.display = 'none';
+  document.body.appendChild(picker);
+  picker.addEventListener('change', async () => {
+    const f = picker.files[0];
+    picker.remove();
+    if (!f) return;
+    try {
+      // 1) 자막 파일 R2 업로드
+      const subInfo = await uploadSubtitleFile(videoId, f);
+      // 2) 기존 메타 가져와서 subtitleKey/Format만 갱신 후 재저장
+      const metaRes = await fetch(`${WORKER_URL}/api/videos/${encodeURIComponent(videoId)}`);
+      if (!metaRes.ok) throw new Error('기존 메타 로드 실패');
+      const meta = await metaRes.json();
+      meta.source = meta.source || {};
+      meta.source.subtitleKey = subInfo.rest;
+      meta.source.subtitleFormat = subInfo.format;
+      const upRes = await fetch(`${WORKER_URL}/api/admin/video`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminKey },
+        body: JSON.stringify(meta),
+      });
+      if (!upRes.ok) throw new Error('메타 갱신 실패: ' + upRes.status);
+      alert(`자막 부착 완료: ${videoId}`);
+      loadVideoAdminList();
+    } catch (e) {
+      alert('자막 부착 실패: ' + e.message);
+    }
+  });
+  picker.click();
 }
 async function initVideoAdminPanel() {
   await loadVideoAdminList();
@@ -7149,13 +7187,17 @@ async function loadVideoAdminList() {
     }
     videos.forEach(v => {
       const li = document.createElement('li');
-      li.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg-surface);border:1px solid var(--border-glass);border-radius:10px;margin-bottom:6px';
+      li.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px;background:var(--bg-surface);border:1px solid var(--border-glass);border-radius:10px;margin-bottom:6px';
       const typeTag = v.type === 'link' ? '🔗 외부' : v.type === 'progressive' ? '📹 MP4' : '🎬 HLS';
+      const hasSub = !!(v.source && v.source.subtitleKey);
+      const subBadge = hasSub ? '<span style="color:#8fd88f">📝 자막 있음</span>' : '<span style="color:#c88060">📝 자막 없음</span>';
+      const subBtnLabel = hasSub ? '📝 교체' : '📝 자막 추가';
       li.innerHTML = `
         <div style="flex:1;min-width:0">
           <div style="font-size:0.85rem;font-weight:600;color:#e8d8c0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(v.title || v.id)}</div>
-          <div style="font-size:0.72rem;color:var(--text-mute);margin-top:2px">${typeTag} · ${escHtml(v.date || '')} ${v.series ? '· ' + escHtml(v.series) : ''}</div>
+          <div style="font-size:0.72rem;color:var(--text-mute);margin-top:2px">${typeTag} · ${escHtml(v.date || '')} ${v.series ? '· ' + escHtml(v.series) : ''} · ${subBadge}</div>
         </div>
+        <button class="extra-btn" data-sub-vid="${escHtml(v.id)}" style="flex-shrink:0;font-size:0.72rem">${subBtnLabel}</button>
         <button class="admin-delete-btn" data-vid="${escHtml(v.id)}" style="flex-shrink:0">🗑</button>`;
       ul.appendChild(li);
     });
@@ -7172,6 +7214,10 @@ async function loadVideoAdminList() {
           else showToast('삭제 실패');
         } catch { showToast('삭제 실패'); }
       });
+    });
+    // 자막 추가/교체 버튼: 기존 영상에 자막만 사후 붙이기 (재업로드 불필요)
+    ul.querySelectorAll('[data-sub-vid]').forEach(btn => {
+      btn.addEventListener('click', () => attachSubtitleToExisting(btn.dataset.subVid));
     });
   } catch (e) {
     ul.innerHTML = '<li style="padding:12px;color:var(--text-mute);font-size:0.8rem">목록 로드 실패</li>';
@@ -7242,7 +7288,7 @@ async function uploadVideoFile() {
       try {
         subInfo = await uploadSubtitleFile(id, videoSubFile);
       } catch (e) {
-        showToast('자막 업로드 실패, 영상만 등록: ' + e.message);
+        alert('⚠ 자막 업로드 실패 — 영상만 등록됩니다.\n\n원인: ' + e.message + '\n\n영상 등록 후 "📝 자막 추가" 버튼으로 사후 부착할 수 있습니다.');
       }
     }
     // 3) 메타 등록
