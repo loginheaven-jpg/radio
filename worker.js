@@ -51,6 +51,7 @@ export default {
       const target = new URL('https://radio.yebom.org/');
       target.searchParams.set('ch', String(data.ch));
       if (data.track) target.searchParams.set('track', data.track);
+      if (data.video) target.searchParams.set('video', data.video);
       if (data.t) target.searchParams.set('t', String(data.t));
       return Response.redirect(target.toString(), 302);
     }
@@ -331,7 +332,7 @@ export default {
 
       // ── 단축 URL ─────────────────────────────────────────────
       if (path === '/api/share' && method === 'POST') {
-        const { ch, track, t } = await request.json();
+        const { ch, track, t, video } = await request.json();
         if (!ch) return json({ error: 'ch required' }, cors, 400);
         // 6자리 영숫자 코드 생성 (충돌 시 재시도)
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -345,6 +346,7 @@ export default {
         } while (attempts < 5);
         const data = { ch: Number(ch) };
         if (track) data.track = track;
+        if (video) data.video = String(video);
         if (t) data.t = Number(t);
         data.createdAt = Date.now();
         await env.RADIO_KV.put('share:' + code, JSON.stringify(data)); // TTL 없음 = 영구

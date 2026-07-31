@@ -829,6 +829,13 @@ body{
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 8h5l-2-2"/><path d="M16.5 8a5 5 0 1 0 5 5"/><text x="12" y="17" text-anchor="middle" font-size="7" stroke="none" fill="currentColor">10</text></svg>
         <span class="lbl">10s</span>
       </button>
+      <button class="video-seek-btn" id="vShareBtn" aria-label="링크 복사" title="이 영상 링크 복사">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+        <span class="lbl">공유</span>
+      </button>
     </div>
   </div>
   <div class="video-library">
@@ -1449,6 +1456,8 @@ let userPausedCh5 = false;
 let trackRefreshTimer = null;
 let sharedTrack = null;
 let sharedTrackPos = 0;
+let sharedVideo = null;   // 공유 링크로 지정된 영상 ID (CH12 전용)
+let sharedVideoT = 0;     // 공유 링크의 재생 시작 초 (영상용)
 let loadingTimeout = null;
 
 let sleepSecs = 0;
@@ -3278,7 +3287,29 @@ async function enterChannel(channel) {
   else if (channel === 12) {
     // 영상 채널: LP 화면 대신 영상 surface로 전환
     clearTimeout(loadingTimeout); mainPlayBtn.classList.remove('loading');
-    openVideoSurface();
+    // 공유 링크로 특정 영상이 지정된 경우 소비 (한 번만 쓰이도록 즉시 초기화)
+    const _sharedVid = sharedVideo;
+    const _sharedT = sharedVideoT;
+    sharedVideo = null; sharedVideoT = 0;
+    await openVideoSurface();
+    if (_sharedVid) {
+      try {
+        const res = await fetch(`${WORKER_URL}/api/videos/${encodeURIComponent(_sharedVid)}`);
+        if (!res.ok) throw new Error('video meta ' + res.status);
+        const v = await res.json();
+        await playVideo(v);
+        // 지정된 시점으로 seek (metadata 로드 전이면 loadedmetadata 후에 실행)
+        if (_sharedT > 0) {
+          const vp = $('vPlayer');
+          const seekOnce = () => { try { vp.currentTime = _sharedT; } catch {} vp.removeEventListener('loadedmetadata', seekOnce); };
+          if (vp.readyState >= 1) { try { vp.currentTime = _sharedT; } catch {} }
+          else vp.addEventListener('loadedmetadata', seekOnce);
+        }
+      } catch (e) {
+        console.warn('공유 영상 자동 재생 실패:', e);
+        showToast('공유된 영상을 찾을 수 없습니다');
+      }
+    }
     return;
   }
   // ===== VIDEO-CH END =====
@@ -6632,6 +6663,7 @@ async function init() {
         urlParams = new URLSearchParams();
         urlParams.set('ch', String(data.ch));
         if (data.track) urlParams.set('track', data.track);
+        if (data.video) urlParams.set('video', data.video);
         if (data.t) urlParams.set('t', String(data.t));
       }
     } catch {}
@@ -6643,6 +6675,8 @@ async function init() {
   if (isSharedLink) {
     sharedTrack = urlParams.get('track');
     sharedTrackPos = parseInt(urlParams.get('t')) || 0;
+    sharedVideo = urlParams.get('video');           // CH12 지정 시 특정 영상 자동 재생
+    sharedVideoT = sharedTrackPos;                  // 재생 시작 초 재사용 (같은 t 필드)
     appStartup = false; // 공유 링크: 자동 재생
     history.replaceState(null, '', window.location.pathname);
   }
@@ -7575,6 +7609,40 @@ async function attachSubtitle(video, v) {
   }
 }
 
+// 현재 재생 중인 영상의 딥링크(단축 URL)를 클립보드에 복사
+// 오디오 헤더 #shareBtn 패턴과 동일한 UX: 모달 없이 즉시 복사 + 토스트
+async function shareCurrentVideo() {
+  if (!vCurrentMeta) { showToast('재생 중인 영상이 없습니다'); return; }
+  const vp = $('vPlayer');
+  const pos = Math.floor(vp && vp.currentTime ? vp.currentTime : 0);
+  const title = vCurrentMeta.title || vCurrentMeta.id;
+  let header = '예봄라디오 - 예봄 영상\n' + title;
+  if (pos > 3) header += ' (' + formatTime(pos) + '~)';
+  const payload = { ch: 12, video: vCurrentMeta.id };
+  if (pos > 3) payload.t = pos;
+  try {
+    const res = await fetch(WORKER_URL + '/api/share', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('share ' + res.status);
+    const { url: shortUrl } = await res.json();
+    const text = header + '\n' + shortUrl;
+    await navigator.clipboard.writeText(text);
+    showToast('링크가 복사되었습니다');
+  } catch {
+    // 단축 URL 실패 시 origin?ch=12&video=…&t=… 롱 URL fallback
+    const url = new URL(window.location.origin);
+    url.searchParams.set('ch', '12');
+    url.searchParams.set('video', vCurrentMeta.id);
+    if (pos > 3) url.searchParams.set('t', String(pos));
+    const text = header + '\n' + url.toString();
+    navigator.clipboard.writeText(text)
+      .then(() => showToast('링크가 복사되었습니다'))
+      .catch(() => showToast('링크 복사 실패'));
+  }
+}
+
 async function playVideo(v) {
   vCurrentMeta = v;
   $('videoNowTitle').textContent = v.title || v.id;
@@ -7663,6 +7731,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // ±10초 버튼 — long-press 가속 (오디오와 동일 패턴)
   setupVideoSeekButton($('vBack10'), -1);
   setupVideoSeekButton($('vFwd10'), +1);
+  // 영상 공유 링크 복사 (오디오 #shareBtn 패턴 이식)
+  const vShare = $('vShareBtn');
+  if (vShare) vShare.addEventListener('click', shareCurrentVideo);
   // 풀스크린 진입 시 영상 비율에 맞춰 orientation 자동 잠금 (Android Chrome)
   const video = $('vPlayer');
   if (video) {
