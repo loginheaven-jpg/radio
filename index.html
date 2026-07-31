@@ -588,6 +588,8 @@ body{
 .video-title-bar{font-size:15px;font-weight:700;color:#d0a8e8;letter-spacing:0.5px}
 .video-player-wrap{padding:16px 20px 8px}
 .video-screen{background:#000;border-radius:10px;overflow:hidden;box-shadow:inset 0 0 24px rgba(0,0,0,0.6),0 4px 20px rgba(0,0,0,0.5);border:1px solid rgba(160,112,208,0.2)}
+/* 자막 가독성: 반투명 검정 배경 + 흰 글자 */
+#vPlayer::cue{background:rgba(0,0,0,0.72);color:#fff;font-size:1.05em;line-height:1.35;font-family:'Pretendard Variable','Noto Sans KR',sans-serif;text-shadow:0 1px 2px rgba(0,0,0,0.8);padding:2px 6px}
 #vPlayer{width:100%;display:block;background:#000;max-height:50vh}
 .video-now-title{margin-top:10px;font-size:14px;font-weight:600;color:#e8d8f0;text-align:center;line-height:1.4}
 .video-controls{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:14px;flex-wrap:wrap}
@@ -1333,6 +1335,11 @@ body{
       <input type="file" id="videoFileInput" accept="video/mp4,.mp4" style="display:none">
       <button class="extra-btn" id="videoSelectBtn" style="font-size:0.82rem">📹 MP4 파일 선택</button>
       <span id="videoSelectedName" style="font-size:0.78rem;margin-left:10px;color:var(--text-mute)"></span>
+      <div style="margin-top:8px">
+        <input type="file" id="videoSubInput" accept=".srt,.vtt" style="display:none">
+        <button class="extra-btn" id="videoSubSelectBtn" style="font-size:0.82rem">📝 자막 파일 선택 (선택)</button>
+        <span id="videoSubSelectedName" style="font-size:0.78rem;margin-left:10px;color:var(--text-mute)"></span>
+      </div>
       <div id="videoUploadProgress" style="display:none;margin-top:10px">
         <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
           <div id="videoUploadBar" style="height:100%;background:linear-gradient(90deg,#a070d0,#c090e8);width:0%;transition:width 0.2s"></div>
@@ -1352,7 +1359,12 @@ body{
           <option value="mp4">MP4</option>
         </select>
       </div>
-      <button class="extra-btn" id="videoLinkAddBtn" style="font-size:0.82rem">🔗 링크 등록</button>
+      <div style="margin-top:8px">
+        <input type="file" id="videoLinkSubInput" accept=".srt,.vtt" style="display:none">
+        <button class="extra-btn" id="videoLinkSubSelectBtn" style="font-size:0.82rem">📝 자막 파일 선택 (선택)</button>
+        <span id="videoLinkSubSelectedName" style="font-size:0.78rem;margin-left:10px;color:var(--text-mute)"></span>
+      </div>
+      <button class="extra-btn" id="videoLinkAddBtn" style="font-size:0.82rem;margin-top:8px">🔗 링크 등록</button>
     </div>
     <div class="admin-section-title"><span>등록된 영상</span><button class="extra-btn" id="videoListRefresh" style="font-size:0.75rem">새로고침</button></div>
     <ul id="videoAdminList" style="list-style:none;padding:0;margin:0"></ul>
@@ -7105,6 +7117,22 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===== VIDEO-CH BEGIN =====
 // 영상 관리자 패널
 let videoUploadFile = null;
+let videoSubFile = null;      // MP4 업로드용 자막 파일 (.srt/.vtt)
+let videoLinkSubFile = null;  // 외부 링크 등록용 자막 파일
+
+// 공통: 자막 파일을 R2에 PUT → { key, rest } 반환. 실패 시 예외 던짐.
+async function uploadSubtitleFile(videoId, subFile) {
+  const ext = (subFile.name.split('.').pop() || 'srt').toLowerCase();
+  if (ext !== 'srt' && ext !== 'vtt') throw new Error('자막은 .srt 또는 .vtt만 지원');
+  const res = await fetch(`${WORKER_URL}/api/admin/video/${encodeURIComponent(videoId)}/subtitle?ext=${ext}`, {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + adminKey },
+    body: subFile,
+  });
+  if (!res.ok) throw new Error('자막 업로드 실패: ' + res.status);
+  const data = await res.json();
+  return { key: data.key, rest: data.rest, format: ext };
+}
 async function initVideoAdminPanel() {
   await loadVideoAdminList();
 }
@@ -7208,12 +7236,25 @@ async function uploadVideoFile() {
       body: JSON.stringify({ key: r2Key, uploadId, parts }),
     });
     if (!compRes.ok) throw new Error('완료 실패');
+    // 2.5) 자막 파일이 있으면 R2에 업로드 (원본 SRT/VTT 그대로)
+    let subInfo = null;
+    if (videoSubFile) {
+      try {
+        subInfo = await uploadSubtitleFile(id, videoSubFile);
+      } catch (e) {
+        showToast('자막 업로드 실패, 영상만 등록: ' + e.message);
+      }
+    }
     // 3) 메타 등록
     const meta = {
       id, title, date, series,
       type: 'progressive', mode: null, durationSec: 0,
       posterKey: '',
-      source: { masterKey: null, audioKey: null, fileKey: r2Key, url: null, linkProtocol: null },
+      source: {
+        masterKey: null, audioKey: null, fileKey: r2Key, url: null, linkProtocol: null,
+        subtitleKey: subInfo ? subInfo.rest : null,       // /v/<id>/<rest> 접근용
+        subtitleFormat: subInfo ? subInfo.format : null,  // 'srt' | 'vtt'
+      },
     };
     const regRes = await fetch(WORKER_URL + '/api/admin/video', {
       method: 'POST',
@@ -7225,7 +7266,9 @@ async function uploadVideoFile() {
     // 입력 초기화
     $('videoUploadId').value = ''; $('videoUploadTitle').value = ''; $('videoUploadSeries').value = '';
     $('videoSelectedName').textContent = '';
+    $('videoSubSelectedName').textContent = '';
     videoUploadFile = null;
+    videoSubFile = null;
     $('videoUploadBtn').style.display = 'none';
     $('videoUploadProgress').style.display = 'none';
     loadVideoAdminList();
@@ -7255,6 +7298,30 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const upBtn = $('videoUploadBtn');
   if (upBtn) upBtn.addEventListener('click', uploadVideoFile);
+  // 자막 파일 선택 (MP4 업로드 섹션)
+  const subSelBtn = $('videoSubSelectBtn');
+  const subInput = $('videoSubInput');
+  if (subSelBtn && subInput) {
+    subSelBtn.addEventListener('click', () => subInput.click());
+    subInput.addEventListener('change', e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      videoSubFile = f;
+      $('videoSubSelectedName').textContent = f.name + ' (' + (f.size / 1024).toFixed(1) + ' KB)';
+    });
+  }
+  // 자막 파일 선택 (외부 링크 섹션)
+  const linkSubSelBtn = $('videoLinkSubSelectBtn');
+  const linkSubInput = $('videoLinkSubInput');
+  if (linkSubSelBtn && linkSubInput) {
+    linkSubSelBtn.addEventListener('click', () => linkSubInput.click());
+    linkSubInput.addEventListener('change', e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      videoLinkSubFile = f;
+      $('videoLinkSubSelectedName').textContent = f.name + ' (' + (f.size / 1024).toFixed(1) + ' KB)';
+    });
+  }
   const linkBtn = $('videoLinkAddBtn');
   if (linkBtn) linkBtn.addEventListener('click', async () => {
     const id = $('videoLinkId').value.trim();
@@ -7262,10 +7329,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const url = $('videoLinkUrl').value.trim();
     const proto = $('videoLinkProto').value;
     if (!id || !title || !url) { showToast('모든 항목 입력 필요'); return; }
+    // 자막 파일이 있으면 먼저 R2에 업로드
+    let subInfo = null;
+    if (videoLinkSubFile) {
+      try {
+        subInfo = await uploadSubtitleFile(id, videoLinkSubFile);
+      } catch (e) {
+        showToast('자막 업로드 실패, 링크만 등록: ' + e.message);
+      }
+    }
     const meta = {
       id, title, date: new Date().toISOString().slice(0, 10), series: '',
       type: 'link', mode: null, durationSec: 0, posterKey: '',
-      source: { masterKey: null, audioKey: null, fileKey: null, url, linkProtocol: proto },
+      source: {
+        masterKey: null, audioKey: null, fileKey: null, url, linkProtocol: proto,
+        subtitleKey: subInfo ? subInfo.rest : null,
+        subtitleFormat: subInfo ? subInfo.format : null,
+      },
     };
     try {
       const res = await fetch(WORKER_URL + '/api/admin/video', {
@@ -7276,6 +7356,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok) throw new Error();
       showToast('링크 등록 완료');
       $('videoLinkId').value = ''; $('videoLinkTitle').value = ''; $('videoLinkUrl').value = '';
+      $('videoLinkSubSelectedName').textContent = '';
+      videoLinkSubFile = null;
       loadVideoAdminList();
     } catch { showToast('등록 실패'); }
   });
@@ -7406,6 +7488,47 @@ function _videoSrcOf(v) {
   return null;
 }
 
+// SRT → WebVTT 텍스트 변환. 표준 SRT의 쉼표 타임스탬프 → 점, 개행/BOM 정규화.
+function srtToVtt(srt) {
+  const text = srt.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const body = text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+  return 'WEBVTT\n\n' + body;
+}
+
+// 기존 <track>·blob URL 정리 후, 자막 있으면 fetch → (필요시)변환 → blob → <track> 삽입
+async function attachSubtitle(video, v) {
+  // 기존 트랙 제거 (재생 전환 시 잔존 방지)
+  video.querySelectorAll('track').forEach(t => t.remove());
+  if (window._vTrackBlobUrl) { try { URL.revokeObjectURL(window._vTrackBlobUrl); } catch {} window._vTrackBlobUrl = null; }
+  const subKey = v.source && v.source.subtitleKey;
+  if (!subKey) return;
+  try {
+    const subUrl = `${WORKER_URL}/v/${encodeURIComponent(v.id)}/${subKey}`;
+    const res = await fetch(subUrl);
+    if (!res.ok) throw new Error(res.status);
+    const raw = await res.text();
+    const isSrt = (v.source.subtitleFormat || (subKey.endsWith('.vtt') ? 'vtt' : 'srt')) === 'srt';
+    const vtt = isSrt ? srtToVtt(raw) : raw;
+    const blob = new Blob([vtt], { type: 'text/vtt' });
+    const blobUrl = URL.createObjectURL(blob);
+    window._vTrackBlobUrl = blobUrl;
+    const track = document.createElement('track');
+    track.kind = 'subtitles';
+    track.label = '한국어';
+    track.srclang = 'ko';
+    track.src = blobUrl;
+    track.default = true;
+    video.appendChild(track);
+    // 기본 표시 켜기
+    setTimeout(() => {
+      const tt = video.textTracks && video.textTracks[0];
+      if (tt) tt.mode = 'showing';
+    }, 100);
+  } catch (e) {
+    console.warn('자막 로드 실패:', e);
+  }
+}
+
 async function playVideo(v) {
   vCurrentMeta = v;
   $('videoNowTitle').textContent = v.title || v.id;
@@ -7415,6 +7538,8 @@ async function playVideo(v) {
   const video = $('vPlayer');
   const src = _videoSrcOf(v);
   if (!src) return;
+  // 자막 부착 (있으면)
+  attachSubtitle(video, v);
   // 기존 HLS 인스턴스 정리
   if (window._vHls) { try { window._vHls.destroy(); } catch {} window._vHls = null; }
   if (src.kind === 'hls') {

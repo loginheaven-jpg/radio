@@ -215,6 +215,8 @@ export default {
           else if (rest.endsWith('.mp4')) ctype = 'video/mp4';
           else if (rest.endsWith('.m4a') || rest.endsWith('.aac')) ctype = 'audio/mp4';
           else if (rest.endsWith('.jpg') || rest.endsWith('.jpeg')) ctype = 'image/jpeg';
+          else if (rest.endsWith('.vtt')) ctype = 'text/vtt; charset=utf-8';
+          else if (rest.endsWith('.srt')) ctype = 'text/plain; charset=utf-8';
           // Range 처리 (mp4/m4a만)
           const isRangeable = rest.endsWith('.mp4') || rest.endsWith('.m4a');
           if (isRangeable && request.headers.get('range')) {
@@ -291,6 +293,21 @@ export default {
         const next = [body.id, ...ids.filter(x => x !== body.id)];
         await env.RADIO_KV.put('video:index', JSON.stringify(next));
         return json({ ok: true, id: body.id }, cors);
+      }
+      // PUT /api/admin/video/:id/subtitle?ext=srt|vtt — 자막 파일 업로드 (원본 그대로)
+      {
+        const m = /^\/api\/admin\/video\/([^/]+)\/subtitle$/.exec(path);
+        if (m && method === 'PUT') {
+          if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+          const id = decodeURIComponent(m[1]);
+          const ext = (url.searchParams.get('ext') || 'srt').toLowerCase();
+          if (ext !== 'srt' && ext !== 'vtt') return json({ error: 'ext must be srt or vtt' }, cors, 400);
+          const key = `video/${id}/subtitle.${ext}`;
+          const ctype = ext === 'vtt' ? 'text/vtt; charset=utf-8' : 'text/plain; charset=utf-8';
+          const body = await request.arrayBuffer();
+          await env.RADIO_BUCKET.put(key, body, { httpMetadata: { contentType: ctype } });
+          return json({ ok: true, key, rest: `subtitle.${ext}` }, cors);
+        }
       }
       // DELETE /api/admin/video/:id — 영상 삭제
       {
