@@ -333,21 +333,38 @@ export default {
       // ── 단축 URL ─────────────────────────────────────────────
       if (path === '/api/share' && method === 'POST') {
         const { ch, track, t, video } = await request.json();
-        if (!ch) return json({ error: 'ch required' }, cors, 400);
+        // 입력 검증 — KV storage 낭비 및 잘못된 값 저장 방지
+        const chNum = Number(ch);
+        if (!Number.isInteger(chNum) || chNum < 1 || chNum > 12) {
+          return json({ error: 'ch must be integer 1~12' }, cors, 400);
+        }
+        if (track != null && (typeof track !== 'string' || track.length > 300)) {
+          return json({ error: 'track invalid' }, cors, 400);
+        }
+        if (video != null && (typeof video !== 'string' || video.length > 200 || !/^[A-Za-z0-9가-힣_\-]+$/.test(video))) {
+          return json({ error: 'video invalid' }, cors, 400);
+        }
+        // video는 CH12일 때만 의미 있음 — 다른 채널에서는 무시 (surprise auto-play 방지)
+        const videoField = (chNum === 12 && video) ? String(video) : null;
+        const tNum = t != null ? Number(t) : null;
+        if (tNum != null && (!Number.isFinite(tNum) || tNum < 0 || tNum > 86400)) {
+          return json({ error: 't invalid' }, cors, 400);
+        }
         // 6자리 영숫자 코드 생성 (충돌 시 재시도)
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-        let code, attempts = 0;
+        let code, attempts = 0, unique = false;
         do {
           code = '';
           for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
           const existing = await env.RADIO_KV.get('share:' + code);
-          if (!existing) break;
+          if (!existing) { unique = true; break; }
           attempts++;
         } while (attempts < 5);
-        const data = { ch: Number(ch) };
+        if (!unique) return json({ error: 'code generation failed, retry' }, cors, 503);
+        const data = { ch: chNum };
         if (track) data.track = track;
-        if (video) data.video = String(video);
-        if (t) data.t = Number(t);
+        if (videoField) data.video = videoField;
+        if (tNum) data.t = tNum;
         data.createdAt = Date.now();
         await env.RADIO_KV.put('share:' + code, JSON.stringify(data)); // TTL 없음 = 영구
         return json({ code, url: 'https://radio.yebom.org/s/' + code }, cors);

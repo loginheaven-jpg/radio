@@ -3292,22 +3292,42 @@ async function enterChannel(channel) {
     const _sharedT = sharedVideoT;
     sharedVideo = null; sharedVideoT = 0;
     await openVideoSurface();
+    if (gen !== enterChannelGen) return; // 다른 채널로 전환됐으면 즉시 중단
     if (_sharedVid) {
       try {
         const res = await fetch(`${WORKER_URL}/api/videos/${encodeURIComponent(_sharedVid)}`);
-        if (!res.ok) throw new Error('video meta ' + res.status);
+        if (gen !== enterChannelGen) return;
+        if (!res.ok) {
+          if (res.status === 404) showToast('삭제된 영상입니다');
+          else throw new Error('meta ' + res.status);
+          return;
+        }
         const v = await res.json();
+        if (gen !== enterChannelGen) return;
         await playVideo(v);
+        if (gen !== enterChannelGen) { // 재생 도중 채널 전환됐으면 영상 정지
+          try { const vp = $('vPlayer'); vp.pause(); vp.removeAttribute('src'); vp.load(); } catch {}
+          return;
+        }
         // 지정된 시점으로 seek (metadata 로드 전이면 loadedmetadata 후에 실행)
         if (_sharedT > 0) {
           const vp = $('vPlayer');
-          const seekOnce = () => { try { vp.currentTime = _sharedT; } catch {} vp.removeEventListener('loadedmetadata', seekOnce); };
-          if (vp.readyState >= 1) { try { vp.currentTime = _sharedT; } catch {} }
-          else vp.addEventListener('loadedmetadata', seekOnce);
+          let seekTimer = null;
+          const seekOnce = () => {
+            try { vp.currentTime = _sharedT; } catch {}
+            vp.removeEventListener('loadedmetadata', seekOnce);
+            if (seekTimer) { clearTimeout(seekTimer); seekTimer = null; }
+          };
+          if (vp.readyState >= 1) seekOnce();
+          else {
+            vp.addEventListener('loadedmetadata', seekOnce);
+            // 5초 안에 loadedmetadata 안 오면 리스너 해제 (누수 방지)
+            seekTimer = setTimeout(() => { vp.removeEventListener('loadedmetadata', seekOnce); seekTimer = null; }, 5000);
+          }
         }
       } catch (e) {
         console.warn('공유 영상 자동 재생 실패:', e);
-        showToast('공유된 영상을 찾을 수 없습니다');
+        showToast('영상 로드 실패 — 잠시 후 다시 시도해주세요');
       }
     }
     return;
@@ -6656,18 +6676,24 @@ async function init() {
   const shareMatch = window.location.pathname.match(/^\/s\/([A-Za-z0-9]{4,8})$/);
   let urlParams;
   if (shareMatch) {
+    let fetched = false;
     try {
       const res = await fetch(WORKER_URL + '/api/share/' + shareMatch[1]);
-      const data = await res.json();
-      if (data.ch) {
-        urlParams = new URLSearchParams();
-        urlParams.set('ch', String(data.ch));
-        if (data.track) urlParams.set('track', data.track);
-        if (data.video) urlParams.set('video', data.video);
-        if (data.t) urlParams.set('t', String(data.t));
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ch) {
+          urlParams = new URLSearchParams();
+          urlParams.set('ch', String(data.ch));
+          if (data.track) urlParams.set('track', data.track);
+          if (data.video) urlParams.set('video', data.video);
+          if (data.t) urlParams.set('t', String(data.t));
+          fetched = true;
+        }
       }
     } catch {}
-    history.replaceState(null, '', '/');
+    // 성공한 경우에만 /s/CODE URL 정리 — 실패 시 URL 보존하여 새로고침으로 재시도 가능
+    if (fetched) history.replaceState(null, '', '/');
+    else showToast('공유 링크를 열 수 없습니다 — 새로고침하여 재시도해주세요');
   }
   if (!urlParams) urlParams = new URLSearchParams(window.location.search);
   const sharedCh = parseInt(urlParams.get('ch'));
@@ -6675,8 +6701,11 @@ async function init() {
   if (isSharedLink) {
     sharedTrack = urlParams.get('track');
     sharedTrackPos = parseInt(urlParams.get('t')) || 0;
-    sharedVideo = urlParams.get('video');           // CH12 지정 시 특정 영상 자동 재생
-    sharedVideoT = sharedTrackPos;                  // 재생 시작 초 재사용 (같은 t 필드)
+    // video 파라미터는 CH12일 때만 소비 — 다른 채널에 잔류하면 후속 CH12 진입 시 surprise auto-play
+    if (sharedCh === 12) {
+      sharedVideo = urlParams.get('video');
+      sharedVideoT = sharedTrackPos;
+    }
     appStartup = false; // 공유 링크: 자동 재생
     history.replaceState(null, '', window.location.pathname);
   }
@@ -7611,35 +7640,51 @@ async function attachSubtitle(video, v) {
 
 // 현재 재생 중인 영상의 딥링크(단축 URL)를 클립보드에 복사
 // 오디오 헤더 #shareBtn 패턴과 동일한 UX: 모달 없이 즉시 복사 + 토스트
+let _vSharing = false;
 async function shareCurrentVideo() {
+  if (_vSharing) return; // 중복 클릭 방지 (KV 낭비/네트워크 폭주 예방)
   if (!vCurrentMeta) { showToast('재생 중인 영상이 없습니다'); return; }
   const vp = $('vPlayer');
-  const pos = Math.floor(vp && vp.currentTime ? vp.currentTime : 0);
-  const title = vCurrentMeta.title || vCurrentMeta.id;
-  let header = '예봄라디오 - 예봄 영상\n' + title;
+  const isLive = vp && vp.duration === Infinity;
+  const pos = (!isLive && vp && isFinite(vp.currentTime)) ? Math.floor(vp.currentTime) : 0;
+  const rawTitle = String(vCurrentMeta.title || vCurrentMeta.id || '');
+  // 개행/제어문자 제거 — 클립보드 텍스트에 phishing URL 삽입 방지 (관리자 신뢰 경계 이중 보호)
+  const title = rawTitle.replace(/[\r\n\t]+/g, ' ').slice(0, 200);
+  const chName = (typeof CHANNELS !== 'undefined' && (CHANNELS.find(c => c.num === 12) || {}).name) || '예봄 영상';
+  let header = '예봄라디오 - ' + chName + '\n' + title;
   if (pos > 3) header += ' (' + formatTime(pos) + '~)';
   const payload = { ch: 12, video: vCurrentMeta.id };
   if (pos > 3) payload.t = pos;
+  _vSharing = true;
+  const shareBtn = $('vShareBtn'); if (shareBtn) shareBtn.disabled = true;
   try {
-    const res = await fetch(WORKER_URL + '/api/share', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error('share ' + res.status);
-    const { url: shortUrl } = await res.json();
-    const text = header + '\n' + shortUrl;
-    await navigator.clipboard.writeText(text);
-    showToast('링크가 복사되었습니다');
-  } catch {
-    // 단축 URL 실패 시 origin?ch=12&video=…&t=… 롱 URL fallback
-    const url = new URL(window.location.origin);
-    url.searchParams.set('ch', '12');
-    url.searchParams.set('video', vCurrentMeta.id);
-    if (pos > 3) url.searchParams.set('t', String(pos));
-    const text = header + '\n' + url.toString();
-    navigator.clipboard.writeText(text)
-      .then(() => showToast('링크가 복사되었습니다'))
-      .catch(() => showToast('링크 복사 실패'));
+    // 1) 단축 URL 발급 시도. 실패해도 롱 URL로 폴백해 사용자가 항상 복사받게.
+    let text;
+    try {
+      const res = await fetch(WORKER_URL + '/api/share', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('share ' + res.status);
+      const { url: shortUrl } = await res.json();
+      text = header + '\n' + shortUrl;
+    } catch {
+      const url = new URL(window.location.origin);
+      url.searchParams.set('ch', '12');
+      url.searchParams.set('video', vCurrentMeta.id);
+      if (pos > 3) url.searchParams.set('t', String(pos));
+      text = header + '\n' + url.toString();
+    }
+    // 2) 클립보드 쓰기 시도 — 실패해도 KV entry는 이미 만들어진 상태이므로 별개 토스트
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('링크가 복사되었습니다');
+    } catch {
+      showToast('링크 복사 실패 — 브라우저 권한을 확인해주세요');
+    }
+  } finally {
+    _vSharing = false;
+    if (shareBtn) shareBtn.disabled = false;
   }
 }
 
