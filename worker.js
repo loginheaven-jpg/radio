@@ -654,6 +654,18 @@ export default {
         return handleEmailLogin(request, env, cors);
       }
 
+      // ── 관리자 킷/JWT 유효성 확인 (프론트 authModal에서 즉시 검증용) ──
+      if (path === '/api/auth/verify' && method === 'GET') {
+        const ok = await isAdmin(request, env);
+        // JWT면 payload 정보도 함께 반환 (프론트에서 role/이름 표시)
+        let payload = null;
+        const auth = request.headers.get('Authorization') || '';
+        if (auth.startsWith('Bearer ') && env.JWT_SECRET) {
+          payload = await verifyJWT(auth.slice(7), env.JWT_SECRET);
+        }
+        return json({ isAdmin: ok, payload }, cors, ok ? 200 : 401);
+      }
+
       // ── 트랙별 재생위치 동기화 (로그인 사용자 전용) ──
       if (path === '/api/user/trackpos' && method === 'GET') {
         const userId = request.headers.get('X-User-Id');

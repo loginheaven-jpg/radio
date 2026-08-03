@@ -4531,9 +4531,24 @@ function handleHeaderTap() {
     headerTapCount = 0; clearTimeout(headerTapTimer);
     // SSO 로그인 사용자의 role이 admin/super_admin이면 자동 진입 (JWT는 이미 adminKey에 저장됨)
     const isAdminRole = radioUser && (radioUser.role === 'super_admin' || radioUser.role === 'admin');
-    if (isAdminRole || adminKey) openAdmin();
+    if (isAdminRole || adminKey) tryOpenAdmin();
     else $('authModal').classList.add('open'); // 백도어 — 관리자 킷 수동 입력 (SSO 미로그인 시)
   }
+}
+// 진입 전 서버 검증 — 저장된 킷/JWT가 이미 만료·불일치이면 자동 리셋 + authModal 재표시
+async function tryOpenAdmin() {
+  if (!adminKey) { $('authModal').classList.add('open'); return; }
+  try {
+    const res = await fetch(WORKER_URL + '/api/auth/verify', {
+      headers: { 'Authorization': 'Bearer ' + adminKey },
+    });
+    if (res.ok) { openAdmin(); return; }
+  } catch {}
+  // 검증 실패 → 저장된 킷/JWT 리셋 + 재입력 유도
+  showToast('관리자 인증 만료 — 다시 입력해주세요');
+  adminKey = '';
+  localStorage.removeItem('radio-admin-key');
+  $('authModal').classList.add('open');
 }
 function openAdmin() { clearInterval(ch5PollTimer); $('adminOverlay').classList.add('open'); loadAdminTracks(adminChannel); if (adminChannel === 'stream') loadAdminCh5State(); }
 function closeAdmin() { $('adminOverlay').classList.remove('open'); adminTempCfg = null; }
@@ -6086,7 +6101,36 @@ $('shareBtn').addEventListener('click', async () => {
       .catch(() => showToast('링크 복사 실패'));
   }
 });
-$('authSubmit').addEventListener('click', () => { const key = $('authInput').value.trim(); if (key) { adminKey = key; localStorage.setItem('radio-admin-key',key); $('authModal').classList.remove('open'); openAdmin(); } });
+// Admin Key 입력 시 서버 검증 후 통과할 때만 저장 (잘못 입력 시 재입력 유도)
+$('authSubmit').addEventListener('click', async () => {
+  const key = $('authInput').value.trim();
+  if (!key) return;
+  const btn = $('authSubmit');
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = '확인 중...';
+  try {
+    const res = await fetch(WORKER_URL + '/api/auth/verify', {
+      headers: { 'Authorization': 'Bearer ' + key },
+    });
+    if (res.ok) {
+      adminKey = key;
+      localStorage.setItem('radio-admin-key', key);
+      $('authInput').value = '';
+      $('authModal').classList.remove('open');
+      openAdmin();
+    } else {
+      showToast('잘못된 관리자 킷입니다');
+      $('authInput').value = '';
+      $('authInput').focus();
+    }
+  } catch {
+    showToast('네트워크 오류 — 다시 시도해주세요');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
 $('authInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('authSubmit').click(); });
 $('adminClose').addEventListener('click', closeAdmin);
 $('adminTabs').addEventListener('click', e => { const tab = e.target.closest('.admin-tab'); if (tab) loadAdminTracks(tab.dataset.ach); });
