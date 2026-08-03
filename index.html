@@ -4544,12 +4544,49 @@ async function tryOpenAdmin() {
     });
     if (res.ok) { openAdmin(); return; }
   } catch {}
-  // 검증 실패 → 저장된 킷/JWT 리셋 + 재입력 유도
-  showToast('관리자 인증 만료 — 다시 입력해주세요');
+  handleAdminAuthExpired();
+}
+
+// 저장된 관리자 킷/JWT 리셋 + 관리자 창 닫기 + authModal 재표시.
+// (fetch 인터셉터에서도 재사용 — 중복 처리 방지 플래그 포함)
+let _authExpiredHandling = false;
+function handleAdminAuthExpired() {
+  if (_authExpiredHandling) return;
+  _authExpiredHandling = true;
   adminKey = '';
   localStorage.removeItem('radio-admin-key');
-  $('authModal').classList.add('open');
+  const overlay = document.getElementById('adminOverlay');
+  if (overlay) overlay.classList.remove('open');
+  showToast('관리자 인증 만료 — 다시 입력해주세요');
+  const authModal = document.getElementById('authModal');
+  if (authModal) authModal.classList.add('open');
+  setTimeout(() => { _authExpiredHandling = false; }, 3000);
 }
+
+// 전역 fetch 인터셉터 — 관리자 헤더(Bearer adminKey)가 실린 요청의 401만 감지해
+// handleAdminAuthExpired 호출 (SSO JWT 만료/회수/무효화 자동 처리).
+// 다른 API 호출(Supabase, 교적부 등)은 영향 없음 — 관리자 킷과 일치할 때만 반응.
+(() => {
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = async function(input, init) {
+    const res = await _origFetch(input, init);
+    if (res.status === 401 && adminKey && init && init.headers) {
+      let authHeader = null;
+      try {
+        if (init.headers instanceof Headers) {
+          authHeader = init.headers.get('Authorization') || init.headers.get('authorization');
+        } else if (typeof init.headers === 'object') {
+          authHeader = init.headers['Authorization'] || init.headers['authorization'];
+        }
+      } catch {}
+      if (authHeader === 'Bearer ' + adminKey) {
+        // 검증 엔드포인트 자체의 401은 무한 loop 방지를 위해 handleAdminAuthExpired만 호출
+        handleAdminAuthExpired();
+      }
+    }
+    return res;
+  };
+})();
 function openAdmin() { clearInterval(ch5PollTimer); $('adminOverlay').classList.add('open'); loadAdminTracks(adminChannel); if (adminChannel === 'stream') loadAdminCh5State(); }
 function closeAdmin() { $('adminOverlay').classList.remove('open'); adminTempCfg = null; }
 
