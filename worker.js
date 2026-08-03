@@ -152,7 +152,7 @@ export default {
 
       // ── 채널5 상태 쓰기 (관리자) — 라이브 잠금 추가 ─────────
       if (path === '/api/ch5/state' && method === 'POST') {
-        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
 
         // ★ 라이브 활성 시 거부
         const liveRaw = await env.RADIO_KV.get('live_state');
@@ -284,7 +284,7 @@ export default {
       }
       // POST /api/admin/video — 메타 등록 (인제스트/관리자)
       if (path === '/api/admin/video' && method === 'POST') {
-        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
         const body = await request.json();
         if (!body.id) return json({ error: 'id required' }, cors, 400);
         body.addedAt = body.addedAt || new Date().toISOString();
@@ -299,7 +299,7 @@ export default {
       {
         const m = /^\/api\/admin\/video\/([^/]+)\/subtitle$/.exec(path);
         if (m && method === 'PUT') {
-          if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+          if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
           const id = decodeURIComponent(m[1]);
           const ext = (url.searchParams.get('ext') || 'srt').toLowerCase();
           if (ext !== 'srt' && ext !== 'vtt') return json({ error: 'ext must be srt or vtt' }, cors, 400);
@@ -314,7 +314,7 @@ export default {
       {
         const m = /^\/api\/admin\/video\/([^/]+)$/.exec(path);
         if (m && method === 'DELETE') {
-          if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+          if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
           const id = decodeURIComponent(m[1]);
           // R2 video/<id>/ prefix 일괄 삭제
           const list = await env.RADIO_BUCKET.list({ prefix: `video/${id}/`, limit: 100 });
@@ -380,7 +380,7 @@ export default {
 
       // ── 파일 업로드 (관리자) ───────────────────────────────────
       if (path === '/api/upload' && method === 'POST') {
-        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
         const formData = await request.formData();
         const files   = formData.getAll('files');
         const channel = formData.get('channel') || 'stream';
@@ -422,7 +422,7 @@ export default {
 
       // ── 멀티파트 업로드: 시작 ─────────────────────────────────
       if (path === '/api/upload/multipart/create' && method === 'POST') {
-        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
         const { key, contentType } = await request.json();
         const mpu = await env.RADIO_BUCKET.createMultipartUpload(key, {
           httpMetadata: { contentType: contentType || 'audio/mpeg' },
@@ -432,7 +432,7 @@ export default {
 
       // ── 멀티파트 업로드: 파트 전송 ───────────────────────────
       if (path === '/api/upload/multipart/part' && method === 'PUT') {
-        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
         const key = decodeURIComponent(request.headers.get('X-Upload-Key'));
         const uploadId = request.headers.get('X-Upload-Id');
         const partNum = parseInt(request.headers.get('X-Part-Number'));
@@ -443,7 +443,7 @@ export default {
 
       // ── 멀티파트 업로드: 완료 ─────────────────────────────────
       if (path === '/api/upload/multipart/complete' && method === 'POST') {
-        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
         const body = await request.json();
         const { key, uploadId, parts, channel, name } = body;
         const mpu = env.RADIO_BUCKET.resumeMultipartUpload(key, uploadId);
@@ -480,7 +480,7 @@ export default {
 
       // ── 파일 삭제 (관리자) ─────────────────────────────────────
       if (path === '/api/delete' && method === 'POST') {
-        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
         const { key, channel } = await request.json();
         await env.RADIO_BUCKET.delete(key);
 
@@ -504,7 +504,7 @@ export default {
 
       // ── _meta.json 전체 덮어쓰기 (관리자) ─────────────────────
       if (path === '/api/meta' && method === 'POST') {
-        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
         const { channel, tracks } = await request.json();
         const prefix  = DIR_MAP[channel] || DIR_MAP.stream;
         const metaKey = prefix + '_meta.json';
@@ -520,7 +520,7 @@ export default {
 
       // ── 라이브 청크 업로드 ─────────────────────────────────────
       if (path === '/api/live/chunk' && method === 'POST') {
-        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
         return handleLiveChunk(request, env, cors);
       }
 
@@ -537,7 +537,7 @@ export default {
 
       // ── 라이브 상태 쓰기 (시작/종료/메시지) ───────────────────
       if (path === '/api/live/state' && method === 'POST') {
-        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
         return handlePostLiveState(request, env, cors);
       }
 
@@ -548,7 +548,7 @@ export default {
 
       // ── 라이브 보존 설정 변경 ──────────────────────────────────
       if (path === '/api/live/config' && method === 'POST') {
-        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
         return handlePostLiveConfig(request, env, cors);
       }
 
@@ -559,7 +559,7 @@ export default {
 
       // ── 세션 수동 삭제 ─────────────────────────────────────────
       if (path === '/api/live/sessions/delete' && method === 'POST') {
-        if (!isAdmin(request, env)) return new Response('Unauthorized', { status: 401, headers: cors });
+        if (!(await isAdmin(request, env))) return new Response('Unauthorized', { status: 401, headers: cors });
         return handleDeleteSession(request, env, cors);
       }
 
@@ -643,7 +643,7 @@ export default {
         return json(raw ? JSON.parse(raw) : null, cors);
       }
       if (path === '/api/channel-config' && method === 'PUT') {
-        if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+        if (!(await isAdmin(request, env))) return json({ error: 'Unauthorized' }, cors, 401);
         const body = await request.json();
         await env.RADIO_KV.put('channel-config', JSON.stringify(body));
         return json({ ok: true }, cors);
@@ -724,7 +724,7 @@ export default {
       }
       // 축하 메시지 수정 (관리자 전용)
       if (path === '/api/anniversary/messages' && method === 'PUT') {
-        if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+        if (!(await isAdmin(request, env))) return json({ error: 'Unauthorized' }, cors, 401);
         const body = await request.json();
         const { id, text } = body;
         if (!id || !text) return json({ error: 'id, text 필수' }, cors, 400);
@@ -738,7 +738,7 @@ export default {
       }
       // 축하 메시지 삭제 (관리자 전용)
       if (path === '/api/anniversary/messages' && method === 'DELETE') {
-        if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+        if (!(await isAdmin(request, env))) return json({ error: 'Unauthorized' }, cors, 401);
         const body = await request.json();
         const { id } = body;
         if (!id) return json({ error: 'id 필수' }, cors, 400);
@@ -1448,9 +1448,77 @@ function json(data, cors, status = 200) {
   });
 }
 
-function isAdmin(request, env) {
+// ── 관리자 판정: SSO(교적부) permission_level 기반 JWT 우선, 실패 시 ADMIN_KEY 폴백 ──
+// 관리자로 인정하는 등급 (교적부 users.permission_level)
+const ADMIN_LEVELS = ['super_admin', 'admin'];
+
+// base64url 인코딩 유틸 (Cloudflare Workers 표준 atob/btoa 기반)
+function b64urlEncodeStr(s) {
+  return btoa(unescape(encodeURIComponent(s))).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+function b64urlEncodeBytes(bytes) {
+  let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+function b64urlDecodeStr(b) {
+  const pad = b.length % 4 ? '='.repeat(4 - b.length % 4) : '';
+  return decodeURIComponent(escape(atob((b + pad).replace(/-/g, '+').replace(/_/g, '/'))));
+}
+function b64urlDecodeBytes(b) {
+  const pad = b.length % 4 ? '='.repeat(4 - b.length % 4) : '';
+  const s = atob((b + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  const arr = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) arr[i] = s.charCodeAt(i);
+  return arr;
+}
+
+// HS256 JWT 서명 — 페이로드에 exp/iat 자동 추가 (기본 7일 만료)
+async function signJWT(payload, secret, ttlSeconds = 7 * 24 * 3600) {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const now = Math.floor(Date.now() / 1000);
+  const full = { ...payload, iat: now, exp: now + ttlSeconds };
+  const data = `${b64urlEncodeStr(JSON.stringify(header))}.${b64urlEncodeStr(JSON.stringify(full))}`;
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
+  return `${data}.${b64urlEncodeBytes(new Uint8Array(sig))}`;
+}
+
+// HS256 JWT 검증 — 유효하면 payload 반환, 아니면 null (만료 포함)
+async function verifyJWT(token, secret) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const [h, p, s] = parts;
+    const data = `${h}.${p}`;
+    const key = await crypto.subtle.importKey(
+      'raw', new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
+    );
+    const valid = await crypto.subtle.verify('HMAC', key, b64urlDecodeBytes(s), new TextEncoder().encode(data));
+    if (!valid) return null;
+    const payload = JSON.parse(b64urlDecodeStr(p));
+    if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) return null;
+    return payload;
+  } catch { return null; }
+}
+
+// isAdmin: (1) Bearer JWT → verify → role 화이트리스트 → 통과, (2) Bearer ADMIN_KEY(레거시) → 통과
+// async지만 기존 호출부 호환을 위해 sync-like로 쓰지 않고 await isAdmin(...) 형태로 전환하는 것이 안전
+async function isAdmin(request, env) {
   const auth = request.headers.get('Authorization') || '';
-  return auth === `Bearer ${env.ADMIN_KEY}`;
+  if (!auth.startsWith('Bearer ')) return false;
+  const token = auth.slice(7);
+  // 1) SSO JWT 검증 (교적부 로그인 세션)
+  if (env.JWT_SECRET) {
+    const payload = await verifyJWT(token, env.JWT_SECRET);
+    if (payload && ADMIN_LEVELS.includes(payload.role)) return true;
+  }
+  // 2) 레거시 shared ADMIN_KEY (긴급 백도어 / 이메일 로그인 불가 상황)
+  if (env.ADMIN_KEY && token === env.ADMIN_KEY) return true;
+  return false;
 }
 
 async function handleEmailLogin(request, env, cors) {
@@ -1471,9 +1539,9 @@ async function handleEmailLogin(request, env, cors) {
       return json({ error: '서버 설정 오류입니다.' }, cors, 500);
     }
 
-    // users 테이블에서 이메일로 조회
+    // users 테이블에서 이메일로 조회 (permission_level 포함)
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(email.trim())}&select=user_id,email,password_hash,name,member_id,is_approved`,
+      `${supabaseUrl}/rest/v1/users?email=eq.${encodeURIComponent(email.trim())}&select=user_id,email,password_hash,name,member_id,is_approved,permission_level`,
       {
         headers: {
           'apikey': supabaseKey,
@@ -1506,10 +1574,25 @@ async function handleEmailLogin(request, env, cors) {
       return json({ error: errData.error || '이메일 또는 비밀번호가 일치하지 않습니다.' }, cors, 401);
     }
 
-    // 교적부 로그인 성공 → 라디오용 user 정보 반환
+    // 교적부 로그인 성공 → JWT 발급 (SSO 세션)
+    // 관리자 API(isAdmin)는 이 JWT의 role 필드를 검증해 통과 여부 결정
+    const uid = user.member_id || user.user_id;
+    const role = user.permission_level || 'member';
+    let token = null;
+    if (env.JWT_SECRET) {
+      token = await signJWT({
+        sub: uid,
+        name: user.name,
+        email: user.email,
+        role,
+      }, env.JWT_SECRET);
+    }
+
     return json({
       success: true,
-      user: { id: user.member_id || user.user_id, name: user.name },
+      user: { id: uid, name: user.name, role },
+      token,
+      isAdmin: ADMIN_LEVELS.includes(role),
     }, cors);
   } catch (e) {
     return json({ error: '서버 오류가 발생했습니다.' }, cors, 500);
@@ -1638,7 +1721,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
   // PUT /api/openroom/folders/:name — 폴더 이름·아이콘 변경 (관리자)
   const folderEditMatch = path.match(/^\/api\/openroom\/folders\/([^/]+)$/) && method === 'PUT';
   if (folderEditMatch) {
-    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'Unauthorized' }, cors, 401);
     const folderName = decodeURIComponent(path.split('/')[4]);
     const { newName, icon } = await request.json();
     const folders = await orGetFolders(env);
@@ -1667,7 +1750,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
   // DELETE /api/openroom/folders/:name — 폴더 삭제 (관리자)
   const folderDeleteMatch = path.match(/^\/api\/openroom\/folders\/([^/]+)$/) && method === 'DELETE';
   if (folderDeleteMatch) {
-    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'Unauthorized' }, cors, 401);
     const folderName = decodeURIComponent(path.split('/')[4]);
     const folders = await orGetFolders(env);
     const folder = folders.find(f => f.name === folderName);
@@ -1809,7 +1892,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
     if (idx < 0) return json({ error: '곡을 찾을 수 없습니다' }, cors, 404);
     const track = tracks[idx];
     const isOwner = user && track.uploaderId === user.id;
-    if (!isOwner && !isAdmin(request, env)) return json({ error: '권한이 없습니다' }, cors, 403);
+    if (!isOwner && !(await isAdmin(request, env))) return json({ error: '권한이 없습니다' }, cors, 403);
     tracks[idx].displayName = displayName.trim().slice(0, 100);
     await orSaveFolderTracks(env, folderName, tracks);
     return json({ ok: true }, cors);
@@ -1827,7 +1910,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
     if (idx < 0) return json({ error: '곡을 찾을 수 없습니다' }, cors, 404);
     const track = tracks[idx];
     const isOwner = user && track.uploaderId === user.id;
-    if (!isOwner && !isAdmin(request, env)) return json({ error: '권한이 없습니다' }, cors, 403);
+    if (!isOwner && !(await isAdmin(request, env))) return json({ error: '권한이 없습니다' }, cors, 403);
 
     tracks.splice(idx, 1);
     await orSaveFolderTracks(env, folderName, tracks);
@@ -1848,7 +1931,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
 
   // POST /api/openroom/admin/copy — 복사
   if (path === '/api/openroom/admin/copy' && method === 'POST') {
-    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'Unauthorized' }, cors, 401);
     const { r2Key, sourceFolder, targetFolders } = await request.json();
     const master = await orGetFileMaster(env, r2Key);
     if (!master) return json({ error: '파일을 찾을 수 없습니다' }, cors, 404);
@@ -1878,7 +1961,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
 
   // POST /api/openroom/admin/move — 이동
   if (path === '/api/openroom/admin/move' && method === 'POST') {
-    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'Unauthorized' }, cors, 401);
     const { refId, sourceFolder, targetFolder } = await request.json();
     const srcTracks = await orGetFolderTracks(env, sourceFolder);
     const idx = srcTracks.findIndex(t => t.refId === refId);
@@ -1902,7 +1985,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
   // DELETE /api/openroom/admin/files/:r2Key — 완전 삭제
   const adminFileDelete = path.match(/^\/api\/openroom\/admin\/files\/(.+)$/);
   if (adminFileDelete && method === 'DELETE') {
-    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'Unauthorized' }, cors, 401);
     const r2Key = decodeURIComponent(adminFileDelete[1]);
     const master = await orGetFileMaster(env, r2Key);
     if (!master) return json({ error: '파일을 찾을 수 없습니다' }, cors, 404);
@@ -1917,7 +2000,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
 
   // POST /api/openroom/admin/cross-copy — CH3/CH4 ↔ CH7 교차 복사
   if (path === '/api/openroom/admin/cross-copy' && method === 'POST') {
-    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'Unauthorized' }, cors, 401);
     const body = await request.json();
     const { r2Key, direction, targetFolders } = body;
     // direction: 'ch-to-or' (CH3/4→CH7), 'or-to-ch4' (CH7→CH4)
@@ -1989,7 +2072,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
 
   // POST /api/openroom/admin/cross-move — CH3/CH4 ↔ CH7 교차 이동
   if (path === '/api/openroom/admin/cross-move' && method === 'POST') {
-    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'Unauthorized' }, cors, 401);
     const body = await request.json();
     const { r2Key, direction, targetFolder, sourceCh } = body;
     if (direction === 'ch-to-or' && targetFolder) {
@@ -2033,7 +2116,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
 
   // GET /api/openroom/admin/storage
   if (path === '/api/openroom/admin/storage' && method === 'GET') {
-    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'Unauthorized' }, cors, 401);
     const settings = await orGetSettings(env);
     const folders = await orGetFolders(env);
     let totalTracks = 0;
@@ -2051,7 +2134,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
 
   // PUT /api/openroom/admin/settings
   if (path === '/api/openroom/admin/settings' && method === 'PUT') {
-    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'Unauthorized' }, cors, 401);
     const body = await request.json();
     const settings = await orGetSettings(env);
     const updated = { ...settings, ...body };
@@ -2061,7 +2144,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
 
   // POST /api/openroom/admin/init — 기본 폴더 초기화
   if (path === '/api/openroom/admin/init' && method === 'POST') {
-    if (!isAdmin(request, env)) return json({ error: 'Unauthorized' }, cors, 401);
+    if (!(await isAdmin(request, env))) return json({ error: 'Unauthorized' }, cors, 401);
     const existing = await env.RADIO_KV.get('openroom:folders');
     if (existing) return json({ ok: true, message: '이미 초기화됨', folders: JSON.parse(existing) }, cors);
     await env.RADIO_KV.put('openroom:folders', JSON.stringify(OR_DEFAULT_FOLDERS));

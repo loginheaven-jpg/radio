@@ -4527,7 +4527,13 @@ function handleHeaderTap() {
     }
     headerTapCount = 0;
   }, 400);
-  if (headerTapCount >= 3) { headerTapCount = 0; clearTimeout(headerTapTimer); if (adminKey) openAdmin(); else $('authModal').classList.add('open'); }
+  if (headerTapCount >= 3) {
+    headerTapCount = 0; clearTimeout(headerTapTimer);
+    // SSO 로그인 사용자의 role이 admin/super_admin이면 자동 진입 (JWT는 이미 adminKey에 저장됨)
+    const isAdminRole = radioUser && (radioUser.role === 'super_admin' || radioUser.role === 'admin');
+    if (isAdminRole || adminKey) openAdmin();
+    else $('authModal').classList.add('open'); // 백도어 — 관리자 킷 수동 입력 (SSO 미로그인 시)
+  }
 }
 function openAdmin() { clearInterval(ch5PollTimer); $('adminOverlay').classList.add('open'); loadAdminTracks(adminChannel); if (adminChannel === 'stream') loadAdminCh5State(); }
 function closeAdmin() { $('adminOverlay').classList.remove('open'); adminTempCfg = null; }
@@ -5998,10 +6004,18 @@ $('loginSubmitBtn').addEventListener('click', async () => {
     const data = await res.json();
     if (data.success && data.user) {
       radioUser = data.user;
+      // SSO JWT 저장: 관리자 등급(super_admin/admin) 계정은 이 토큰으로 관리자 API 자동 통과
+      if (data.token) {
+        adminKey = data.token;
+        localStorage.setItem('radio-admin-key', data.token);
+      }
       localStorage.setItem('radio-user', JSON.stringify({ user: data.user, ts: Date.now() }));
       updateFooterLogin();
       loginModal.classList.remove('open');
-      showToast(data.user.name + '님 환영합니다');
+      const welcome = data.isAdmin
+        ? data.user.name + '님 환영합니다 (' + (data.user.role || '') + ')'
+        : data.user.name + '님 환영합니다';
+      showToast(welcome);
       serverTrackPosFetchPromise = fetchAndMergeServerTrackPos();
     } else {
       errEl.textContent = data.error || '로그인에 실패했습니다.';
@@ -6023,6 +6037,11 @@ $('appFooter').addEventListener('click', () => {
     if (confirm(radioUser.name + '님으로 로그인 중입니다.\n로그아웃 하시겠습니까?')) {
       radioUser = null;
       localStorage.removeItem('radio-user');
+      // SSO JWT도 함께 제거 — 브라우저에 관리자 권한이 남지 않도록
+      // (수동 입력된 레거시 ADMIN_KEY는 JWT 형식(dot 2개)이 아니므로 그대로 두어도 함수적으로 무해하지만,
+      // 다른 사용자가 이 브라우저를 쓸 수 있으므로 함께 지움)
+      adminKey = '';
+      localStorage.removeItem('radio-admin-key');
       showToast('로그아웃 되었습니다');
       updateFooterLogin();
     }
