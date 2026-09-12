@@ -1436,12 +1436,25 @@ async function getKbsInfo() {
 
 // ── 유틸리티 ────────────────────────────────────────────────────
 
+// 허용 오리진 — 정확 일치 화이트리스트.
+// (구현: /yebom\.org|yebomradio|localhost/ 부분일치는 앵커가 없어 'https://yebom.org.attacker.com',
+//  'https://evil-yebomradio.io' 같은 오리진도 통과시키고 그 값을 그대로 반사했다.
+//  Allow-Credentials를 켜는 순간 크로스사이트에서 쿠키가 실리게 되므로 그 전에 반드시 좁힌다.)
+const CORS_ALLOWED_ORIGINS = [
+  'https://radio.yebom.org',                        // 표준 도메인
+  'https://radio-axi.pages.dev',                    // 과도기 — E단계에서 은퇴
+  'https://radio-worker.yebomradio.workers.dev',    // 워커 직접 호출(점검용)
+];
+const CORS_LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
 function corsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
-  // 허용 도메인: radio.yebom.org, yebomradio(workers.dev), localhost
-  const allowed = /yebom\.org|yebomradio|localhost/.test(origin) ? origin : '*';
+  const allowed = CORS_ALLOWED_ORIGINS.includes(origin) || CORS_LOCAL_ORIGIN.test(origin);
   return {
-    'Access-Control-Allow-Origin': allowed,
+    // 목록에 없으면 CORS 허용 헤더를 주지 않는다 ('*' 폴백 제거).
+    // Origin 헤더가 없는 요청(일반 <audio> 재생 등)은 애초에 CORS 검사 대상이 아니라 영향 없다.
+    ...(allowed ? { 'Access-Control-Allow-Origin': origin } : {}),
+    'Vary': 'Origin',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range, X-Chunk-Index, X-Chunk-Duration, X-Upload-Key, X-Upload-Id, X-Part-Number, X-User-Id, X-User-Name, X-Admin-Key',
     'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',

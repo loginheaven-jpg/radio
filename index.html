@@ -1383,9 +1383,12 @@ body{
 <p>이 기능은 로그인이 필요합니다</p>
 <input type="email" id="loginEmail" placeholder="이메일" autocomplete="email">
 <input type="password" id="loginPassword" placeholder="비밀번호" autocomplete="current-password">
+<label style="display:flex;align-items:center;justify-content:center;gap:6px;margin:0 0 12px;font-size:0.78rem;color:var(--text-dim);cursor:pointer"><input type="checkbox" id="loginRemember" checked style="width:auto;margin:0;padding:0;accent-color:var(--amber)">로그인 유지 <span style="opacity:0.75">(공용 기기면 해제)</span></label>
 <div id="loginError" style="color:#e74c3c;font-size:0.8rem;margin-bottom:8px;display:none"></div>
 <button class="login-btn-sso" id="loginSubmitBtn">로그인</button>
 <div style="display:flex;align-items:center;gap:8px;margin:12px 0 8px"><div style="flex:1;height:1px;background:var(--border-glass)"></div><span style="font-size:0.75rem;color:var(--text-dim)">또는</span><div style="flex:1;height:1px;background:var(--border-glass)"></div></div>
+<a href="https://saint.yebom.org/login?from=radio&amp;redirect=https%3A%2F%2Fradio.yebom.org%2F" class="login-btn-cancel" style="text-align:center;text-decoration:none;display:block;margin-bottom:4px">카카오로 로그인</a>
+<div style="font-size:0.7rem;color:var(--text-dim);opacity:0.8;margin-bottom:10px;line-height:1.4">카카오 로그인은 예봄서비스로 이동하므로<br>재생이 잠시 중단됩니다</div>
 <a href="https://saint.yebom.org/join?from=radio" class="login-btn-cancel" style="border-color:var(--amber);color:var(--amber);text-align:center;text-decoration:none;display:block">예봄서비스 가입하기</a>
 <button class="login-btn-cancel" id="loginCancelBtn">취소</button>
 </div></div>
@@ -1468,25 +1471,97 @@ let sleepCountdown = null;
 // SSO Login
 let radioUser = null;
 let loginModal = null;
-async function checkSsoSession() {
-  try {
-    const res = await fetch('https://saint.yebom.org/api/auth/session', { credentials: 'include' });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.isLoggedIn) {
-        radioUser = data.user;
-        localStorage.setItem('radio-user', JSON.stringify({ user: data.user, ts: Date.now() }));
-        updateFooterLogin();
-        // 로그인 확인 후 서버 트랙 위치 병합
-        serverTrackPosFetchPromise = fetchAndMergeServerTrackPos();
-        return true;
-      }
-    }
-  } catch(e) {}
+// 신원 정규화 — 교적부 세션 payload는 { user_id, member_id, permission_level, ... },
+// 워커 email-login 응답은 { id, name, role }. 두 모양을 받는 지점에서 한 번에 통일한다.
+// (정규화 전에는 쿠키 경로에서 radioUser.id가 undefined라 'X-User-Id: undefined'가 전송되어
+//  쿠키 세션 사용자들이 KV의 같은 버킷을 공유했다.)
+const ADMIN_ROLES = ['super_admin', 'admin'];  // 워커 worker.js의 ADMIN_LEVELS와 동일해야 한다
+function normalizeUser(u) {
+  if (!u) return null;
+  return {
+    ...u,
+    id:   u.id   ?? u.user_id ?? u.member_id ?? null,
+    role: u.role ?? u.permission_level ?? 'member',
+    name: u.name ?? '',
+  };
+}
+
+// ── 교적부 체크인 ──
+// 판정은 반드시 HTTP status로만 한다. 교적부는 HTTP 500에도 본문에 {isLoggedIn:false}를 담으므로
+// res.ok / body.isLoggedIn으로 분기하면 교적부가 잠깐 아플 때 전 사용자가 로그아웃된다.
+const SSO_CHECKIN_MIN_INTERVAL = 45000; // 세션 연장은 교적부가 하루 1회 처리 — 잦은 호출은 DB 왕복만 늘린다
+let ssoLastCheckAt = 0;
+let ssoCheckInFlight = null;
+
+// 교적부 세션 쿠키는 Domain=.yebom.org — 다른 호스트에서는 쿠키가 실리지 않아 항상 401이 된다.
+// (localhost·*.pages.dev에서 401 처리가 돌면 개발 중 인증이 날아간다)
+function ssoCheckinAvailable() {
+  const h = location.hostname;
+  return h === 'yebom.org' || h.endsWith('.yebom.org');
+}
+
+// 체크인 401(또는 200 + isLoggedIn:false) → 익명 전환.
+// 자격증명을 반드시 함께 지운다: radio-admin-key(SSO JWT)는 취소 불가 토큰이라,
+// 워커 서버측 신원 검증(D단계) 전까지 교적부에서 강제 로그아웃돼도 관리 API에 계속 쓰인다.
+// ※ 수동 입력한 레거시 공유 ADMIN_KEY는 JWT가 아니고 교적부 세션과 무관하므로 남긴다 —
+//   지우면 교적부 계정이 없는 관리자가 페이지 로드마다 킷을 다시 입력해야 한다.
+function isJwtToken(t) { return typeof t === 'string' && t.split('.').length === 3; }
+
+let ssoExpiredNoticeShown = false;
+function applySsoAnonymous() {
+  // 로그인 상태였다가 끊긴 경우에만 안내한다(원래 익명이었으면 조용히 지나간다).
+  // 직접 로그인 전환 직후에는 쿠키 없는 옛 로그인 사용자가 여기서 한 번 걸린다.
+  const wasLoggedIn = !!radioUser || isJwtToken(adminKey);
   radioUser = null;
   localStorage.removeItem('radio-user');
+  if (isJwtToken(adminKey)) {
+    adminKey = '';
+    localStorage.removeItem('radio-admin-key');
+  }
   updateFooterLogin();
-  return false;
+  // 로그인 상태에서만 보이던 개인 UI를 즉시 감춘다
+  try { if (typeof orSyncAuthUI === 'function') orSyncAuthUI(); } catch {}
+  if (wasLoggedIn && !ssoExpiredNoticeShown) {
+    ssoExpiredNoticeShown = true;
+    try { showToast('로그인이 만료되었습니다. 다시 로그인해 주세요'); } catch {}
+  }
+}
+
+async function checkSsoSession(opts = {}) {
+  const { force = false, merge = false } = opts;
+  if (!ssoCheckinAvailable()) return !!radioUser;
+  if (ssoCheckInFlight) return ssoCheckInFlight;
+  // 스킵할 때는 false가 아니라 '현재 상태'를 돌려준다 — false를 돌리면 로그인 사용자에게 로그인창이 뜬다
+  if (!force && Date.now() - ssoLastCheckAt < SSO_CHECKIN_MIN_INTERVAL) return !!radioUser;
+  ssoLastCheckAt = Date.now();
+  ssoCheckInFlight = (async () => {
+    try {
+      const res = await fetch('https://saint.yebom.org/api/auth/session', { credentials: 'include' });
+      if (res.status === 200) {
+        const data = await res.json().catch(() => null);
+        if (data && data.isLoggedIn && data.user) {
+          radioUser = normalizeUser(data.user);
+          localStorage.setItem('radio-user', JSON.stringify({ user: radioUser, ts: Date.now() }));
+          updateFooterLogin();
+          // 이어듣기 병합은 로그인 확정 직후 1회만. 포커스 체크인마다 돌면
+          // 재생 중에 다른 기기의 위치가 현재 이어듣기를 덮어쓴다.
+          if (merge && !serverTrackPosFetched && !serverTrackPosFetchPromise) {
+            serverTrackPosFetchPromise = fetchAndMergeServerTrackPos();
+          }
+          return true;
+        }
+        applySsoAnonymous();
+        return false;
+      }
+      if (res.status === 401) { applySsoAnonymous(); return false; }
+      return !!radioUser;  // 5xx 등 일시 오류 → 기존 상태 유지 (로그아웃 금지)
+    } catch (e) {
+      return !!radioUser;  // 네트워크 오류 → 기존 상태 유지 (로그아웃 금지)
+    } finally {
+      ssoCheckInFlight = null;
+    }
+  })();
+  return ssoCheckInFlight;
 }
 function updateFooterLogin() {
   const el = document.getElementById('appFooter');
@@ -1834,8 +1909,8 @@ loginModal = $('loginModal');
 // SSO: 캐시된 로그인 확인 + 백그라운드 세션 체크
 (function initSsoCheck() {
   const cached = JSON.parse(localStorage.getItem('radio-user') || 'null');
-  if (cached && Date.now() - cached.ts < 300000) { radioUser = cached.user; updateFooterLogin(); }
-  checkSsoSession();
+  if (cached && Date.now() - cached.ts < 300000) { radioUser = normalizeUser(cached.user); updateFooterLogin(); }
+  checkSsoSession({ force: true, merge: true });
 })();
 
 const nowPlayingEl = new Proxy({}, {
@@ -3719,7 +3794,7 @@ function markTrackPosDirty() { serverSyncDirty = true; }
 
 // 서버에 트랙 위치 전송 (fire-and-forget, 비차단)
 function syncTrackPosToServer(positions) {
-  if (!radioUser) return;
+  if (!radioUser?.id) return;  // id 없는 세션은 신원을 전송하지 않는다 ('undefined' 버킷 오염 방지)
   const payload = positions || loadTrackPositions();
   fetch(WORKER_URL + '/api/user/trackpos', {
     method: 'PUT',
@@ -3732,7 +3807,7 @@ function syncTrackPosToServer(positions) {
 let serverTrackPosFetched = false; // 서버 데이터 병합 완료 플래그
 let serverTrackPosFetchPromise = null;
 async function fetchAndMergeServerTrackPos() {
-  if (!radioUser) return;
+  if (!radioUser?.id) return;  // id가 없으면 남의 'undefined' 버킷을 내 기기에 병합하게 된다
   try {
     const res = await fetch(WORKER_URL + '/api/user/trackpos', {
       headers: { 'X-User-Id': radioUser.id }
@@ -3785,7 +3860,7 @@ setInterval(() => { if (isPlaying && (currentChannel === 3 || currentChannel ===
 window.addEventListener('beforeunload', () => {
   saveResume(currentChannel);
   // 브라우저 닫힐 때 즉시 서버 전송 (sendBeacon 사용)
-  if (radioUser && serverSyncDirty) {
+  if (radioUser?.id && serverSyncDirty) {
     const payload = JSON.stringify({ positions: loadTrackPositions() });
     navigator.sendBeacon(WORKER_URL + '/api/user/trackpos?userId=' + radioUser.id, payload);
   }
@@ -3916,6 +3991,9 @@ document.addEventListener('visibilitychange', async () => {
       sleepSecs = 0; sleepTargetTime = 0;
       showToast('수면 타이머가 종료되었습니다'); updateSleepUI();
     }
+    // 탭 복귀 체크인 — 세션 확인·권한 갱신·400일 연장. 스로틀(45초)이 걸려 있고
+    // 이어듣기 병합은 하지 않는다(재생 중 다른 기기 위치로 덮어쓰기 방지).
+    checkSsoSession();
   }
 });
 
@@ -4530,7 +4608,7 @@ function handleHeaderTap() {
   if (headerTapCount >= 3) {
     headerTapCount = 0; clearTimeout(headerTapTimer);
     // SSO 로그인 사용자의 role이 admin/super_admin이면 자동 진입 (JWT는 이미 adminKey에 저장됨)
-    const isAdminRole = radioUser && (radioUser.role === 'super_admin' || radioUser.role === 'admin');
+    const isAdminRole = ADMIN_ROLES.includes(radioUser?.role);
     if (isAdminRole || adminKey) tryOpenAdmin();
     else $('authModal').classList.add('open'); // 백도어 — 관리자 킷 수동 입력 (SSO 미로그인 시)
   }
@@ -5122,7 +5200,7 @@ let orUploadQueue = [];
 function orApiUrl(path) { return WORKER_URL + '/api/openroom' + path; }
 
 function orUserHeaders() {
-  if (!radioUser) return {};
+  if (!radioUser?.id) return {};  // id 없는 세션은 신원 헤더를 붙이지 않는다
   return { 'X-User-Id': radioUser.id, 'X-User-Name': encodeURIComponent(radioUser.name || '익명') };
 }
 
@@ -5209,6 +5287,17 @@ async function orLoadTracks(folderName) {
   } catch { orCurrentTracks = []; }
 }
 
+// 로그인 상태가 바뀌었을 때(체크인 401 등) 권한에 따라 보이던 UI를 즉시 갱신한다.
+// 패널이 닫혀 있거나 폴더를 연 적이 없으면 아무것도 하지 않는다.
+function orSyncAuthUI() {
+  const btn = document.getElementById('orUploadBtn');
+  if (btn) btn.style.display = (radioUser?.id || adminKey) ? '' : 'none';
+  const trackView = document.getElementById('orTrackView');
+  if (trackView && trackView.style.display !== 'none' && orCurrentTracks && orCurrentTracks.length) {
+    orRenderTrackList();  // 소유자 전용 메뉴(수정·삭제) 재판정
+  }
+}
+
 function orRenderTrackList(query) {
   if (query === undefined) query = orSearchInput.value;
   const q = query ? query.trim().toLowerCase() : '';
@@ -5227,7 +5316,7 @@ function orRenderTrackList(query) {
     const li = document.createElement('li');
     li.className = 'or-track-item' + (t.r2Key === currentTrackKey ? ' active' : '');
     li.dataset.refid = t.refId;
-    const isOwner = radioUser && t.uploaderId === radioUser.id;
+    const isOwner = !!radioUser?.id && t.uploaderId === radioUser.id;
     const showMenu = isOwner || !!adminKey;
     li.innerHTML = `
       ${radioUser ? '<span class="admin-drag-handle" style="cursor:grab;padding:0 6px;color:var(--text-dim)">≡</span>' : ''}
@@ -5645,8 +5734,8 @@ document.getElementById('orUploadAllBtn').addEventListener('click', async () => 
       await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', orApiUrl(`/folders/${encodeURIComponent(orCurrentFolder)}/tracks`));
-        xhr.setRequestHeader('X-User-Id', radioUser ? radioUser.id : 'admin');
-        xhr.setRequestHeader('X-User-Name', encodeURIComponent(radioUser ? (radioUser.name || '익명') : '관리자'));
+        xhr.setRequestHeader('X-User-Id', radioUser?.id || 'admin');
+        xhr.setRequestHeader('X-User-Name', encodeURIComponent(radioUser?.id ? (radioUser.name || '익명') : '관리자'));
         if (adminKey) xhr.setRequestHeader('Authorization', 'Bearer ' + adminKey);
         xhr.upload.onprogress = e => {
           if (e.lengthComputable) { const p = Math.round(e.loaded / e.total * 100); prog.style.width = p + '%'; pct.textContent = p + '%'; }
@@ -5822,7 +5911,7 @@ mainPlayBtn.addEventListener('click', handlePlayPause);
 btnRecord.addEventListener('click', async () => {
   if (isRecording) { stopRecording(); return; }
   if (!radioUser) {
-    const loggedIn = await checkSsoSession();
+    const loggedIn = await checkSsoSession({ force: true });  // 사용자 조작 지점 — 스로틀 우회
     if (!loggedIn) { $('loginEmail').value=''; $('loginPassword').value=''; $('loginError').style.display='none'; loginModal.classList.add('open'); return; }
   }
   startRecording();
@@ -6034,10 +6123,70 @@ $('sleepBtns').addEventListener('click', e => { const btn = e.target.closest('.s
 $('sleepCancel').addEventListener('click', () => { clearTimeout(sleepTimer); clearInterval(sleepCountdown); sleepSecs = 0; sleepTargetTime = 0; updateSleepUI(); showToast('타이머 취소'); });
 
 $('headerTitle').addEventListener('click', handleHeaderTap);
-// 이메일+비밀번호 로그인
+// ── 로그인 ──
+// 브라우저에서 교적부로 직접 보낸다. 그래야 응답의 Set-Cookie로 .yebom.org 세션 쿠키가
+// 이 브라우저에 설치되고, 체크인(200)·400일 슬라이딩 연장·통합 로그아웃이 성립한다.
+// (워커 /api/auth/email-login은 교적부를 서버-투-서버로 호출해 Set-Cookie를 버리므로
+//  로그인해도 쿠키가 남지 않아 체크인이 구조적으로 항상 401이었다.)
+// 전체 페이지 이동이 아니라 fetch이므로 재생·녹음이 끊기지 않는다.
+async function loginViaSaintRecord(identifier, password, remember) {
+  const res = await fetch('https://saint.yebom.org/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',          // ★ 이게 있어야 Set-Cookie가 설치된다
+    body: JSON.stringify({ email: identifier, password, remember }),
+  });
+  if (res.ok) {
+    // 로그인 응답에는 사용자 정보가 없다 — { success, password_reset_required, needs_profile_completion }.
+    // 쿠키가 설치됐으므로 체크인으로 신원을 받아온다.
+    const loggedIn = await checkSsoSession({ force: true, merge: true });
+    return loggedIn
+      ? { ok: true }
+      : { ok: false, error: '로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.' };
+  }
+  const data = await res.json().catch(() => ({}));
+  return { ok: false, error: data.error || '로그인에 실패했습니다.' };  // 401/403/429 문구는 교적부가 준다
+}
+
+// 레거시 폴백 — 교적부 CORS 허용 목록에 없는 호스트(radio-axi.pages.dev 등)에서만 쓴다.
+// 이 경로는 쿠키가 설치되지 않아 체크인이 401이 된다(로그인 유지·통합 로그아웃 불가).
+// radio.yebom.org 단일화(E단계)와 함께 제거 대상.
+async function loginViaWorker(identifier, password) {
+  const res = await fetch(WORKER_URL + '/api/auth/email-login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: identifier, password })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (data.success && data.user) {
+    radioUser = normalizeUser(data.user);
+    if (data.token) { adminKey = data.token; localStorage.setItem('radio-admin-key', data.token); }
+    localStorage.setItem('radio-user', JSON.stringify({ user: radioUser, ts: Date.now() }));
+    return { ok: true };
+  }
+  return { ok: false, error: data.error || '로그인에 실패했습니다.' };
+}
+
+// 관리자 토큰 임시 브리지 — 직접 로그인 경로는 JWT를 발급하지 않으므로, 관리자 등급 계정만
+// 워커에서 JWT를 받아 관리 API(Authorization: Bearer)에 쓴다. 실패해도 로그인 자체는 성공이다.
+// ⚠️ D단계(워커 서버측 신원 검증)가 끝나면 이 브리지와 워커 email-login을 함께 제거한다.
+async function bridgeAdminToken(identifier, password) {
+  if (!ADMIN_ROLES.includes(radioUser?.role) || adminKey) return;
+  try {
+    const res = await fetch(WORKER_URL + '/api/auth/email-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: identifier, password })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.token) { adminKey = data.token; localStorage.setItem('radio-admin-key', data.token); }
+  } catch {}
+}
+
 $('loginSubmitBtn').addEventListener('click', async () => {
   const email = $('loginEmail').value.trim();
   const pw = $('loginPassword').value;
+  const remember = $('loginRemember') ? $('loginRemember').checked : true;
   const errEl = $('loginError');
   errEl.style.display = 'none';
   if (!email || !pw) {
@@ -6048,29 +6197,19 @@ $('loginSubmitBtn').addEventListener('click', async () => {
   $('loginSubmitBtn').disabled = true;
   $('loginSubmitBtn').textContent = '확인 중...';
   try {
-    const res = await fetch(WORKER_URL + '/api/auth/email-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: pw })
-    });
-    const data = await res.json();
-    if (data.success && data.user) {
-      radioUser = data.user;
-      // SSO JWT 저장: 관리자 등급(super_admin/admin) 계정은 이 토큰으로 관리자 API 자동 통과
-      if (data.token) {
-        adminKey = data.token;
-        localStorage.setItem('radio-admin-key', data.token);
-      }
-      localStorage.setItem('radio-user', JSON.stringify({ user: data.user, ts: Date.now() }));
+    const r = ssoCheckinAvailable()
+      ? await loginViaSaintRecord(email, pw, remember)
+      : await loginViaWorker(email, pw);
+    if (r.ok) {
+      await bridgeAdminToken(email, pw);
       updateFooterLogin();
       loginModal.classList.remove('open');
-      const welcome = data.isAdmin
-        ? data.user.name + '님 환영합니다 (' + (data.user.role || '') + ')'
-        : data.user.name + '님 환영합니다';
-      showToast(welcome);
-      serverTrackPosFetchPromise = fetchAndMergeServerTrackPos();
+      $('loginPassword').value = '';
+      const isAdm = ADMIN_ROLES.includes(radioUser?.role);
+      showToast((radioUser?.name || '') + '님 환영합니다' + (isAdm ? ' (' + radioUser.role + ')' : ''));
+      if (!serverTrackPosFetchPromise) serverTrackPosFetchPromise = fetchAndMergeServerTrackPos();
     } else {
-      errEl.textContent = data.error || '로그인에 실패했습니다.';
+      errEl.textContent = r.error;
       errEl.style.display = 'block';
     }
   } catch(e) {
@@ -6083,20 +6222,44 @@ $('loginSubmitBtn').addEventListener('click', async () => {
 // Enter 키로 로그인
 $('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginSubmitBtn').click(); });
 $('loginCancelBtn').addEventListener('click', () => loginModal.classList.remove('open'));
-// 푸터 클릭 → 로그인/로그아웃
+// ── 로그아웃 (5개 앱 공통 순서: 확인 → 이 기기 정리 → 교적부 통합 로그아웃) ──
+// 자격증명·개인 데이터만 지우고 기기 취향(볼륨·채널 구성·녹음 설정·스플래시 표시)은 보존한다.
+// localStorage.clear()는 쓰지 않는다 — 라디오는 로컬 설정이 곧 사용자 경험이다.
+const LOGOUT_CLEAR_KEYS = [
+  'radio-admin-key',    // 관리자 JWT (자격증명)
+  'radio-user',         // 신원 캐시
+  'radio-ch3-trackpos', // 트랙별 이어듣기 위치 (개인 데이터)
+  'radio-ch3-resume',   // CH3 이어듣기 (개인 데이터)
+  'radio-ch4-resume',   // CH4 이어듣기 (개인 데이터)
+  'gb_draft',           // 방명록 작성 초안 (개인 데이터)
+];
+// 보존: radio-volume, radio-onlymusic-vol, radio-ch, radio-last-channel, radio-channel-config,
+//       radio-rec-threshold, radio-rec-silence-dur, radio-rsc-format, yebom-40th-seen, radio-arrow-pulse-*
+
+async function logoutFromRadio() {
+  if (!confirm('로그아웃하시겠습니까?\n이 기기에 저장된 로그인 정보가 모두 지워집니다.')) return;
+  // 1) 메모리 자격증명
+  radioUser = null;
+  adminKey = '';
+  // 2) 저장소 — 목록의 키만
+  for (const k of LOGOUT_CLEAR_KEYS) { try { localStorage.removeItem(k); } catch {} }
+  // 3) 캐시 스토리지 — Clear-Site-Data를 무시하는 브라우저(일부 사파리)가 있어 클라이언트에서도 지운다
+  //    (서비스워커 등록은 유지한다 — 개인 데이터가 없고, 해제하면 PWA 오프라인 동작이 깨진다)
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch {}
+  updateFooterLogin();
+  // 4) 교적부 통합 로그아웃 — .yebom.org SSO 쿠키 전체 삭제 + Clear-Site-Data 후 복귀
+  location.replace('https://saint.yebom.org/api/auth/logout?return=' + encodeURIComponent('https://radio.yebom.org/'));
+}
+
+// 푸터 클릭 → 로그인/로그아웃 (로그아웃 진입점은 이 한 곳)
 $('appFooter').addEventListener('click', () => {
   if (radioUser) {
-    if (confirm(radioUser.name + '님으로 로그인 중입니다.\n로그아웃 하시겠습니까?')) {
-      radioUser = null;
-      localStorage.removeItem('radio-user');
-      // SSO JWT도 함께 제거 — 브라우저에 관리자 권한이 남지 않도록
-      // (수동 입력된 레거시 ADMIN_KEY는 JWT 형식(dot 2개)이 아니므로 그대로 두어도 함수적으로 무해하지만,
-      // 다른 사용자가 이 브라우저를 쓸 수 있으므로 함께 지움)
-      adminKey = '';
-      localStorage.removeItem('radio-admin-key');
-      showToast('로그아웃 되었습니다');
-      updateFooterLogin();
-    }
+    logoutFromRadio();
   } else {
     $('loginEmail').value=''; $('loginPassword').value=''; $('loginError').style.display='none';
     loginModal.classList.add('open');

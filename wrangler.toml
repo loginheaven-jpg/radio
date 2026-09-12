@@ -2,6 +2,16 @@ name = "radio-worker"
 main = "worker.js"
 compatibility_date = "2024-01-01"
 
+# 워커를 radio.yebom.org 아래로 붙인다 — 교적부와 **같은 사이트**가 되어
+# saint_record_session 쿠키가 워커 요청에도 실린다. 그래야 워커가 신원을 서버에서
+# 도출할 수 있고, 지금처럼 X-User-Id 헤더를 그대로 믿지 않아도 된다.
+#   - 워커는 /api/* 만 처리하고 프론트도 /api 로만 호출하므로 이 패턴 하나로 전부 덮인다
+#   - 연결 확인: curl -sI https://radio.yebom.org/api/auth/verify
+#     → content-type 이 text/html(Pages 폴백) 에서 application/json 으로 바뀌면 성공
+routes = [
+  { pattern = "radio.yebom.org/api/*", zone_name = "yebom.org" }
+]
+
 [[r2_buckets]]
 binding = "RADIO_BUCKET"
 bucket_name = "coachdb-files"

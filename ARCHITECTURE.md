@@ -1,9 +1,9 @@
 # 예봄라디오 2.0 — 아키텍처 문서
 
-> **버전**: 2026-03-22 v2.6.0 (간편 로그인 추가)
-> **프로젝트 경로**: `c:\dev\radio\yebomradio`
+> **버전**: 2026-09-12 v2.7.0 (SSO 로그인 개선 — 체크인 정상화 · 신원 정규화 · 로그아웃 개편)
+> **프로젝트 경로**: `G:\내 드라이브\g_dev\yebomradio`
 > **GitHub**: https://github.com/loginheaven-jpg/radio
-> **Pages URL**: https://radio-axi.pages.dev
+> **Pages URL**: https://radio.yebom.org (표준 도메인) — `radio-axi.pages.dev`는 과도기 주소로 301 리다이렉트 예정
 > **Workers URL**: https://radio-worker.yebomradio.workers.dev
 
 ---
@@ -16,7 +16,7 @@
 |---|---|
 | 인프라 | Cloudflare Workers + R2 + KV + Pages |
 | 프론트엔드 | 단일 `index.html` (Vanilla JS, CSS 인라인, 빌드 도구 없음) |
-| 인증 | 간편 로그인 (이름+전화4자리) + SSO + Admin Key | 트리플 인증 |
+| 인증 | 교적부(saint.yebom.org) SSO 체크인 + 이메일/비밀번호 로그인(교적부 위임) + Admin Key |
 | PWA | `manifest.json` + `sw.js` (자동 업데이트, 오프라인 폴백) |
 | UI 패턴 | **Warm Vinyl** — 중앙 회전 바이닐 디스크 + 채널별 테마 + 앰비언트 효과 |
 | 디자인 참조 | `c:\dev\radio\UI-GUIDE.md` (디자인 명세), `c:\dev\radio\radio-vinyl.jsx` (React 프로토타입) |
@@ -104,9 +104,10 @@ c:\dev\radio\
 | POST | `/api/identify` | 곡명 인식 (HLS 세그먼트 3개 병합 → ACRCloud 핑거프린팅) | 없음 |
 | GET | `/api/channel-config` | 서버 채널 설정 조회 (order, hidden, defaultChannel) | 없음 |
 | PUT | `/api/channel-config` | 서버 채널 설정 저장 | `Bearer ADMIN_KEY` |
-| GET | `/api/user/trackpos` | CH3 트랙별 재생위치 조회 | `X-User-Id` |
-| PUT | `/api/user/trackpos` | CH3 트랙별 재생위치 저장 (ts 병합) | `X-User-Id` |
-| **POST** | **`/api/auth/simple-login`** | **간편 로그인 (이름+전화뒤4자리 → members 매칭)** | 없음 |
+| GET | `/api/user/trackpos` | CH3 트랙별 재생위치 조회 | `X-User-Id` ⚠️ 검증 없음 |
+| PUT | `/api/user/trackpos` | CH3 트랙별 재생위치 저장 (ts 병합) | `X-User-Id` ⚠️ 검증 없음 |
+| POST | `/api/auth/email-login` | 이메일+비밀번호 로그인 (교적부 `/api/auth/login`에 검증 위임 → JWT 발급) | 없음 |
+| GET | `/api/auth/verify` | 관리자 킷/JWT 유효성 확인 | `Bearer <JWT 또는 ADMIN_KEY>` |
 
 ### HLS 프록시 화이트리스트
 `gscdn.kbs.co.kr`, `kbs.co.kr`, `febc.net`, `mlive2.febc.net`
@@ -118,34 +119,81 @@ c:\dev\radio\
 
 ### 인증 체계
 
-#### 1. 간편 로그인 (메인 — 성도용)
-이름 + 전화번호 뒤 4자리로 교적부 members 테이블을 직접 매칭한다.
-- **API**: `POST /api/auth/simple-login` (worker.js)
-- **동작**: Worker → Supabase REST API로 members 조회 → 이름+전화뒤4자리 매칭
-- **응답**: `{ success: true, user: { id: member_id, name } }`
-- **저장**: 프론트엔드에서 `radioUser`에 저장 + `localStorage['radio-user']` 캐시 (5분 TTL)
-- **교적부 회원(users) 계정 불필요** — members에 등록된 성도면 즉시 사용 가능
-- **Secrets**: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (wrangler secret)
+> 간편 로그인(이름+전화 뒤 4자리, `/api/auth/simple-login`)은 **2026-03-23 `dd04cb7`에서 완전히 제거**되었다. worker.js에 해당 라우트가 없다.
 
-#### 2. SSO (보조 — 교적부 회원용)
-교적부에 로그인된 상태면 쿠키 기반 자동 인증:
-- `saint_record_session` 쿠키로 `saint.yebom.org/api/auth/session` 호출 (credentials: include)
-- 응답의 `user` 객체를 `radioUser`에 저장
-- 로그인 모달에서 "예봄서비스로 로그인" 버튼 → 교적부 로그인 페이지로 리다이렉트
+#### 1. 교적부 체크인 (SSO — 신원의 기준)
+`saint.yebom.org`가 인증 허브이고, 세션은 `saint_record_session` 쿠키(iron-session 암호화, `Domain=.yebom.org`, `SameSite=Lax`)로 예봄 앱들이 공유한다. `radio.yebom.org`는 교적부와 **같은 사이트**라 쿠키가 정상 전송된다.
 
-#### 3. Admin (관리자)
+- **호출**: `GET https://saint.yebom.org/api/auth/session` (`credentials: 'include'`) — `checkSsoSession()`
+- **시점**: 앱 시작 시 1회(`initSsoCheck`) + **탭 복귀 시**(`visibilitychange`, 최소 간격 45초)
+- **역할**: 유효성 확인 + 권한/이름 최신화 + **로그인 유지 세션 400일 연장**(교적부가 하루 1회 재봉인). 연장 수단이 체크인뿐이므로 곁가지 기능이 아니다.
+- **판정은 반드시 HTTP status로만**:
+
+  | status | 처리 |
+  |---|---|
+  | 200 + `isLoggedIn:true` | 로그인 확정 (`radioUser` 갱신, 캐시 저장) |
+  | 401 / 200+`isLoggedIn:false` | 익명 전환 — `radio-user` **및 JWT(`radio-admin-key`) 삭제**, 개인 UI 감춤, 1회 안내 토스트<br>※ 수동 입력한 레거시 공유 `ADMIN_KEY`는 JWT 형식(점 2개)이 아니므로 **남긴다** — 지우면 교적부 계정이 없는 관리자가 페이지 로드마다 킷을 다시 입력해야 한다 |
+  | 5xx · 네트워크 오류 | **기존 상태 유지 — 로그아웃 금지** |
+
+  ⚠️ 교적부는 **HTTP 500에도 본문에 `{isLoggedIn:false}`** 를 담는다(`session/route.ts`). `res.ok`/`body.isLoggedIn`으로 분기하면 교적부 장애 때 전 사용자가 로그아웃된다.
+- **호스트 가드**: 체크인은 `*.yebom.org`에서만 수행한다. `localhost`·`*.pages.dev`는 교적부와 다른 사이트라 쿠키가 실리지 않아 항상 401이 된다.
+- **캐시**: `localStorage['radio-user']` (5분 TTL) — 체크인 응답이 오기 전 화면 표시용.
+
+#### 2. 이메일/비밀번호 로그인 — **브라우저에서 교적부로 직접**
+라디오 화면 안의 폼을 유지하되, 워커를 경유하지 않고 브라우저가 교적부로 직접 보낸다. 그래야 응답의 `Set-Cookie`로 `.yebom.org` 세션 쿠키가 이 브라우저에 설치되고 체크인·연장·통합 로그아웃이 성립한다.
+
+```js
+POST https://saint.yebom.org/api/auth/login
+  credentials: 'include'                       // ★ 없으면 쿠키가 설치되지 않는다
+  body: { email, password, remember }          // email 필드는 이메일 또는 전화번호(교적부 통합 필드)
 ```
-Authorization: Bearer <ADMIN_KEY>
+- **성공 응답에 사용자 정보가 없다** — `{ success, password_reset_required, needs_profile_completion }` 뿐. 따라서 **로그인 200 → `checkSsoSession({ force: true, merge: true })`** 로 신원을 받아온다.
+- 실패 시 교적부의 `error` 문구를 그대로 노출한다(401 자격증명 불일치, 403 승인 대기, **429 레이트리밋 — IP당 1분 5회**).
+- `remember`(로그인 유지)는 기본 true, 모달의 체크박스로 해제 가능. 해제 시 교적부가 비영구 세션(12시간 봉인, 연장 없음)을 발급한다 — **정상 동작이다.**
+- **fetch이므로 페이지 이동이 없다** → 재생·녹음이 끊기지 않는다. 이것이 리다이렉트 대신 이 방식을 쓰는 이유다(iOS 홈화면 PWA는 쿠키 저장소가 분리되어 리다이렉트 로그인이 성립하지 않는 문제도 함께 피한다).
+- **교적부 CORS 허용 오리진은 `https://radio.yebom.org` 하나뿐**이다(`login/route.ts`). 그래서 `radio-axi.pages.dev`·`localhost`에서는 이 경로가 막히고, 그 호스트에서만 레거시 워커 경로(`POST /api/auth/email-login`)로 폴백한다. 폴백 경로는 쿠키가 설치되지 않아 체크인이 401이 된다 — E단계(도메인 단일화) 후 제거 대상.
+
+**카카오 로그인**: 카카오로만 가입한 교인을 위해 `https://saint.yebom.org/login?from=radio&redirect=https://radio.yebom.org/` 링크를 병기한다. 이 경로는 전체 페이지 이동이라 재생이 끊기며, 모달에 그 안내를 표시한다.
+
+**관리자 토큰 임시 브리지**: 직접 로그인 경로는 JWT를 발급하지 않으므로, 로그인한 계정의 `role`이 관리자 등급일 때만 워커 `email-login`에서 JWT를 한 번 더 받아 `adminKey`에 넣는다(`bridgeAdminToken`). 관리 API가 아직 `Authorization: Bearer`에 의존하기 때문이며, **D단계(워커 서버측 신원 검증) 완료 시 워커 `email-login`과 함께 제거한다.**
+
+#### 3. 신원 정규화 (`normalizeUser`)
+두 경로가 서로 다른 모양의 사용자 객체를 준다 — 받는 지점에서 한 번에 통일한다.
+
+| 경로 | 원본 필드 |
+|---|---|
+| 교적부 체크인 | `user_id`, `member_id`, `permission_level` (⚠️ `id`·`role` 없음) |
+| 워커 email-login | `id`, `name`, `role` |
+
+→ `{ id: id ?? user_id ?? member_id, role: role ?? permission_level, name }` 로 정규화. 적용 지점: 체크인 200 / 폼 로그인 성공 / `radio-user` 캐시 복원.
+**`radioUser.id`가 없으면 신원을 전송하지 않는다** — 정규화 이전에는 쿠키 경로에서 `X-User-Id: undefined`가 나가 KV의 같은 버킷(`user:trackpos:undefined`)을 여러 사용자가 공유했다.
+
+#### 4. Admin (관리자)
 ```
-`ADMIN_KEY`는 `wrangler secret put ADMIN_KEY`로 설정. 클라이언트에서 `localStorage['radio-admin-key']`에 캐시.
+Authorization: Bearer <SSO JWT 또는 ADMIN_KEY>
+```
+`isAdmin()`(worker.js)이 ① JWT 검증 후 `role ∈ {super_admin, admin}` ② 레거시 공유 `ADMIN_KEY` 순으로 통과시킨다. 클라이언트는 `localStorage['radio-admin-key']`에 보관하며, 이 값은 **자격증명이자 관리자 UI 노출 플래그**를 겸한다(`if (adminKey)`).
+
+#### 5. 로그아웃 (5개 앱 공통 순서)
+1. 확인창: `로그아웃하시겠습니까?\n이 기기에 저장된 로그인 정보가 모두 지워집니다.`
+2. **이 기기의 자격증명·개인 데이터만 정밀 삭제** — `localStorage.clear()`는 쓰지 않는다
+   - 삭제: `radio-admin-key`, `radio-user`, `radio-ch3-trackpos`, `radio-ch3-resume`, `radio-ch4-resume`, `gb_draft`
+   - 보존: `radio-volume`, `radio-onlymusic-vol`, `radio-ch`, `radio-last-channel`, `radio-channel-config`, `radio-rec-threshold`, `radio-rec-silence-dur`, `radio-rsc-format`, `yebom-40th-seen`, `radio-arrow-pulse-*`
+   - Cache Storage 전체 삭제(`Clear-Site-Data` 미지원 브라우저 대비). 서비스워커 등록은 유지(개인 데이터 없음 + PWA 오프라인 동작 보호)
+3. `location.replace('https://saint.yebom.org/api/auth/logout?return=' + encodeURIComponent('https://radio.yebom.org/'))`
+   → 교적부가 `.yebom.org` SSO 쿠키 전체 삭제 + `Clear-Site-Data` + 재로그인 표식(`yebom_reauth`) 후 303 복귀.
+   ⚠️ 이 삭제는 **같은 사이트 요청에서만** 실제로 동작한다(교적부의 CSRF 가드). 검증은 `radio.yebom.org`에서.
 
 #### 로그인이 필요한 기능
 | 기능 | 인증 | 헤더 |
 |------|------|------|
 | 청취 (모든 채널) | 불필요 | — |
-| 녹음 | 간편/SSO | — (프론트엔드 `radioUser` 확인) |
-| 재생위치 동기화 | 간편/SSO | `X-User-Id: {member_id}` |
-| 관리자 기능 | Admin Key | `Authorization: Bearer {key}` |
+| 녹음 | 로그인 | — (프론트엔드 `radioUser` 확인) |
+| 재생위치 동기화 | 로그인 | `X-User-Id: {정규화된 id}` ⚠️ 서버 검증 없음 |
+| 오픈뮤직룸 업로드/수정/삭제 | 로그인 또는 Admin | `X-User-Id`, `X-User-Name` ⚠️ 서버 검증 없음 |
+| 관리자 기능 | Admin Key / SSO JWT | `Authorization: Bearer {key}` |
+
+> 🔴 **미조치 보안 위험**: 워커는 `X-User-Id`/`?userId=`를 **검증 없이 신뢰**한다(`getRequestUser`). 임의의 `X-User-Id`로 남의 트랙 위치와 오픈뮤직룸 곡을 조작할 수 있다. 서버측 신원 검증은 후속 작업(D단계)이다.
 
 ---
 
@@ -562,14 +610,16 @@ radio.yebom.org (클라이언트)
 ```
 
 **세션 체크 흐름**:
-1. 페이지 로드 시 localStorage 캐시 확인 (5분 TTL)
-2. 백그라운드에서 `checkSsoSession()` → 교적부 session API 호출
-3. 녹음 버튼 클릭 시 `radioUser` 확인 → 미로그인이면 로그인 모달 표시
-4. "예봄서비스로 로그인" → `saint.yebom.org/login?redirect=현재URL`로 이동
-5. 로그인 후 radio.yebom.org로 리다이렉트 → 쿠키 존재 → 녹음 가능
+1. 페이지 로드 시 localStorage 캐시 확인 (5분 TTL) → 즉시 화면 표시
+2. `checkSsoSession({ force: true, merge: true })` → 교적부 session API 호출 (HTTP status로만 분기)
+3. **탭 복귀 시**(`visibilitychange`) 재체크인 — 최소 간격 45초, **이어듣기 병합은 하지 않는다**
+   (포커스마다 병합하면 재생 중에 다른 기기의 위치가 현재 이어듣기를 덮어쓴다)
+4. 녹음 버튼 클릭 시 `radioUser` 확인 → 미로그인이면 로그인 모달 표시(이때는 스로틀 우회 `force: true`)
+5. 로그인 모달 = **라디오 화면 내 이메일+비밀번호 폼 → 교적부로 직접 fetch**(인증 체계 §2). 교적부로 리다이렉트하지 않는다 — 전체 페이지 이동은 재생·녹음을 끊고, iOS 홈화면 PWA는 사파리와 쿠키 저장소가 분리되어 돌아온 쿠키를 쓸 수 없다. (카카오 전용 가입자만 리다이렉트 링크 사용)
 
 **CORS 설정** (`saint-record-v2/src/app/api/auth/session/route.ts`):
-- 허용 Origin: `radio.yebom.org`, `finance.yebom.org`, `prayer.yebom.org`
+- 허용 Origin: `radio.yebom.org`, `finance.yebom.org`, `prayer.yebom.org`, `v2.prayer.yebom.org`, `bible.yebom.org`
+  (⚠️ `radio-axi.pages.dev`는 **미등록** — pages.dev에서는 CORS·SameSite 이중으로 체크인이 불가능하다)
 - `Access-Control-Allow-Credentials: true`
 - OPTIONS preflight 핸들러 포함
 
@@ -778,7 +828,7 @@ git commit -m "설명"
 git push origin main
 # → Cloudflare Pages 자동 빌드/배포
 # 프로젝트명: radio
-# URL: radio-axi.pages.dev
+# URL: radio.yebom.org (표준) / radio-axi.pages.dev (과도기 — 301 리다이렉트 예정)
 ```
 - GitHub: `loginheaven-jpg/radio` (main 브랜치)
 - Git 사용자: `loginheaven-jpg` / `loginheaven@gmail.com`
@@ -902,6 +952,10 @@ git push origin main
 | 2026-03-06 | v2.5.0 | **채널 공유 링크 + 로딩 인디케이터**. 채널명 옆 공유 아이콘으로 현재 채널+곡 URL 클립보드 복사 (`?ch=3&track=...`). URL 파라미터로 공유 링크 수신 시 해당 채널/곡 자동 재생. 채널 전환 시 재생 버튼에 회전 링 로딩 애니메이션. CH3/4/5 로딩 중 텍스트 피드백 추가. 10초 안전 타임아웃. |
 | 2026-03-06 | v2.5.1 | **채널 설정 서버 동기화**. Workers KV에 채널 설정 저장 (`GET/PUT /api/channel-config`). 관리자가 설정하면 모든 기기에 동일 적용. 프론트엔드 초기화 시 서버 설정 fetch → localStorage 동기화. 관리자 저장 시 서버에 PUT. |
 | 2026-03-18 | v2.6.0 | **오디오 스톨 자동 복구 + 트랙별 재생위치 서버 동기화**. StallWatchdog(5초 간격 currentTime 감시, 3회 연속 스톨 시 채널 재연결). HLS/Icecast/R2 에러 핸들러 강화. CH3 트랙별 재생위치 기억(사용자 선택=이어듣기, 자동재생=처음부터). 로그인 사용자는 KV(`user:trackpos:{userId}`)에 동기화하여 다기기 이어듣기. .opus 포맷 지원. 푸터 클릭 로그인/로그아웃. |
+| 2026-03-23 | — | **이메일+비밀번호 로그인으로 전환**(`dd04cb7`). 간편 로그인(이름+전화4자리)과 "예봄서비스로 로그인" 리다이렉트 버튼 제거. 워커 `handleSimpleLogin` → `handleEmailLogin`(교적부 검증 위임). |
+| 2026-08-03 | — | **교적부 SSO `permission_level` 기반 관리자 인증**(`69d7877`). 로그인 시 HS256 JWT 발급(7일) → `isAdmin()`이 JWT role 검증, 레거시 `ADMIN_KEY` 폴백 유지. Admin Key 오입력 재유도 + 401 시 authModal 자동 재표시. |
+| 2026-09-12 | v2.7.0 | **SSO 로그인 개선 A·C단계**. ① 체크인을 **HTTP status로만 분기** — 500·네트워크 오류에 로그아웃하지 않음(교적부 장애 시 전 사용자 로그아웃 버그 수정). 최소 호출 간격 45초 + `*.yebom.org` 호스트 가드 + **탭 복귀 체크인** 추가(이어듣기 병합은 분리). ② **신원 정규화(`normalizeUser`)** — 교적부 `user_id`/`permission_level`과 워커 `id`/`role`을 통일하고, `id`가 없으면 신원 전송 차단(`X-User-Id: undefined` 제거). ③ 워커 **CORS 정확 일치 화이트리스트**(부분일치 정규식·`*` 폴백 제거, `Vary: Origin` 추가). ④ **로그아웃 개편** — 자격증명·개인 데이터만 정밀 삭제(기기 취향 보존) 후 교적부 통합 로그아웃으로 이동. |
+| 2026-09-12 | v2.7.1 | **SSO 로그인 개선 B단계 — 브라우저에서 교적부로 직접 로그인**. 로그인 폼이 워커 경유 대신 `saint.yebom.org/api/auth/login`을 `credentials:'include'`로 직접 호출 → **세션 쿠키가 브라우저에 설치되어 체크인 200·400일 슬라이딩 연장·통합 로그아웃이 성립**. 로그인 응답에 사용자 정보가 없으므로 성공 후 체크인으로 신원 수령. "로그인 유지" 체크박스(기본 ON, 공용 기기 해제용)와 **카카오 로그인 링크**(리다이렉트 — 재생 중단 안내 포함) 추가. 체크인 401에서 **JWT 삭제 활성화**(레거시 공유 ADMIN_KEY는 보존) + 개인 UI 즉시 감춤 + 일회성 재로그인 안내. `radio-axi.pages.dev`·`localhost`는 교적부 CORS 미허용이라 레거시 워커 경로로 폴백. |
 
 ---
 
