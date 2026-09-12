@@ -3792,13 +3792,23 @@ let serverSyncTimer = null;
 
 function markTrackPosDirty() { serverSyncDirty = true; }
 
+// 신원 헤더 — 검증된 토큰(Bearer)이 있으면 그것이 워커가 쓰는 신원 근거가 되고,
+// X-User-Id 는 워커가 레거시 폴백을 받아 주는 동안에만 함께 보낸다.
+// 교적부 단기 토큰이 도입되면 아래 X-User-Id 줄만 지우면 전환이 끝난다.
+function identityHeaders(extra) {
+  const h = { ...(extra || {}) };
+  if (adminKey) h['Authorization'] = 'Bearer ' + adminKey;
+  if (radioUser?.id) h['X-User-Id'] = radioUser.id;
+  return h;
+}
+
 // 서버에 트랙 위치 전송 (fire-and-forget, 비차단)
 function syncTrackPosToServer(positions) {
   if (!radioUser?.id) return;  // id 없는 세션은 신원을 전송하지 않는다 ('undefined' 버킷 오염 방지)
   const payload = positions || loadTrackPositions();
   fetch(WORKER_URL + '/api/user/trackpos', {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': radioUser.id },
+    headers: identityHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ positions: payload })
   }).catch(() => {}); // 실패해도 무시 — 로컬이 항상 기본
 }
@@ -3810,7 +3820,7 @@ async function fetchAndMergeServerTrackPos() {
   if (!radioUser?.id) return;  // id가 없으면 남의 'undefined' 버킷을 내 기기에 병합하게 된다
   try {
     const res = await fetch(WORKER_URL + '/api/user/trackpos', {
-      headers: { 'X-User-Id': radioUser.id }
+      headers: identityHeaders()
     });
     if (!res.ok) return;
     const { positions: serverData } = await res.json();
@@ -3859,10 +3869,22 @@ function scheduleServerSync() {
 setInterval(() => { if (isPlaying && (currentChannel === 3 || currentChannel === 4)) saveResume(currentChannel); }, 5000);
 window.addEventListener('beforeunload', () => {
   saveResume(currentChannel);
-  // 브라우저 닫힐 때 즉시 서버 전송 (sendBeacon 사용)
+  // 브라우저 닫힐 때 즉시 서버 전송.
+  // sendBeacon은 헤더를 실을 수 없어 신원을 쿼리(?userId=)로 넘겨야 했다 — 누구나 위조 가능했다.
+  // keepalive fetch는 문서가 사라져도 요청이 유지되면서 헤더(Authorization/X-User-Id)를 보낼 수 있다.
   if (radioUser?.id && serverSyncDirty) {
     const payload = JSON.stringify({ positions: loadTrackPositions() });
-    navigator.sendBeacon(WORKER_URL + '/api/user/trackpos?userId=' + radioUser.id, payload);
+    // keepalive 본문 한도는 64KB — 초과하면 보내지 않는다(2초 디바운스 동기화가 이미 대부분 반영한다)
+    if (payload.length < 60000) {
+      try {
+        fetch(WORKER_URL + '/api/user/trackpos', {
+          method: 'POST',
+          keepalive: true,
+          headers: identityHeaders({ 'Content-Type': 'application/json' }),
+          body: payload,
+        }).catch(() => {});
+      } catch {}
+    }
   }
 });
 window.addEventListener('pagehide', () => { saveResume(currentChannel); if (torchOn) stopTorch(); });
@@ -5200,8 +5222,9 @@ let orUploadQueue = [];
 function orApiUrl(path) { return WORKER_URL + '/api/openroom' + path; }
 
 function orUserHeaders() {
-  if (!radioUser?.id) return {};  // id 없는 세션은 신원 헤더를 붙이지 않는다
-  return { 'X-User-Id': radioUser.id, 'X-User-Name': encodeURIComponent(radioUser.name || '익명') };
+  // 토큰이 있으면 그것이 신원 근거(위조 불가), X-User-Id 는 레거시 폴백용
+  if (!radioUser?.id) return adminKey ? { 'Authorization': 'Bearer ' + adminKey } : {};
+  return identityHeaders({ 'X-User-Name': encodeURIComponent(radioUser.name || '익명') });
 }
 
 async function orFetch(path, options = {}) {

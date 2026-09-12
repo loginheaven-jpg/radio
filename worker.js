@@ -668,15 +668,15 @@ export default {
 
       // ── 트랙별 재생위치 동기화 (로그인 사용자 전용) ──
       if (path === '/api/user/trackpos' && method === 'GET') {
-        const userId = request.headers.get('X-User-Id');
-        if (!userId) return json({ error: 'Login required' }, cors, 401);
-        const raw = await env.RADIO_KV.get('user:trackpos:' + userId);
+        const tpUser = await resolveUser(request, env, url);
+        if (!tpUser) return json({ error: 'Login required' }, cors, 401);
+        const raw = await env.RADIO_KV.get('user:trackpos:' + tpUser.id);
         return json({ positions: raw ? JSON.parse(raw) : {} }, cors);
       }
       if (path === '/api/user/trackpos' && (method === 'PUT' || method === 'POST')) {
-        // sendBeacon은 POST + Content-Type text/plain이므로 userId를 쿼리에서도 수용
-        const userId = request.headers.get('X-User-Id') || url.searchParams.get('userId');
-        if (!userId) return json({ error: 'Login required' }, cors, 401);
+        const tpUser = await resolveUser(request, env, url);
+        if (!tpUser) return json({ error: 'Login required' }, cors, 401);
+        const userId = tpUser.id;
         const body = await request.json();
         if (!body || typeof body.positions !== 'object') return json({ error: 'Invalid data' }, cors, 400);
         // 클라이언트가 보낸 positions를 기존 데이터와 병합 (더 최신 ts 우선)
@@ -1497,8 +1497,10 @@ function b64urlDecodeBytes(b) {
   return arr;
 }
 
-// HS256 JWT 서명 — 페이로드에 exp/iat 자동 추가 (기본 7일 만료)
-async function signJWT(payload, secret, ttlSeconds = 7 * 24 * 3600) {
+// HS256 JWT 서명 — 페이로드에 exp/iat 자동 추가
+// 만료는 12시간. 이 토큰은 취소할 수 없으므로(교적부에서 강제 로그아웃해도 독립 생존)
+// 수명을 짧게 잡아 revocation 을 근사한다. 재발급은 라디오에서 다시 로그인할 때 일어난다.
+async function signJWT(payload, secret, ttlSeconds = 12 * 3600) {
   const header = { alg: 'HS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const full = { ...payload, iat: now, exp: now + ttlSeconds };
@@ -1675,10 +1677,42 @@ const OR_DEFAULT_SETTINGS = {
   currentStorageUsed: 0,
 };
 
-function getRequestUser(request) {
-  const userId = (request.headers.get('X-User-Id') || '').trim().slice(0, 100);
+// ── 신원 확인 ───────────────────────────────────────────────────
+// 목표: 신원은 **검증된 Bearer 토큰의 payload.sub 에서만** 도출한다.
+// X-User-Id / X-User-Name / ?userId= 는 누구나 위조할 수 있어 신원 근거가 될 수 없다.
+//
+// ⚠️ 아직 레거시 폴백을 끄지 못하는 이유:
+//   교적부 세션 쿠키는 Domain=.yebom.org 이고 워커는 *.workers.dev(크로스사이트)라
+//   쿠키가 워커까지 오지 않는다. radio.yebom.org/api/* Route 로 같은 사이트를 만들려 했으나
+//   yebom.org 존이 Cloudflare 에 없어(네임서버가 Wix) 불가능하다.
+//   따라서 워커가 쿠키 세션 사용자의 신원을 스스로 검증할 수단이 없고,
+//   현재 토큰을 가진 사용자는 라디오 폼으로 로그인한 사람뿐이다.
+//
+// 전환 조건: 교적부가 "세션 쿠키로 인증된 사용자에게 단기 서명 토큰을 내주는" 엔드포인트를
+//   제공하면(프론트가 받아 Authorization: Bearer 로 전달), 아래 상수를 false 로 바꾼다.
+//   그 한 줄이 헤더 위장 경로를 완전히 닫는다.
+const ALLOW_LEGACY_HEADER_IDENTITY = true;
+
+async function resolveUser(request, env, url) {
+  // 1) 검증된 토큰 — 위조 불가
+  const auth = request.headers.get('Authorization') || '';
+  if (auth.startsWith('Bearer ') && env.JWT_SECRET) {
+    const payload = await verifyJWT(auth.slice(7), env.JWT_SECRET);
+    if (payload && payload.sub) {
+      return {
+        id: String(payload.sub).slice(0, 100),
+        name: (payload.name || '익명').slice(0, 50),
+        role: payload.role || 'member',
+        verified: true,
+      };
+    }
+  }
+  // 2) 레거시 헤더 폴백 — 위조 가능. 전환 완료 후 제거한다.
+  if (!ALLOW_LEGACY_HEADER_IDENTITY) return null;
+  const userId = (request.headers.get('X-User-Id') || (url && url.searchParams.get('userId')) || '').trim().slice(0, 100);
+  if (!userId) return null;
   const userName = decodeURIComponent((request.headers.get('X-User-Name') || '%EC%9D%B5%EB%AA%85').trim()).slice(0, 50);
-  return userId ? { id: userId, name: userName } : null;
+  return { id: userId, name: userName, role: 'member', verified: false };
 }
 
 async function orGetFolders(env) {
@@ -1726,7 +1760,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
 
   // POST /api/openroom/folders — 폴더 생성
   if (path === '/api/openroom/folders' && method === 'POST') {
-    const user = getRequestUser(request);
+    const user = await resolveUser(request, env, url);
     if (!user) return json({ error: '로그인이 필요합니다' }, cors, 401);
     const { name } = await request.json();
     if (!name || name.length < 2 || name.length > 10)
@@ -1811,7 +1845,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
   // POST /api/openroom/folders/:name/tracks — 곡 업로드
   const tracksUploadMatch = path.match(/^\/api\/openroom\/folders\/([^/]+)\/tracks$/);
   if (tracksUploadMatch && method === 'POST') {
-    const user = getRequestUser(request);
+    const user = await resolveUser(request, env, url);
     if (!user) return json({ error: '로그인이 필요합니다' }, cors, 401);
 
     const folderName = decodeURIComponent(path.split('/')[4]);
@@ -1893,7 +1927,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
   // PUT /api/openroom/folders/:name/order — 곡 순서 저장 (로그인 사용자)
   const orderMatch = path.match(/^\/api\/openroom\/folders\/([^/]+)\/order$/);
   if (orderMatch && method === 'PUT') {
-    const orderUser = getRequestUser(request);
+    const orderUser = await resolveUser(request, env, url);
     if (!orderUser) return json({ error: 'Unauthorized' }, cors, 401);
     const folderName = decodeURIComponent(orderMatch[1]);
     const { refIds } = await request.json();
@@ -1908,7 +1942,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
   // PUT /api/openroom/tracks/:refId — 곡 이름 수정
   const trackEditMatch = path.match(/^\/api\/openroom\/tracks\/([^/]+)$/);
   if (trackEditMatch && method === 'PUT') {
-    const user = getRequestUser(request);
+    const user = await resolveUser(request, env, url);
     const refId = trackEditMatch[1];
     const { folderName, displayName } = await request.json();
     if (!folderName || !displayName) return json({ error: '폴더명과 곡 이름이 필요합니다' }, cors, 400);
@@ -1926,7 +1960,7 @@ async function handleOpenRoom(request, env, cors, path, method, url) {
   // DELETE /api/openroom/tracks/:refId — 폴더에서 제거
   const trackDeleteMatch = path.match(/^\/api\/openroom\/tracks\/([^/]+)$/);
   if (trackDeleteMatch && method === 'DELETE') {
-    const user = getRequestUser(request);
+    const user = await resolveUser(request, env, url);
     const refId = trackDeleteMatch[1];
     const folderName = url.searchParams.get('folder');
     if (!folderName) return json({ error: 'folder 파라미터가 필요합니다' }, cors, 400);

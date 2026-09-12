@@ -189,11 +189,34 @@ Authorization: Bearer <SSO JWT 또는 ADMIN_KEY>
 |------|------|------|
 | 청취 (모든 채널) | 불필요 | — |
 | 녹음 | 로그인 | — (프론트엔드 `radioUser` 확인) |
-| 재생위치 동기화 | 로그인 | `X-User-Id: {정규화된 id}` ⚠️ 서버 검증 없음 |
-| 오픈뮤직룸 업로드/수정/삭제 | 로그인 또는 Admin | `X-User-Id`, `X-User-Name` ⚠️ 서버 검증 없음 |
+| 재생위치 동기화 | 로그인 | `Authorization: Bearer`(검증) → 없으면 `X-User-Id` 레거시 폴백 |
+| 오픈뮤직룸 업로드/수정/삭제 | 로그인 또는 Admin | `Authorization: Bearer`(검증) → 없으면 `X-User-Id`/`X-User-Name` 폴백 |
 | 관리자 기능 | Admin Key / SSO JWT | `Authorization: Bearer {key}` |
 
-> 🔴 **미조치 보안 위험**: 워커는 `X-User-Id`/`?userId=`를 **검증 없이 신뢰**한다(`getRequestUser`). 임의의 `X-User-Id`로 남의 트랙 위치와 오픈뮤직룸 곡을 조작할 수 있다. 서버측 신원 검증은 후속 작업(D단계)이다.
+#### 6. 워커의 신원 확인 (`resolveUser`) — D단계 진행 중
+
+워커의 모든 신원 판정은 `resolveUser(request, env, url)` **한 곳**을 지난다(트랙위치 2곳 + 오픈뮤직룸 5곳).
+
+1. **검증된 Bearer 토큰** → `verifyJWT` → `payload.sub`를 신원으로 사용. 위조 불가.
+2. **레거시 헤더 폴백** — `X-User-Id`/`X-User-Name`/`?userId=`. **위조 가능.** `ALLOW_LEGACY_HEADER_IDENTITY` 상수로 통제하며, 현재 `true`.
+
+> 🔴 **미조치 보안 위험**: 레거시 폴백이 살아 있는 동안 임의의 `X-User-Id`로 남의 트랙 위치·오픈뮤직룸 곡을 조작할 수 있다.
+
+**왜 아직 끄지 못하는가.** 워커는 `*.workers.dev`라 교적부와 크로스사이트이고, `saint_record_session` 쿠키(`Domain=.yebom.org`)가 워커에 전달되지 않는다. 같은 사이트로 만들려면 `radio.yebom.org/api/*` Workers Route가 필요한데, **`yebom.org` 존이 Cloudflare에 없다**(네임서버가 Wix `ns6/ns7.wixdns.net`, `radio.yebom.org`는 `radio-axi.pages.dev`로의 CNAME). 따라서 워커가 쿠키 세션 사용자의 신원을 스스로 검증할 수단이 없고, **현재 토큰 보유자는 라디오 폼으로 로그인한 관리자뿐**이다(`bridgeAdminToken`).
+
+**전환 조건 — 교적부에 필요한 엔드포인트 1개.**
+```
+GET https://saint.yebom.org/api/auth/app-token?app=radio   (credentials: 'include')
+→ 200 { token }   // 세션 쿠키로 인증된 사용자에게만, 공유 시크릿으로 서명한 단기(15분) JWT
+                  // payload: { sub: user_id, name, role: permission_level, exp }
+→ 401             // 비로그인
+CORS: Access-Control-Allow-Origin: https://radio.yebom.org + Allow-Credentials: true
+```
+프론트가 체크인 직후 이 토큰을 받아 `Authorization: Bearer`로 전달하면, 워커는 같은 시크릿(`JWT_SECRET`)으로 검증해 신원을 도출한다. 그 시점에 `ALLOW_LEGACY_HEADER_IDENTITY = false` **한 줄**로 헤더 위장 경로가 완전히 닫힌다.
+
+**자체 토큰 수명**: `signJWT` 기본 만료 **12시간**(기존 7일). 취소 불가 토큰이므로 짧은 수명으로 revocation을 근사한다.
+
+**종료 직전 전송**: `sendBeacon`은 헤더를 실을 수 없어 신원을 `?userId=`로 넘겨야 했다 → **`fetch(..., { keepalive: true })`** 로 전환해 헤더로 신원을 보낸다(본문 64KB 한도라 초과 시 전송하지 않는다).
 
 ---
 
@@ -956,6 +979,7 @@ git push origin main
 | 2026-08-03 | — | **교적부 SSO `permission_level` 기반 관리자 인증**(`69d7877`). 로그인 시 HS256 JWT 발급(7일) → `isAdmin()`이 JWT role 검증, 레거시 `ADMIN_KEY` 폴백 유지. Admin Key 오입력 재유도 + 401 시 authModal 자동 재표시. |
 | 2026-09-12 | v2.7.0 | **SSO 로그인 개선 A·C단계**. ① 체크인을 **HTTP status로만 분기** — 500·네트워크 오류에 로그아웃하지 않음(교적부 장애 시 전 사용자 로그아웃 버그 수정). 최소 호출 간격 45초 + `*.yebom.org` 호스트 가드 + **탭 복귀 체크인** 추가(이어듣기 병합은 분리). ② **신원 정규화(`normalizeUser`)** — 교적부 `user_id`/`permission_level`과 워커 `id`/`role`을 통일하고, `id`가 없으면 신원 전송 차단(`X-User-Id: undefined` 제거). ③ 워커 **CORS 정확 일치 화이트리스트**(부분일치 정규식·`*` 폴백 제거, `Vary: Origin` 추가). ④ **로그아웃 개편** — 자격증명·개인 데이터만 정밀 삭제(기기 취향 보존) 후 교적부 통합 로그아웃으로 이동. |
 | 2026-09-12 | v2.7.1 | **SSO 로그인 개선 B단계 — 브라우저에서 교적부로 직접 로그인**. 로그인 폼이 워커 경유 대신 `saint.yebom.org/api/auth/login`을 `credentials:'include'`로 직접 호출 → **세션 쿠키가 브라우저에 설치되어 체크인 200·400일 슬라이딩 연장·통합 로그아웃이 성립**. 로그인 응답에 사용자 정보가 없으므로 성공 후 체크인으로 신원 수령. "로그인 유지" 체크박스(기본 ON, 공용 기기 해제용)와 **카카오 로그인 링크**(리다이렉트 — 재생 중단 안내 포함) 추가. 체크인 401에서 **JWT 삭제 활성화**(레거시 공유 ADMIN_KEY는 보존) + 개인 UI 즉시 감춤 + 일회성 재로그인 안내. `radio-axi.pages.dev`·`localhost`는 교적부 CORS 미허용이라 레거시 워커 경로로 폴백. |
+| 2026-09-12 | v2.7.2 | **D단계(대안) 착수 — 토큰 기반 신원으로 배관 전환**. 워커의 신원 판정을 `resolveUser()` 한 곳으로 모으고 **검증된 Bearer 토큰(`payload.sub`)을 1순위**로, `X-User-Id`/`?userId=`는 `ALLOW_LEGACY_HEADER_IDENTITY` 상수 뒤의 폴백으로 격리(트랙위치 2곳 + 오픈뮤직룸 5곳 전부). `signJWT` 만료 **7일 → 12시간**. 종료 직전 전송을 **`sendBeacon` → `fetch(keepalive:true)`** 로 바꿔 신원을 쿼리가 아닌 헤더로 전달(`?userId=` 경로 제거). ⚠️ `yebom.org` 존이 Cloudflare에 없어(NS가 Wix) Route 방식이 불가능하므로, 교적부의 단기 토큰 발급 엔드포인트가 생겨야 상수를 `false`로 내려 헤더 위장 경로를 닫을 수 있다. |
 
 ---
 
