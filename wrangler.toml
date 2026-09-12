@@ -2,15 +2,23 @@ name = "radio-worker"
 main = "worker.js"
 compatibility_date = "2024-01-01"
 
-# 워커를 radio.yebom.org 아래로 붙인다 — 교적부와 **같은 사이트**가 되어
-# saint_record_session 쿠키가 워커 요청에도 실린다. 그래야 워커가 신원을 서버에서
-# 도출할 수 있고, 지금처럼 X-User-Id 헤더를 그대로 믿지 않아도 된다.
-#   - 워커는 /api/* 만 처리하고 프론트도 /api 로만 호출하므로 이 패턴 하나로 전부 덮인다
-#   - 연결 확인: curl -sI https://radio.yebom.org/api/auth/verify
+# ⚠️ 프론트(index.html)의 WORKER_URL 이 https://radio-worker.yebomradio.workers.dev 이므로
+#    이 서브도메인이 반드시 켜져 있어야 한다. routes 를 선언하면 workers_dev 기본값이
+#    false 로 바뀌어 서브도메인이 꺼지고 API 전체가 1042(Worker not found)가 된다.
+workers_dev = true
+
+# ── D단계 보류: radio.yebom.org/api/* Route ──
+# 워커를 radio.yebom.org 아래로 붙이면 교적부와 같은 사이트가 되어 saint_record_session
+# 쿠키가 워커 요청에도 실리고, X-User-Id 헤더를 믿지 않고 신원을 서버에서 도출할 수 있다.
+# 그러나 2026-09-12 배포 시도 결과 이 Cloudflare 계정에 yebom.org 존이 없다:
+#   X [ERROR] Could not find zone for `yebom.org`.
+# → 존을 이 계정으로 옮기거나, 존을 보유한 계정에서 Route 를 만들어야 활성화할 수 있다.
+#   활성화할 때는 위 workers_dev = true 를 반드시 유지할 것(프론트 전환 전까지).
+#   연결 확인: curl -sI https://radio.yebom.org/api/auth/verify
 #     → content-type 이 text/html(Pages 폴백) 에서 application/json 으로 바뀌면 성공
-routes = [
-  { pattern = "radio.yebom.org/api/*", zone_name = "yebom.org" }
-]
+# routes = [
+#   { pattern = "radio.yebom.org/api/*", zone_name = "yebom.org" }
+# ]
 
 [[r2_buckets]]
 binding = "RADIO_BUCKET"
